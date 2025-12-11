@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { sendRescheduleConfirmation, sendCancellationConfirmation } from "@/lib/email";
 
-const prisma = new PrismaClient();
 
 // UPDATE appointment (reschedule)
 export async function PATCH(req: Request) {
