@@ -423,7 +423,7 @@ export default function BookingPage() {
               </div>
               <div style={styles.successRow}>
                 <span style={styles.successLabel}>Booking ID:</span>
-                <span style={{ ...styles.successValue, fontSize: 12, color: "#6B7280" }}>
+                <span style={{ fontSize: 12, color: "#6B7280" }}>
                   {successAppointmentId?.slice(0, 8)}
                 </span>
               </div>
