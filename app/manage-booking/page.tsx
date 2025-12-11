@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+
 
 type Appointment = {
   id: string;
@@ -26,7 +27,7 @@ type Appointment = {
 
 type ViewMode = "view" | "reschedule" | "cancelled" | "success";
 
-export default function ManageBookingPage() {
+function ManageBookingContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -626,3 +627,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   helpText: { fontSize: 14, color: "#6B7280", margin: "0 0 16px 0" },
   helpContact: { fontSize: 14, color: "#374151", fontWeight: 500 },
 };
+// Wrap trong Suspense
+export default function ManageBookingPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: "center", padding: 48 }}>Loading...</div>}>
+      <ManageBookingContent />
+    </Suspense>
+  );
+}
