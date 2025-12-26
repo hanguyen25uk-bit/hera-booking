@@ -61,3 +61,4 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Failed to update working hours" }, { status: 500 });
   }
 }
+// trigger rebuild
