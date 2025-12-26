@@ -50,6 +50,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
+    // Get staff
+    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
+    if (!staff) {
+      return NextResponse.json({ error: "Staff not found" }, { status: 404 });
+    }
+
     const start = new Date(startTime);
     const end = new Date(start.getTime() + service.durationMinutes * 60000);
     const manageToken = crypto.randomBytes(32).toString("hex");
@@ -84,7 +90,16 @@ export async function POST(req: NextRequest) {
 
     // Send confirmation email
     try {
-      await sendBookingConfirmation(appointment, manageToken);
+      await sendBookingConfirmation({
+        customerEmail: customerEmail.toLowerCase(),
+        customerName,
+        serviceName: service.name,
+        staffName: staff.name,
+        startTime: start,
+        endTime: end,
+        bookingId: appointment.id,
+        manageToken,
+      });
     } catch (emailError) {
       console.error("Failed to send email:", emailError);
     }
