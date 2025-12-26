@@ -22,6 +22,7 @@ export default function AdminCalendarPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     setSelectedDate(new Date().toISOString().split("T")[0]);
@@ -38,18 +39,19 @@ export default function AdminCalendarPage() {
     loadStaff();
   }, []);
 
-  useEffect(() => {
+  const loadAppointments = useCallback(async () => {
     if (!selectedDate) return;
-    async function loadAppointments() {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/appointments?date=${selectedDate}`);
-        setAppointments(await res.json());
-      } catch (error) { console.error("Failed to load appointments:", error); }
-      finally { setLoading(false); }
-    }
-    loadAppointments();
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/appointments?date=${selectedDate}`);
+      setAppointments(await res.json());
+    } catch (error) { console.error("Failed to load appointments:", error); }
+    finally { setLoading(false); }
   }, [selectedDate]);
+
+  useEffect(() => {
+    loadAppointments();
+  }, [loadAppointments]);
 
   const timeSlots: string[] = [];
   for (let hour = 8; hour <= 20; hour++) {
@@ -69,6 +71,7 @@ export default function AdminCalendarPage() {
     if (status === "booked") return { bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF" };
     if (status === "completed") return { bg: "#D1FAE5", border: "#10B981", text: "#065F46" };
     if (status === "cancelled") return { bg: "#FEE2E2", border: "#EF4444", text: "#991B1B" };
+    if (status === "noshow") return { bg: "#FEF3C7", border: "#F59E0B", text: "#92400E" };
     return { bg: "#F3E8FF", border: "#A855F7", text: "#6B21A8" };
   };
 
@@ -76,10 +79,25 @@ export default function AdminCalendarPage() {
   const navigateDate = (days: number) => { const d = new Date(selectedDate); d.setDate(d.getDate() + days); setSelectedDate(d.toISOString().split("T")[0]); };
 
   const updateStatus = async (id: string, status: string) => {
+    setUpdating(true);
     try {
-      const res = await fetch(`/api/appointments/manage?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-      if (res.ok) { setAppointments((prev) => prev.map((apt) => (apt.id === id ? { ...apt, status } : apt))); setSelectedAppointment(null); }
-    } catch (error) { console.error("Failed to update:", error); }
+      const res = await fetch(`/api/appointments/manage`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) {
+        setAppointments((prev) => prev.map((apt) => (apt.id === id ? { ...apt, status } : apt)));
+        setSelectedAppointment(null);
+      } else {
+        alert("Failed to update appointment");
+      }
+    } catch (error) {
+      console.error("Failed to update:", error);
+      alert("Failed to update appointment");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -117,7 +135,7 @@ export default function AdminCalendarPage() {
             </div>
             {staff.map((member) => (
               <div key={member.id} style={{ flex: 1, minWidth: 150, position: "relative", borderRight: "1px solid #E5E7EB" }}>
-                {timeSlots.map((time, i) => (<div key={time} style={{ height: 48, borderBottom: "1px solid #E5E7EB", backgroundColor: time.endsWith(":00") ? "#FFFFFF" : "#FAFAFA" }} />))}
+                {timeSlots.map((time) => (<div key={time} style={{ height: 48, borderBottom: "1px solid #E5E7EB", backgroundColor: time.endsWith(":00") ? "#FFFFFF" : "#FAFAFA" }} />))}
                 {getStaffAppointments(member.id).map((apt) => {
                   const { top, height } = getAppointmentStyle(apt);
                   const colors = getColor(apt.status);
@@ -142,22 +160,52 @@ export default function AdminCalendarPage() {
       </div>
 
       {selectedAppointment && (
-        <div onClick={() => setSelectedAppointment(null)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+        <div onClick={() => !updating && setSelectedAppointment(null)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#FFFFFF", borderRadius: 12, width: "90%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #E5E7EB" }}>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>Appointment Details</h3>
-              <button onClick={() => setSelectedAppointment(null)} style={{ background: "none", border: "none", fontSize: 20, color: "#6B7280", cursor: "pointer" }}>✕</button>
+              <button onClick={() => !updating && setSelectedAppointment(null)} style={{ background: "none", border: "none", fontSize: 20, color: "#6B7280", cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Service</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{selectedAppointment.service.name}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{selectedAppointment.service.durationMinutes} mins • £{selectedAppointment.service.price}</p></div>
               <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Date & Time</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{new Date(selectedAppointment.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{new Date(selectedAppointment.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} - {new Date(selectedAppointment.endTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p></div>
               <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Staff</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{selectedAppointment.staff.name}</p></div>
               <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Customer</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{selectedAppointment.customerName}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{selectedAppointment.customerPhone}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{selectedAppointment.customerEmail}</p></div>
-              <div><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Status</h4><span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 16, fontSize: 13, fontWeight: 600, textTransform: "capitalize", backgroundColor: getColor(selectedAppointment.status).bg, color: getColor(selectedAppointment.status).text }}>{selectedAppointment.status}</span></div>
+              <div><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Status</h4><span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 16, fontSize: 13, fontWeight: 600, textTransform: "capitalize", backgroundColor: getColor(selectedAppointment.status).bg, color: getColor(selectedAppointment.status).text }}>{selectedAppointment.status === "noshow" ? "No Show" : selectedAppointment.status}</span></div>
             </div>
-            <div style={{ display: "flex", gap: 12, padding: "16px 24px", borderTop: "1px solid #E5E7EB" }}>
-              {selectedAppointment.status === "booked" && (<><button onClick={() => updateStatus(selectedAppointment.id, "completed")} style={{ flex: 1, padding: "10px 16px", backgroundColor: "#10B981", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>✓ Complete</button><button onClick={() => updateStatus(selectedAppointment.id, "cancelled")} style={{ flex: 1, padding: "10px 16px", backgroundColor: "#EF4444", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>✕ Cancel</button></>)}
-              <button onClick={() => setSelectedAppointment(null)} style={{ flex: 1, padding: "10px 16px", backgroundColor: "#F3F4F6", color: "#374151", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Close</button>
+            <div style={{ display: "flex", gap: 8, padding: "16px 24px", borderTop: "1px solid #E5E7EB", flexWrap: "wrap" }}>
+              {selectedAppointment.status === "booked" && (
+                <>
+                  <button 
+                    disabled={updating}
+                    onClick={() => updateStatus(selectedAppointment.id, "completed")} 
+                    style={{ flex: 1, minWidth: 100, padding: "12px 16px", backgroundColor: updating ? "#9CA3AF" : "#10B981", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: updating ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}
+                  >
+                    {updating ? "..." : "✓ Complete"}
+                  </button>
+                  <button 
+                    disabled={updating}
+                    onClick={() => updateStatus(selectedAppointment.id, "noshow")} 
+                    style={{ flex: 1, minWidth: 100, padding: "12px 16px", backgroundColor: updating ? "#9CA3AF" : "#F59E0B", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: updating ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}
+                  >
+                    {updating ? "..." : "⚠ No Show"}
+                  </button>
+                  <button 
+                    disabled={updating}
+                    onClick={() => updateStatus(selectedAppointment.id, "cancelled")} 
+                    style={{ flex: 1, minWidth: 100, padding: "12px 16px", backgroundColor: updating ? "#9CA3AF" : "#EF4444", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: updating ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}
+                  >
+                    {updating ? "..." : "✕ Cancel"}
+                  </button>
+                </>
+              )}
+              <button 
+                disabled={updating}
+                onClick={() => setSelectedAppointment(null)} 
+                style={{ flex: 1, minWidth: 100, padding: "12px 16px", backgroundColor: "#F3F4F6", color: "#374151", border: "none", borderRadius: 6, cursor: updating ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 600 }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
