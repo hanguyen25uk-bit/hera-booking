@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Service {
@@ -19,13 +19,14 @@ model Service {
 }
 
 model Staff {
-  id        String        @id @default(uuid())
-  name      String
-  role      String?
-  active    Boolean       @default(true)
-  createdAt DateTime      @default(now())
+  id           String         @id @default(uuid())
+  name         String
+  role         String?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
 
-  appointments Appointment[]
+  appointments  Appointment[]
+  workingHours  WorkingHours[]
 }
 
 model Customer {
@@ -40,6 +41,18 @@ model Customer {
   updatedAt    DateTime      @updatedAt
 
   appointments Appointment[]
+}
+
+model WorkingHours {
+  id         String   @id @default(uuid())
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staffId    String
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  isWorking  Boolean  @default(true)
+
+  @@unique([staffId, dayOfWeek])
 }
 
 model Appointment {
