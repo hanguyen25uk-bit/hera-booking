@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 model Service {
@@ -29,6 +28,20 @@ model Staff {
   appointments Appointment[]
 }
 
+model Customer {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  phone        String?
+  noShowCount  Int           @default(0)
+  isBlocked    Boolean       @default(false)
+  blockedAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  appointments Appointment[]
+}
+
 model Appointment {
   id             String     @id @default(uuid())
 
@@ -37,6 +50,9 @@ model Appointment {
 
   staff          Staff      @relation(fields: [staffId], references: [id])
   staffId        String
+
+  customer       Customer?  @relation(fields: [customerId], references: [id])
+  customerId     String?
 
   customerName   String
   customerPhone  String
