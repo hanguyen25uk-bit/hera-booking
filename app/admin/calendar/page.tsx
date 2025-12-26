@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type Appointment = {
   id: string;
@@ -8,23 +8,13 @@ type Appointment = {
   endTime: string;
   customerName: string;
   customerPhone: string;
-  service: {
-    id: string;
-    name: string;
-    durationMinutes: number;
-  };
-  staff: {
-    id: string;
-    name: string;
-  };
+  customerEmail: string;
+  service: { id: string; name: string; durationMinutes: number; price: number };
+  staff: { id: string; name: string };
   status: string;
 };
 
-type Staff = {
-  id: string;
-  name: string;
-  role?: string | null;
-};
+type Staff = { id: string; name: string; role?: string | null; active: boolean };
 
 export default function AdminCalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -33,328 +23,141 @@ export default function AdminCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
-  // Set today as default
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    setSelectedDate(today);
+    setSelectedDate(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // Load staff list
   useEffect(() => {
     async function loadStaff() {
       try {
         const res = await fetch("/api/staff");
         const data = await res.json();
-        setStaff(data.filter((s: Staff) => s.name)); // Only staff with names
-      } catch (error) {
-        console.error("Failed to load staff:", error);
-      }
+        setStaff(data.filter((s: Staff) => s.active && s.name));
+      } catch (error) { console.error("Failed to load staff:", error); }
     }
     loadStaff();
   }, []);
 
-  // Load appointments when date changes
   useEffect(() => {
     if (!selectedDate) return;
-
     async function loadAppointments() {
       setLoading(true);
       try {
         const res = await fetch(`/api/appointments?date=${selectedDate}`);
-        const data = await res.json();
-        setAppointments(data);
-      } catch (error) {
-        console.error("Failed to load appointments:", error);
-      } finally {
-        setLoading(false);
-      }
+        setAppointments(await res.json());
+      } catch (error) { console.error("Failed to load appointments:", error); }
+      finally { setLoading(false); }
     }
-
     loadAppointments();
   }, [selectedDate]);
 
-  // Generate time slots (9:00 - 20:00, every 30 mins)
   const timeSlots: string[] = [];
-  for (let hour = 9; hour <= 20; hour++) {
+  for (let hour = 8; hour <= 20; hour++) {
     timeSlots.push(`${hour.toString().padStart(2, "0")}:00`);
-    if (hour < 20) {
-      timeSlots.push(`${hour.toString().padStart(2, "0")}:30`);
-    }
+    if (hour < 20) timeSlots.push(`${hour.toString().padStart(2, "0")}:30`);
   }
 
-  // Get appointments for specific staff and time
-  const getAppointmentAtSlot = (staffId: string, time: string) => {
-    return appointments.find((apt) => {
-      const aptTime = new Date(apt.startTime);
-      const slotTime = `${aptTime.getHours().toString().padStart(2, "0")}:${aptTime
-        .getMinutes()
-        .toString()
-        .padStart(2, "0")}`;
-      return apt.staff.id === staffId && slotTime === time;
-    });
+  const getStaffAppointments = useCallback((staffId: string) => appointments.filter((apt) => apt.staff.id === staffId), [appointments]);
+
+  const getAppointmentStyle = (appointment: Appointment) => {
+    const startTime = new Date(appointment.startTime);
+    const topMinutes = (startTime.getHours() - 8) * 60 + startTime.getMinutes();
+    return { top: (topMinutes / 30) * 48, height: (appointment.service.durationMinutes / 30) * 48 };
   };
 
-  // Calculate appointment height based on duration
-  const getAppointmentHeight = (appointment: Appointment) => {
-    const duration = appointment.service.durationMinutes;
-    const slots = Math.ceil(duration / 30);
-    return slots * 60; // 60px per slot
+  const getColor = (status: string) => {
+    if (status === "booked") return { bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF" };
+    if (status === "completed") return { bg: "#D1FAE5", border: "#10B981", text: "#065F46" };
+    if (status === "cancelled") return { bg: "#FEE2E2", border: "#EF4444", text: "#991B1B" };
+    return { bg: "#F3E8FF", border: "#A855F7", text: "#6B21A8" };
   };
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + "T00:00:00");
-    return date.toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  const formatDate = (dateStr: string) => new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const navigateDate = (days: number) => { const d = new Date(selectedDate); d.setDate(d.getDate() + days); setSelectedDate(d.toISOString().split("T")[0]); };
+
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`/api/appointments/manage?id=${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      if (res.ok) { setAppointments((prev) => prev.map((apt) => (apt.id === id ? { ...apt, status } : apt))); setSelectedAppointment(null); }
+    } catch (error) { console.error("Failed to update:", error); }
   };
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Calendar View</h1>
-          <p style={styles.subtitle}>Staff schedule for {formatDate(selectedDate)}</p>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: "#F9FAFB" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", backgroundColor: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
+        <h1 style={{ fontSize: 18, fontWeight: 600, color: "#111827", margin: 0 }}>All team calendars</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button onClick={() => navigateDate(-1)} style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: 6, cursor: "pointer", fontSize: 18 }}>‹</button>
+          <span style={{ fontSize: 16, fontWeight: 600, color: "#111827", minWidth: 180, textAlign: "center" }}>{formatDate(selectedDate)}</span>
+          <button onClick={() => navigateDate(1)} style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", border: "1px solid #D1D5DB", borderRadius: 6, cursor: "pointer", fontSize: 18 }}>›</button>
         </div>
-
-        {/* Date Picker */}
-        <div style={styles.datePicker}>
-          <button
-            style={styles.navButton}
-            onClick={() => {
-              const date = new Date(selectedDate);
-              date.setDate(date.getDate() - 1);
-              setSelectedDate(date.toISOString().split("T")[0]);
-            }}
-          >
-            ← Prev
-          </button>
-
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            style={styles.dateInput}
-          />
-
-          <button
-            style={styles.navButton}
-            onClick={() => {
-              const date = new Date(selectedDate);
-              date.setDate(date.getDate() + 1);
-              setSelectedDate(date.toISOString().split("T")[0]);
-            }}
-          >
-            Next →
-          </button>
-
-          <button
-            style={styles.todayButton}
-            onClick={() => {
-              const today = new Date().toISOString().split("T")[0];
-              setSelectedDate(today);
-            }}
-          >
-            Today
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])} style={{ padding: "8px 16px", backgroundColor: "#EC4899", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Today</button>
+          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ padding: "8px 12px", border: "1px solid #D1D5DB", borderRadius: 6, fontSize: 14 }} />
         </div>
       </div>
 
       {loading ? (
-        <div style={styles.loading}>Loading calendar...</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, color: "#6B7280" }}><p>Loading calendar...</p></div>
       ) : (
-        <>
-          {/* Calendar Grid */}
-          <div style={styles.calendarWrapper}>
-            <div style={styles.calendar}>
-              {/* Header Row - Staff Names */}
-              <div style={styles.headerRow}>
-                <div style={styles.timeColumn}>Time</div>
-                {staff.map((member) => (
-                  <div key={member.id} style={styles.staffColumn}>
-                    <div style={styles.staffName}>{member.name}</div>
-                    {member.role && <div style={styles.staffRole}>{member.role}</div>}
-                  </div>
-                ))}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ display: "flex", backgroundColor: "#FFFFFF", borderBottom: "1px solid #E5E7EB", flexShrink: 0 }}>
+            <div style={{ width: 60, minWidth: 60, padding: "12px 8px", fontSize: 12, color: "#6B7280", fontWeight: 500, textAlign: "center", borderRight: "1px solid #E5E7EB" }}>GMT</div>
+            {staff.map((member) => (
+              <div key={member.id} style={{ flex: 1, minWidth: 150, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, borderRight: "1px solid #E5E7EB" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "#EC4899", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 600 }}>{member.name.charAt(0).toUpperCase()}</div>
+                <div><div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{member.name}</div>{member.role && <div style={{ fontSize: 12, color: "#6B7280" }}>{member.role}</div>}</div>
               </div>
-
-              {/* Time Slots Grid */}
-              <div style={styles.gridContainer}>
-                {timeSlots.map((time, index) => (
-                  <div key={time} style={styles.row}>
-                    {/* Time Label */}
-                    <div style={styles.timeCell}>{time}</div>
-
-                    {/* Staff Columns */}
-                    {staff.map((member) => {
-                      const appointment = getAppointmentAtSlot(member.id, time);
-                      const prevSlotHasAppointment =
-                        index > 0 && getAppointmentAtSlot(member.id, timeSlots[index - 1]);
-
-                      // Skip rendering if this slot is part of a multi-slot appointment from previous slot
-                      if (prevSlotHasAppointment) {
-                        const prevTime = new Date(prevSlotHasAppointment.startTime);
-                        const currentSlot = new Date(
-                          selectedDate + "T" + time + ":00"
-                        );
-                        const prevEnd = new Date(prevSlotHasAppointment.endTime);
-
-                        if (currentSlot < prevEnd) {
-                          return <div key={member.id} style={styles.emptyCell} />;
-                        }
-                      }
-
-                      return (
-                        <div
-                          key={member.id}
-                          style={{
-                            ...styles.staffCell,
-                            position: "relative",
-                          }}
-                        >
-                          {appointment && (
-                            <div
-                              style={{
-                                ...styles.appointmentBlock,
-                                height: getAppointmentHeight(appointment),
-                              }}
-                              onClick={() => setSelectedAppointment(appointment)}
-                            >
-                              <div style={styles.appointmentTime}>
-                                {new Date(appointment.startTime).toLocaleTimeString("en-GB", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </div>
-                              <div style={styles.appointmentService}>
-                                {appointment.service.name}
-                              </div>
-                              <div style={styles.appointmentCustomer}>
-                                {appointment.customerName}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Stats */}
-          <div style={styles.stats}>
-            <div style={styles.statCard}>
-              <div style={styles.statNumber}>{appointments.length}</div>
-              <div style={styles.statLabel}>Appointments Today</div>
+          <div style={{ display: "flex", flex: 1, overflow: "auto" }}>
+            <div style={{ width: 60, minWidth: 60, backgroundColor: "#F9FAFB", borderRight: "1px solid #E5E7EB", flexShrink: 0 }}>
+              {timeSlots.map((time) => (<div key={time} style={{ height: 48, padding: "4px 8px", fontSize: 11, color: "#6B7280", textAlign: "right", borderBottom: "1px solid #E5E7EB" }}>{time}</div>))}
             </div>
-            <div style={styles.statCard}>
-              <div style={styles.statNumber}>{staff.length}</div>
-              <div style={styles.statLabel}>Staff Members</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statNumber}>
-                {appointments.filter((a) => a.status === "booked").length}
+            {staff.map((member) => (
+              <div key={member.id} style={{ flex: 1, minWidth: 150, position: "relative", borderRight: "1px solid #E5E7EB" }}>
+                {timeSlots.map((time, i) => (<div key={time} style={{ height: 48, borderBottom: "1px solid #E5E7EB", backgroundColor: time.endsWith(":00") ? "#FFFFFF" : "#FAFAFA" }} />))}
+                {getStaffAppointments(member.id).map((apt) => {
+                  const { top, height } = getAppointmentStyle(apt);
+                  const colors = getColor(apt.status);
+                  return (
+                    <div key={apt.id} onClick={() => setSelectedAppointment(apt)} style={{ position: "absolute", top: top + 1, height: height - 2, left: 4, right: 4, backgroundColor: colors.bg, borderLeft: `3px solid ${colors.border}`, borderRadius: 6, padding: "6px 8px", cursor: "pointer", overflow: "hidden", zIndex: 10 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>{new Date(apt.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: colors.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{apt.service.name}</div>
+                      <div style={{ fontSize: 11, color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{apt.customerName}</div>
+                    </div>
+                  );
+                })}
               </div>
-              <div style={styles.statLabel}>Confirmed</div>
-            </div>
+            ))}
           </div>
-        </>
+        </div>
       )}
 
-      {/* Appointment Detail Modal */}
+      <div style={{ display: "flex", gap: 32, padding: "16px 24px", backgroundColor: "#FFFFFF", borderTop: "1px solid #E5E7EB" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20, fontWeight: 700, color: "#EC4899" }}>{appointments.length}</span><span style={{ fontSize: 13, color: "#6B7280" }}>Total</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20, fontWeight: 700, color: "#EC4899" }}>{appointments.filter((a) => a.status === "booked").length}</span><span style={{ fontSize: 13, color: "#6B7280" }}>Confirmed</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 20, fontWeight: 700, color: "#EC4899" }}>{staff.length}</span><span style={{ fontSize: 13, color: "#6B7280" }}>Staff</span></div>
+      </div>
+
       {selectedAppointment && (
-        <div style={styles.modalOverlay} onClick={() => setSelectedAppointment(null)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Appointment Details</h3>
-              <button
-                style={styles.closeButton}
-                onClick={() => setSelectedAppointment(null)}
-              >
-                ✕
-              </button>
+        <div onClick={() => setSelectedAppointment(null)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#FFFFFF", borderRadius: 12, width: "90%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #E5E7EB" }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>Appointment Details</h3>
+              <button onClick={() => setSelectedAppointment(null)} style={{ background: "none", border: "none", fontSize: 20, color: "#6B7280", cursor: "pointer" }}>✕</button>
             </div>
-
-            <div style={styles.modalBody}>
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Service:</span>
-                <span style={styles.detailValue}>
-                  {selectedAppointment.service.name}
-                </span>
-              </div>
-
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Staff:</span>
-                <span style={styles.detailValue}>
-                  {selectedAppointment.staff.name}
-                </span>
-              </div>
-
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Customer:</span>
-                <span style={styles.detailValue}>
-                  {selectedAppointment.customerName}
-                </span>
-              </div>
-
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Phone:</span>
-                <span style={styles.detailValue}>
-                  {selectedAppointment.customerPhone}
-                </span>
-              </div>
-
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Time:</span>
-                <span style={styles.detailValue}>
-                  {new Date(selectedAppointment.startTime).toLocaleTimeString("en-GB", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  -{" "}
-                  {new Date(selectedAppointment.endTime).toLocaleTimeString("en-GB", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Duration:</span>
-                <span style={styles.detailValue}>
-                  {selectedAppointment.service.durationMinutes} minutes
-                </span>
-              </div>
-
-              <div style={styles.detailRow}>
-                <span style={styles.detailLabel}>Status:</span>
-                <span
-                  style={{
-                    ...styles.statusBadge,
-                    backgroundColor:
-                      selectedAppointment.status === "booked" ? "#D1FAE5" : "#FEE2E2",
-                    color:
-                      selectedAppointment.status === "booked" ? "#065F46" : "#991B1B",
-                  }}
-                >
-                  {selectedAppointment.status}
-                </span>
-              </div>
+            <div style={{ padding: 24 }}>
+              <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Service</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{selectedAppointment.service.name}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{selectedAppointment.service.durationMinutes} mins • £{selectedAppointment.service.price}</p></div>
+              <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Date & Time</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{new Date(selectedAppointment.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{new Date(selectedAppointment.startTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} - {new Date(selectedAppointment.endTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p></div>
+              <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Staff</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{selectedAppointment.staff.name}</p></div>
+              <div style={{ marginBottom: 20 }}><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Customer</h4><p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0 }}>{selectedAppointment.customerName}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{selectedAppointment.customerPhone}</p><p style={{ fontSize: 13, color: "#6B7280", margin: "4px 0 0 0" }}>{selectedAppointment.customerEmail}</p></div>
+              <div><h4 style={{ fontSize: 12, fontWeight: 600, color: "#6B7280", textTransform: "uppercase", margin: "0 0 8px 0" }}>Status</h4><span style={{ display: "inline-block", padding: "6px 12px", borderRadius: 16, fontSize: 13, fontWeight: 600, textTransform: "capitalize", backgroundColor: getColor(selectedAppointment.status).bg, color: getColor(selectedAppointment.status).text }}>{selectedAppointment.status}</span></div>
             </div>
-
-            <div style={styles.modalFooter}>
-              <button
-                style={styles.btnSecondary}
-                onClick={() => setSelectedAppointment(null)}
-              >
-                Close
-              </button>
+            <div style={{ display: "flex", gap: 12, padding: "16px 24px", borderTop: "1px solid #E5E7EB" }}>
+              {selectedAppointment.status === "booked" && (<><button onClick={() => updateStatus(selectedAppointment.id, "completed")} style={{ flex: 1, padding: "10px 16px", backgroundColor: "#10B981", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>✓ Complete</button><button onClick={() => updateStatus(selectedAppointment.id, "cancelled")} style={{ flex: 1, padding: "10px 16px", backgroundColor: "#EF4444", color: "#FFFFFF", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>✕ Cancel</button></>)}
+              <button onClick={() => setSelectedAppointment(null)} style={{ flex: 1, padding: "10px 16px", backgroundColor: "#F3F4F6", color: "#374151", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Close</button>
             </div>
           </div>
         </div>
@@ -362,284 +165,3 @@ export default function AdminCalendarPage() {
     </div>
   );
 }
-
-// ========================================
-// STYLES
-// ========================================
-
-const styles = {
-  container: {
-    padding: "24px",
-    backgroundColor: "#F9FAFB",
-    minHeight: "100vh",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    flexWrap: "wrap" as const,
-    gap: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 700,
-    color: "#111827",
-    margin: 0,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
-  },
-  datePicker: {
-    display: "flex",
-    gap: 8,
-    alignItems: "center",
-  },
-  dateInput: {
-    padding: "8px 12px",
-    border: "1px solid #D1D5DB",
-    borderRadius: 6,
-    fontSize: 14,
-  },
-  navButton: {
-    padding: "8px 16px",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #D1D5DB",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 500,
-  },
-  todayButton: {
-    padding: "8px 16px",
-    backgroundColor: "#EC4899",
-    color: "#FFFFFF",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  loading: {
-    textAlign: "center" as const,
-    padding: 48,
-    fontSize: 16,
-    color: "#6B7280",
-  },
-  calendarWrapper: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    marginBottom: 24,
-    overflowX: "auto" as const,
-  },
-  calendar: {
-    minWidth: 800,
-  },
-  headerRow: {
-    display: "grid",
-    gridTemplateColumns: "80px repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 1,
-    backgroundColor: "#F3F4F6",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  timeColumn: {
-    fontWeight: 600,
-    fontSize: 14,
-    color: "#374151",
-  },
-  staffColumn: {
-    textAlign: "center" as const,
-  },
-  staffName: {
-    fontWeight: 600,
-    fontSize: 14,
-    color: "#111827",
-  },
-  staffRole: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  gridContainer: {
-    border: "1px solid #E5E7EB",
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  row: {
-    display: "grid",
-    gridTemplateColumns: "80px repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  timeCell: {
-    padding: "8px",
-    backgroundColor: "#F9FAFB",
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: 500,
-    display: "flex",
-    alignItems: "center",
-    height: 60,
-  },
-  staffCell: {
-    backgroundColor: "#FFFFFF",
-    minHeight: 60,
-    cursor: "pointer",
-    transition: "background-color 0.2s",
-  },
-  emptyCell: {
-    backgroundColor: "#FFFFFF",
-  },
-  appointmentBlock: {
-    position: "absolute" as const,
-    top: 2,
-    left: 2,
-    right: 2,
-    backgroundColor: "#FEE2E2",
-    border: "2px solid #DC2626",
-    borderRadius: 6,
-    padding: 8,
-    cursor: "pointer",
-    overflow: "hidden",
-    transition: "transform 0.2s, box-shadow 0.2s",
-  },
-  appointmentTime: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#991B1B",
-    marginBottom: 4,
-  },
-  appointmentService: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#111827",
-    marginBottom: 2,
-    whiteSpace: "nowrap" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  appointmentCustomer: {
-    fontSize: 11,
-    color: "#6B7280",
-    whiteSpace: "nowrap" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  stats: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: 16,
-  },
-  statCard: {
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 12,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    textAlign: "center" as const,
-  },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: "#EC4899",
-    marginBottom: 8,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  modalOverlay: {
-    position: "fixed" as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    width: "90%",
-    maxWidth: 500,
-    maxHeight: "90vh",
-    overflow: "auto",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottom: "1px solid #E5E7EB",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#111827",
-    margin: 0,
-  },
-  closeButton: {
-    backgroundColor: "transparent",
-    border: "none",
-    fontSize: 24,
-    color: "#6B7280",
-    cursor: "pointer",
-    padding: 0,
-    width: 32,
-    height: 32,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalBody: {
-    padding: 20,
-  },
-  detailRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "12px 0",
-    borderBottom: "1px solid #F3F4F6",
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: 500,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: 600,
-    textAlign: "right" as const,
-  },
-  statusBadge: {
-    padding: "4px 12px",
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: 600,
-  },
-  modalFooter: {
-    padding: 20,
-    borderTop: "1px solid #E5E7EB",
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  btnSecondary: {
-    padding: "10px 20px",
-    backgroundColor: "#FFFFFF",
-    border: "1px solid #D1D5DB",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 600,
-  },
-};
