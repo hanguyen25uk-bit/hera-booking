@@ -5,8 +5,24 @@ import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date");
+  const token = req.nextUrl.searchParams.get("token");
   
   try {
+    // Query by token (for manage booking page)
+    if (token) {
+      const appointment = await prisma.appointment.findFirst({
+        where: { manageToken: token },
+        include: { service: true, staff: true },
+      });
+      
+      if (!appointment) {
+        return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      }
+      
+      return NextResponse.json(appointment);
+    }
+
+    // Query by date (for calendar)
     const where: any = {};
     if (date) {
       const start = new Date(date);
@@ -21,8 +37,10 @@ export async function GET(req: NextRequest) {
       include: { service: true, staff: true },
       orderBy: { startTime: "asc" },
     });
+
     return NextResponse.json(appointments);
   } catch (error) {
+    console.error("Fetch appointments error:", error);
     return NextResponse.json({ error: "Failed to fetch appointments" }, { status: 500 });
   }
 }
