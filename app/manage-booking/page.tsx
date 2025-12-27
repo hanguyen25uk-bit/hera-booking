@@ -3,7 +3,6 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-
 type Appointment = {
   id: string;
   startTime: string;
@@ -25,6 +24,11 @@ type Appointment = {
   };
 };
 
+type Settings = {
+  cancelMinutesAdvance: number;
+  salonPhone: string;
+};
+
 type ViewMode = "view" | "reschedule" | "cancelled" | "success";
 
 function ManageBookingContent() {
@@ -32,6 +36,7 @@ function ManageBookingContent() {
   const token = searchParams.get("token");
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [settings, setSettings] = useState<Settings>({ cancelMinutesAdvance: 1440, salonPhone: "020 1234 5678" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("view");
@@ -39,7 +44,7 @@ function ManageBookingContent() {
   const [newDateTime, setNewDateTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Load appointment by token
+  // Load appointment and settings
   useEffect(() => {
     if (!token) {
       setError("No booking token provided. Please use the link from your confirmation email.");
@@ -47,22 +52,32 @@ function ManageBookingContent() {
       return;
     }
 
-    async function loadAppointment() {
+    async function loadData() {
       try {
-        const res = await fetch(`/api/appointments?token=${token}`);
-        if (!res.ok) {
-          if (res.status === 404) {
+        const [appointmentRes, settingsRes] = await Promise.all([
+          fetch(`/api/appointments?token=${token}`),
+          fetch("/api/settings"),
+        ]);
+
+        if (!appointmentRes.ok) {
+          if (appointmentRes.status === 404) {
             setError("Booking not found. It may have been deleted.");
           } else {
             setError("Failed to load booking details.");
           }
           return;
         }
-        const data = await res.json();
-        setAppointment(data);
 
-        if (data.status === "cancelled") {
+        const appointmentData = await appointmentRes.json();
+        setAppointment(appointmentData);
+
+        if (appointmentData.status === "cancelled") {
           setViewMode("cancelled");
+        }
+
+        const settingsData = await settingsRes.json();
+        if (settingsData && !settingsData.error) {
+          setSettings(settingsData);
         }
       } catch (err) {
         console.error(err);
@@ -72,7 +87,7 @@ function ManageBookingContent() {
       }
     }
 
-    loadAppointment();
+    loadData();
   }, [token]);
 
   // Handle reschedule
@@ -166,8 +181,17 @@ function ManageBookingContent() {
     if (!appointment) return false;
     const appointmentTime = new Date(appointment.startTime);
     const now = new Date();
-    const hoursUntil = (appointmentTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return hoursUntil > 24;
+    const minutesUntil = (appointmentTime.getTime() - now.getTime()) / (1000 * 60);
+    return minutesUntil > settings.cancelMinutesAdvance;
+  };
+
+  const formatCancelTime = () => {
+    const hours = Math.floor(settings.cancelMinutesAdvance / 60);
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      return `${days} day${days > 1 ? "s" : ""}`;
+    }
+    return `${hours} hour${hours > 1 ? "s" : ""}`;
   };
 
   // Loading state
@@ -325,7 +349,7 @@ function ManageBookingContent() {
               <div style={styles.warningBox}>
                 <strong>⚠️ Cannot modify</strong>
                 <p style={{ margin: "8px 0 0 0", fontSize: 14 }}>
-                  Appointments can only be changed more than 24 hours in advance.
+                  Appointments can only be changed more than {formatCancelTime()} in advance.
                 </p>
               </div>
             )}
@@ -353,12 +377,12 @@ function ManageBookingContent() {
                   value={newDateTime}
                   onChange={(e) => setNewDateTime(e.target.value)}
                   style={styles.dateTimeInput}
-                  min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}
+                  min={new Date(Date.now() + settings.cancelMinutesAdvance * 60 * 1000).toISOString().slice(0, 16)}
                 />
               </label>
 
               <p style={styles.rescheduleNote}>
-                Note: You can only reschedule to a time more than 24 hours from now.
+                Note: You can only reschedule to a time more than {formatCancelTime()} from now.
               </p>
 
               <div style={styles.rescheduleActions}>
@@ -389,10 +413,10 @@ function ManageBookingContent() {
       <div style={styles.helpSection}>
         <h3 style={styles.helpTitle}>Need Help?</h3>
         <p style={styles.helpText}>
-          Contact us if you need to make changes within 24 hours.
+          Contact us if you need to make changes within {formatCancelTime()}.
         </p>
         <div style={styles.helpContact}>
-          <span>📞 020 1234 5678</span>
+          <span>📞 {settings.salonPhone}</span>
         </div>
       </div>
     </div>
@@ -627,7 +651,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   helpText: { fontSize: 14, color: "#6B7280", margin: "0 0 16px 0" },
   helpContact: { fontSize: 14, color: "#374151", fontWeight: 500 },
 };
-// Wrap trong Suspense
+
 export default function ManageBookingPage() {
   return (
     <Suspense fallback={<div style={{ textAlign: "center", padding: 48 }}>Loading...</div>}>
