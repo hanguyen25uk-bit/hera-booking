@@ -113,11 +113,11 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
           <!-- CTA Button -->
           <!-- CTA Buttons -->
 <div style="text-align: center; margin: 30px 0;">
-  <a href="http://localhost:3000/manage-booking?token=${manageToken}" 
+  <a href="https://hera-booking.vercel.app/manage-booking?token=${manageToken}" 
      style="display: inline-block; background: #10B981; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 0 8px 8px 8px;">
     Manage Booking
   </a>
-  <a href="http://localhost:3000/booking" 
+  <a href="https://hera-booking.vercel.app/booking" 
      style="display: inline-block; background: #EC4899; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 0 8px 8px 8px;">
     Book Another Appointment
   </a>
@@ -235,7 +235,7 @@ export async function sendRescheduleConfirmation(data: {
           </div>
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="http://localhost:3000/manage-booking?token=${manageToken}" 
+            <a href="https://hera-booking.vercel.app/manage-booking?token=${manageToken}" 
                style="display: inline-block; background: #10B981; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">
               View Booking
             </a>
@@ -332,7 +332,7 @@ export async function sendCancellationConfirmation(data: {
           </p>
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="http://localhost:3000/booking" 
+            <a href="https://hera-booking.vercel.app/booking" 
                style="display: inline-block; background: #EC4899; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">
               Book New Appointment
             </a>
