@@ -2,6 +2,8 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const BASE_URL = "https://hera-booking.vercel.app"\;
+
 type BookingEmailData = {
   customerEmail: string;
   customerName: string;
@@ -25,20 +27,20 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     manageToken,
   } = data;
 
-  // Format time
-  const timeOptions: Intl.DateTimeFormatOptions = {
+  const formattedDate = startTime.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
+  });
+  
+  const formattedTime = startTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
-  };
+  });
 
-  const formattedTime = startTime.toLocaleString("en-GB", timeOptions);
   const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
-  // Email HTML
   const emailHtml = `
     <!DOCTYPE html>
     <html>
@@ -46,95 +48,52 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <body style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 500px; margin: 0 auto; padding: 20px;">
         
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">✓ Booking Confirmed</h1>
+        <div style="background: #EC4899; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">✓ Booking Confirmed</h1>
         </div>
 
-        <!-- Body -->
-        <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+        <div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
           
-          <p style="font-size: 16px; color: #374151;">Hi <strong>${customerName}</strong>,</p>
-          
-          <p style="font-size: 16px; color: #374151;">
-            Your appointment has been confirmed! We look forward to seeing you.
+          <p style="font-size: 15px; margin: 0 0 20px 0;">Hi <strong>${customerName}</strong>, your appointment is confirmed!</p>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666; width: 100px;">Service</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600;">${serviceName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666;">Staff</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${staffName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666;">Date</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${formattedDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666;">Time</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600; color: #EC4899;">${formattedTime} (${duration} min)</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;">Ref</td>
+              <td style="padding: 8px 0; font-family: monospace;">${bookingId.slice(0, 8).toUpperCase()}</td>
+            </tr>
+          </table>
+
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${BASE_URL}/manage-booking?token=${manageToken}" 
+               style="display: inline-block; background: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+              Manage Booking
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #666; margin: 20px 0 0 0; padding-top: 16px; border-top: 1px solid #eee;">
+            📍 Hera Nail Spa, 123 Example Street, London SW11 1AA<br>
+            📞 020 1234 5678
           </p>
 
-          <!-- Booking Details Card -->
-          <div style="background: #f9fafb; border: 2px solid #EC4899; border-radius: 12px; padding: 24px; margin: 24px 0;">
-            
-            <div style="margin-bottom: 16px;">
-              <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Service</div>
-              <div style="color: #111827; font-size: 18px; font-weight: 600;">${serviceName}</div>
-            </div>
-
-            <div style="margin-bottom: 16px;">
-              <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Staff Member</div>
-              <div style="color: #111827; font-size: 16px; font-weight: 500;">${staffName}</div>
-            </div>
-
-            <div style="margin-bottom: 16px;">
-              <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Date & Time</div>
-              <div style="color: #111827; font-size: 16px; font-weight: 500;">${formattedTime}</div>
-              <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">Duration: ${duration} minutes</div>
-            </div>
-
-            <div>
-              <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">Booking Reference</div>
-              <div style="color: #111827; font-size: 14px; font-family: monospace; background: #fff; padding: 8px; border-radius: 6px; display: inline-block;">
-                ${bookingId.slice(0, 8).toUpperCase()}
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Location Info -->
-          <div style="background: #eff6ff; padding: 16px; border-radius: 8px; margin: 20px 0;">
-            <div style="font-size: 14px; color: #1e40af; font-weight: 600; margin-bottom: 8px;">📍 Location</div>
-            <div style="font-size: 14px; color: #1e40af;">
-              Hera Nail & Head Spa<br>
-              123 Example Street<br>
-              London, SW11 1AA
-            </div>
-          </div>
-
-          <!-- Important Notes -->
-          <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-            <div style="font-size: 14px; color: #92400e; font-weight: 600; margin-bottom: 8px;">⚠️ Important</div>
-            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #92400e;">
-              <li>Please arrive 5 minutes early</li>
-              <li>Cancellations must be made 24 hours in advance</li>
-              <li>Bring your booking reference if asked</li>
-            </ul>
-          </div>
-
-          <!-- CTA Button -->
-          <!-- CTA Buttons -->
-<div style="text-align: center; margin: 30px 0;">
-  <a href="https://hera-booking.vercel.app/manage-booking?token=${manageToken}" 
-     style="display: inline-block; background: #10B981; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 0 8px 8px 8px;">
-    Manage Booking
-  </a>
-  <a href="https://hera-booking.vercel.app/booking" 
-     style="display: inline-block; background: #EC4899; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 0 8px 8px 8px;">
-    Book Another Appointment
-  </a>
-</div>
-
-          <!-- Footer -->
-          <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px; text-align: center;">
-            <p style="font-size: 14px; color: #6b7280; margin: 0;">
-              Questions? Reply to this email or call us at <strong>020 1234 5678</strong>
-            </p>
-            <p style="font-size: 12px; color: #9ca3af; margin-top: 16px;">
-              © 2024 Hera Nail & Head Spa. All rights reserved.
-            </p>
-          </div>
-
         </div>
-
       </body>
     </html>
   `;
@@ -143,7 +102,7 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     const { data, error } = await resend.emails.send({
       from: process.env.FROM_EMAIL || "onboarding@resend.dev",
       to: customerEmail,
-      subject: `✓ Booking Confirmed - ${serviceName}`,
+      subject: `✓ Booking Confirmed - ${serviceName} on ${formattedDate}`,
       html: emailHtml,
     });
 
@@ -158,8 +117,8 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     console.error("Failed to send email:", error);
     return { success: false, error };
   }
-  }
-// Email khi RESCHEDULE
+}
+
 export async function sendRescheduleConfirmation(data: {
   customerEmail: string;
   customerName: string;
@@ -169,84 +128,42 @@ export async function sendRescheduleConfirmation(data: {
   newTime: Date;
   manageToken: string;
 }) {
-  const {
-    customerEmail,
-    customerName,
-    serviceName,
-    staffName,
-    oldTime,
-    newTime,
-    manageToken,
-  } = data;
+  const { customerEmail, customerName, serviceName, staffName, oldTime, newTime, manageToken } = data;
 
-  const formatTime = (date: Date) =>
-    date.toLocaleString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (date: Date) => date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const emailHtml = `
     <!DOCTYPE html>
     <html>
-      <head>
-        <meta charset="utf-8">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <body style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
         
-        <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">📅 Appointment Rescheduled</h1>
+        <div style="background: #10B981; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">📅 Appointment Rescheduled</h1>
         </div>
 
-        <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 12px 12px;">
+        <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
           
-          <p style="font-size: 16px; color: #374151;">Hi <strong>${customerName}</strong>,</p>
-          
-          <p style="font-size: 16px; color: #374151;">
-            Your appointment has been successfully rescheduled.
-          </p>
+          <p>Hi <strong>${customerName}</strong>, your appointment has been rescheduled.</p>
 
-          <div style="background: #FEE2E2; padding: 16px; border-radius: 8px; margin: 20px 0;">
-            <div style="font-size: 14px; color: #991B1B; font-weight: 600;">❌ Old Time (Cancelled)</div>
-            <div style="font-size: 14px; color: #991B1B; text-decoration: line-through; margin-top: 8px;">
-              ${formatTime(oldTime)}
-            </div>
-          </div>
+          <p style="color: #DC2626; text-decoration: line-through;">Old: ${formatDate(oldTime)}</p>
+          <p style="color: #10B981; font-weight: 600; font-size: 16px;">New: ${formatDate(newTime)}</p>
 
-          <div style="background: #D1FAE5; padding: 16px; border-radius: 8px; margin: 20px 0;">
-            <div style="font-size: 14px; color: #065F46; font-weight: 600;">✓ New Time (Confirmed)</div>
-            <div style="font-size: 18px; color: #065F46; font-weight: 700; margin-top: 8px;">
-              ${formatTime(newTime)}
-            </div>
-          </div>
+          <p><strong>${serviceName}</strong> with ${staffName}</p>
 
-          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <div style="margin-bottom: 12px;">
-              <span style="color: #6b7280;">Service:</span>
-              <strong style="color: #111827; margin-left: 8px;">${serviceName}</strong>
-            </div>
-            <div>
-              <span style="color: #6b7280;">Staff:</span>
-              <strong style="color: #111827; margin-left: 8px;">${staffName}</strong>
-            </div>
-          </div>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://hera-booking.vercel.app/manage-booking?token=${manageToken}" 
-               style="display: inline-block; background: #10B981; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${BASE_URL}/manage-booking?token=${manageToken}" 
+               style="display: inline-block; background: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
               View Booking
             </a>
           </div>
 
-          <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-            <p style="font-size: 14px; color: #6b7280;">
-              Questions? Reply to this email or call <strong>020 1234 5678</strong>
-            </p>
-          </div>
-
+          <p style="font-size: 13px; color: #666;">📞 020 1234 5678</p>
         </div>
       </body>
     </html>
@@ -256,24 +173,17 @@ export async function sendRescheduleConfirmation(data: {
     const { data, error } = await resend.emails.send({
       from: process.env.FROM_EMAIL || "onboarding@resend.dev",
       to: customerEmail,
-      subject: `📅 Appointment Rescheduled - ${serviceName}`,
+      subject: `📅 Rescheduled - ${serviceName}`,
       html: emailHtml,
     });
 
-    if (error) {
-      console.error("Resend error:", error);
-      return { success: false, error };
-    }
-
-    console.log("✅ Reschedule email sent:", data);
+    if (error) return { success: false, error };
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to send reschedule email:", error);
     return { success: false, error };
   }
 }
 
-// Email khi CANCEL
 export async function sendCancellationConfirmation(data: {
   customerEmail: string;
   customerName: string;
@@ -281,69 +191,42 @@ export async function sendCancellationConfirmation(data: {
   staffName: string;
   appointmentTime: Date;
 }) {
-  const {
-    customerEmail,
-    customerName,
-    serviceName,
-    staffName,
-    appointmentTime,
-  } = data;
+  const { customerEmail, customerName, serviceName, staffName, appointmentTime } = data;
 
-  const formatTime = (date: Date) =>
-    date.toLocaleString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (date: Date) => date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const emailHtml = `
     <!DOCTYPE html>
     <html>
-      <head>
-        <meta charset="utf-8">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <body style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
         
-        <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">✕ Booking Cancelled</h1>
+        <div style="background: #DC2626; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">✕ Booking Cancelled</h1>
         </div>
 
-        <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 12px 12px;">
+        <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
           
-          <p style="font-size: 16px; color: #374151;">Hi <strong>${customerName}</strong>,</p>
-          
-          <p style="font-size: 16px; color: #374151;">
-            Your appointment has been cancelled as requested.
+          <p>Hi <strong>${customerName}</strong>, your appointment has been cancelled.</p>
+
+          <p style="color: #666; text-decoration: line-through;">
+            ${serviceName} with ${staffName}<br>
+            ${formatDate(appointmentTime)}
           </p>
 
-          <div style="background: #FEE2E2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #DC2626;">
-            <div style="font-size: 14px; color: #991B1B; font-weight: 600; margin-bottom: 12px;">Cancelled Appointment:</div>
-            <div style="font-size: 14px; color: #991B1B;">
-              <strong>${serviceName}</strong> with ${staffName}<br>
-              ${formatTime(appointmentTime)}
-            </div>
-          </div>
-
-          <p style="font-size: 14px; color: #6b7280; text-align: center;">
-            We're sorry to see you go! If you'd like to book again, click below.
-          </p>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="https://hera-booking.vercel.app/booking" 
-               style="display: inline-block; background: #EC4899; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">
-              Book New Appointment
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${BASE_URL}/booking" 
+               style="display: inline-block; background: #EC4899; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Book Again
             </a>
           </div>
 
-          <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-            <p style="font-size: 14px; color: #6b7280;">
-              Questions? Reply to this email or call <strong>020 1234 5678</strong>
-            </p>
-          </div>
-
+          <p style="font-size: 13px; color: #666;">📞 020 1234 5678</p>
         </div>
       </body>
     </html>
@@ -353,20 +236,13 @@ export async function sendCancellationConfirmation(data: {
     const { data, error } = await resend.emails.send({
       from: process.env.FROM_EMAIL || "onboarding@resend.dev",
       to: customerEmail,
-      subject: `✕ Booking Cancelled - ${serviceName}`,
+      subject: `✕ Cancelled - ${serviceName}`,
       html: emailHtml,
     });
 
-    if (error) {
-      console.error("Resend error:", error);
-      return { success: false, error };
-    }
-
-    console.log("✅ Cancellation email sent:", data);
+    if (error) return { success: false, error };
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to send cancellation email:", error);
     return { success: false, error };
   }
 }
-
