@@ -39,6 +39,7 @@ export default function BookingPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStaff, setLoadingStaff] = useState(false);
   const [dataReady, setDataReady] = useState(false);
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
@@ -61,26 +62,41 @@ export default function BookingPage() {
 
   const isAnyStaff = selectedStaffId === "any";
 
+  // Load services on mount
   useEffect(() => {
-    async function loadData() {
+    async function loadServices() {
       try {
-        const [servicesRes, staffRes] = await Promise.all([
-          fetch("/api/services"),
-          fetch("/api/staff"),
-        ]);
-        const servicesData = await servicesRes.json();
-        const staffData = await staffRes.json();
-        setServices(servicesData);
-        setStaff(staffData.filter((s: Staff & { active?: boolean }) => s.active !== false));
+        const res = await fetch("/api/services");
+        const data = await res.json();
+        setServices(data);
         setDataReady(true);
       } catch (err) {
-        setError("Failed to load data. Please refresh.");
+        setError("Failed to load services. Please refresh.");
       } finally {
         setLoading(false);
       }
     }
-    loadData();
+    loadServices();
   }, []);
+
+  // Load staff when service is selected
+  useEffect(() => {
+    if (!selectedServiceId) return;
+    
+    async function loadStaff() {
+      setLoadingStaff(true);
+      try {
+        const res = await fetch(`/api/staff?serviceId=${selectedServiceId}`);
+        const data = await res.json();
+        setStaff(data);
+      } catch (err) {
+        console.error("Failed to load staff:", err);
+      } finally {
+        setLoadingStaff(false);
+      }
+    }
+    loadStaff();
+  }, [selectedServiceId]);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -95,7 +111,6 @@ export default function BookingPage() {
       setLoadingHours(true);
       try {
         if (selectedStaffId === "any") {
-          // Load all staff working hours
           const res = await fetch(`/api/working-hours`);
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -141,20 +156,17 @@ export default function BookingPage() {
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
 
-  // Get working hours for selected date (single staff)
   const getWorkingHoursForDate = () => {
     if (!selectedDate || workingHours.length === 0) return null;
     const dayOfWeek = new Date(selectedDate).getDay();
     return workingHours.find((h) => h.dayOfWeek === dayOfWeek);
   };
 
-  // Check if a staff member is available at a specific time
   const isStaffAvailable = (staffId: string, time: string): boolean => {
     const serviceDuration = currentService?.durationMinutes || 60;
     const slotStart = new Date(`${selectedDate}T${time}:00`);
     const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
 
-    // Check existing appointments
     const hasConflict = existingAppointments.some((apt) => {
       if (apt.staffId !== staffId || apt.status === "cancelled") return false;
       const aptStart = new Date(apt.startTime);
@@ -165,18 +177,15 @@ export default function BookingPage() {
     return !hasConflict;
   };
 
-  // Find first available staff for a time slot
   const findAvailableStaff = (time: string): string | null => {
     const dayOfWeek = new Date(selectedDate).getDay();
     
     for (const member of staff) {
-      // Check if staff is working on this day
       const staffHours = allWorkingHours.find(
         (h) => h.staffId === member.id && h.dayOfWeek === dayOfWeek && h.isWorking
       );
       if (!staffHours) continue;
 
-      // Check if time is within working hours
       const [timeH, timeM] = time.split(":").map(Number);
       const [startH, startM] = staffHours.startTime.split(":").map(Number);
       const [endH, endM] = staffHours.endTime.split(":").map(Number);
@@ -187,7 +196,6 @@ export default function BookingPage() {
       
       if (timeMinutes < startMinutes || timeMinutes >= endMinutes) continue;
 
-      // Check if staff is available (no conflicting appointments)
       if (isStaffAvailable(member.id, time)) {
         return member.id;
       }
@@ -195,7 +203,6 @@ export default function BookingPage() {
     return null;
   };
 
-  // Generate time slots for "Any Staff" option
   const generateAnySlotsTimeSlots = () => {
     if (!selectedDate || allWorkingHours.length === 0) return [];
     
@@ -203,7 +210,6 @@ export default function BookingPage() {
     const slots: string[] = [];
     const addedSlots = new Set<string>();
 
-    // Find earliest start and latest end across all staff
     let earliestStart = 24 * 60;
     let latestEnd = 0;
 
@@ -222,13 +228,11 @@ export default function BookingPage() {
 
     if (earliestStart >= latestEnd) return [];
 
-    // Generate slots every 30 minutes
     for (let minutes = earliestStart; minutes < latestEnd; minutes += 30) {
       const h = Math.floor(minutes / 60);
       const m = minutes % 60;
       const time = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
       
-      // Check if any staff is available at this time
       if (findAvailableStaff(time)) {
         if (!addedSlots.has(time)) {
           slots.push(time);
@@ -240,7 +244,6 @@ export default function BookingPage() {
     return slots;
   };
 
-  // Generate time slots based on working hours (single staff)
   const generateTimeSlots = () => {
     if (isAnyStaff) {
       return generateAnySlotsTimeSlots();
@@ -271,7 +274,6 @@ export default function BookingPage() {
   const timeSlots = generateTimeSlots();
   const todayHours = getWorkingHoursForDate();
 
-  // Check if time slot is in the past
   const isTimeSlotPast = (time: string) => {
     const now = new Date();
     const today = now.toISOString().split("T")[0];
@@ -284,7 +286,6 @@ export default function BookingPage() {
     return slotTime <= now;
   };
 
-  // Handle time selection for "Any Staff"
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
     if (isAnyStaff) {
@@ -343,7 +344,6 @@ export default function BookingPage() {
     }
   }
 
-  // Show loading until data is ready
   if (loading || !dataReady) {
     return (
       <div style={styles.container}>
@@ -363,7 +363,6 @@ export default function BookingPage() {
         <h1 style={styles.title}>Book an Appointment</h1>
         <p style={styles.subtitle}>Easy booking in 4 simple steps</p>
 
-        {/* Progress Steps */}
         <div style={styles.progress}>
           {["Service", "Staff", "Time", "Details", "Done"].map((label, i) => (
             <div key={label} style={styles.stepItem}>
@@ -397,7 +396,11 @@ export default function BookingPage() {
                     name="service"
                     value={service.id}
                     checked={selectedServiceId === service.id}
-                    onChange={() => setSelectedServiceId(service.id)}
+                    onChange={() => {
+                      setSelectedServiceId(service.id);
+                      setSelectedStaffId("");
+                      setAssignedStaffId("");
+                    }}
                     style={styles.radio}
                   />
                   <div style={styles.optionContent}>
@@ -433,56 +436,65 @@ export default function BookingPage() {
           <div>
             <h2 style={styles.stepTitle}>Select Staff Member</h2>
             <div style={styles.summary}>Service: <strong>{currentService?.name}</strong></div>
-            <div style={styles.optionsList}>
-              {/* Any Available Staff Option */}
-              <label style={{
-                ...styles.optionCard,
-                borderColor: selectedStaffId === "any" ? "#EC4899" : "#E5E7EB",
-                backgroundColor: selectedStaffId === "any" ? "#FCE7F3" : "#FFFFFF",
-              }}>
-                <input
-                  type="radio"
-                  name="staff"
-                  value="any"
-                  checked={selectedStaffId === "any"}
-                  onChange={() => {
-                    setSelectedStaffId("any");
-                    setAssignedStaffId("");
-                    setSelectedTime("");
-                  }}
-                  style={styles.radio}
-                />
-                <div style={styles.optionContent}>
-                  <div style={styles.optionTitle}>⭐ Any Available Staff</div>
-                  <div style={styles.optionMeta}>First available technician</div>
-                </div>
-              </label>
-
-              {staff.map((member) => (
-                <label key={member.id} style={{
+            
+            {loadingStaff ? (
+              <p>Loading staff...</p>
+            ) : staff.length === 0 ? (
+              <div style={styles.closedMessage}>
+                No staff available for this service.
+              </div>
+            ) : (
+              <div style={styles.optionsList}>
+                {/* Any Available Staff Option */}
+                <label style={{
                   ...styles.optionCard,
-                  borderColor: selectedStaffId === member.id ? "#EC4899" : "#E5E7EB",
-                  backgroundColor: selectedStaffId === member.id ? "#FCE7F3" : "#FFFFFF",
+                  borderColor: selectedStaffId === "any" ? "#EC4899" : "#E5E7EB",
+                  backgroundColor: selectedStaffId === "any" ? "#FCE7F3" : "#FFFFFF",
                 }}>
                   <input
                     type="radio"
                     name="staff"
-                    value={member.id}
-                    checked={selectedStaffId === member.id}
+                    value="any"
+                    checked={selectedStaffId === "any"}
                     onChange={() => {
-                      setSelectedStaffId(member.id);
+                      setSelectedStaffId("any");
                       setAssignedStaffId("");
                       setSelectedTime("");
                     }}
                     style={styles.radio}
                   />
                   <div style={styles.optionContent}>
-                    <div style={styles.optionTitle}>{member.name}</div>
-                    <div style={styles.optionMeta}>{member.role || "Nail Technician"}</div>
+                    <div style={styles.optionTitle}>⭐ Any Available Staff</div>
+                    <div style={styles.optionMeta}>First available technician</div>
                   </div>
                 </label>
-              ))}
-            </div>
+
+                {staff.map((member) => (
+                  <label key={member.id} style={{
+                    ...styles.optionCard,
+                    borderColor: selectedStaffId === member.id ? "#EC4899" : "#E5E7EB",
+                    backgroundColor: selectedStaffId === member.id ? "#FCE7F3" : "#FFFFFF",
+                  }}>
+                    <input
+                      type="radio"
+                      name="staff"
+                      value={member.id}
+                      checked={selectedStaffId === member.id}
+                      onChange={() => {
+                        setSelectedStaffId(member.id);
+                        setAssignedStaffId("");
+                        setSelectedTime("");
+                      }}
+                      style={styles.radio}
+                    />
+                    <div style={styles.optionContent}>
+                      <div style={styles.optionTitle}>{member.name}</div>
+                      <div style={styles.optionMeta}>{member.role || "Nail Technician"}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
             <div style={styles.footer}>
               <button style={styles.btnSecondary} onClick={goBack}>← Back</button>
               <button

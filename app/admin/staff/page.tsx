@@ -1,121 +1,513 @@
 "use client";
-import { useState, useEffect } from "react";
-import Link from "next/link";
 
-interface Staff { id: string; name: string; role: string | null; active: boolean; }
+import { useEffect, useState } from "react";
 
-export default function AdminStaff() {
-  const [staffList, setStaffList] = useState<Staff[]>([]);
+type Staff = {
+  id: string;
+  name: string;
+  role: string | null;
+  active: boolean;
+};
+
+type Service = {
+  id: string;
+  name: string;
+  durationMinutes: number;
+  price: number;
+};
+
+export default function StaffPage() {
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [staffServices, setStaffServices] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Staff | null>(null);
-  const [form, setForm] = useState({ name: "", role: "", active: true });
+  const [showServiceModal, setShowServiceModal] = useState(false);
 
-  useEffect(() => { fetchStaff(); }, []);
-  const fetchStaff = () => fetch("/api/staff").then(r => r.json()).then(setStaffList);
+  // Form states
+  const [formName, setFormName] = useState("");
+  const [formRole, setFormRole] = useState("");
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await fetch(editing ? `/api/admin/staff/${editing.id}` : "/api/admin/staff", {
-      method: editing ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    fetchStaff(); setShowModal(false); setEditing(null);
-  };
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Xóa nhân viên này?")) return;
-    await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
-    fetchStaff();
-  };
+  async function loadData() {
+    try {
+      const [staffRes, servicesRes] = await Promise.all([
+        fetch("/api/admin/staff"),
+        fetch("/api/services"),
+      ]);
+      setStaff(await staffRes.json());
+      setServices(await servicesRes.json());
+    } catch (err) {
+      console.error("Failed to load data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const toggleActive = async (s: Staff) => {
-    await fetch(`/api/admin/staff/${s.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...s, active: !s.active }),
-    });
-    fetchStaff();
-  };
+  async function loadStaffServices(staffId: string) {
+    try {
+      const res = await fetch(`/api/admin/staff-services?staffId=${staffId}`);
+      const data = await res.json();
+      setStaffServices(data.map((s: Service) => s.id));
+    } catch (err) {
+      console.error("Failed to load staff services:", err);
+      setStaffServices([]);
+    }
+  }
 
-  const menu = [
-    { href: "/admin", label: "Dashboard", icon: "📊" },
-    { href: "/admin/services", label: "Dịch vụ", icon: "💅" },
-    { href: "/admin/staff", label: "Nhân viên", icon: "👩‍💼", active: true },
-    { href: "/admin/working-hours", label: "Giờ làm việc", icon: "🕐" },
-    { href: "/admin/calendar", label: "Lịch đặt", icon: "📅" },
-  ];
+  async function handleSaveServices() {
+    if (!selectedStaff) return;
+    setSaving(true);
+    try {
+      await fetch("/api/admin/staff-services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: selectedStaff.id,
+          serviceIds: staffServices,
+        }),
+      });
+      setShowServiceModal(false);
+      alert("Đã lưu dịch vụ cho " + selectedStaff.name);
+    } catch (err) {
+      alert("Lỗi khi lưu");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveStaff() {
+    if (!formName.trim()) {
+      alert("Vui lòng nhập tên");
+      return;
+    }
+    setSaving(true);
+    try {
+      const url = editingStaff
+        ? `/api/admin/staff/${editingStaff.id}`
+        : "/api/admin/staff";
+      const method = editingStaff ? "PUT" : "POST";
+      
+      await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: formName, role: formRole || "Nail Technician" }),
+      });
+      
+      setShowModal(false);
+      setFormName("");
+      setFormRole("");
+      setEditingStaff(null);
+      loadData();
+    } catch (err) {
+      alert("Lỗi khi lưu");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleToggleActive(s: Staff) {
+    try {
+      await fetch(`/api/admin/staff/${s.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !s.active }),
+      });
+      loadData();
+    } catch (err) {
+      alert("Lỗi");
+    }
+  }
+
+  async function handleDelete(s: Staff) {
+    if (!confirm(`Xóa ${s.name}?`)) return;
+    try {
+      await fetch(`/api/admin/staff/${s.id}`, { method: "DELETE" });
+      loadData();
+    } catch (err) {
+      alert("Lỗi khi xóa");
+    }
+  }
+
+  function openServiceModal(s: Staff) {
+    setSelectedStaff(s);
+    loadStaffServices(s.id);
+    setShowServiceModal(true);
+  }
+
+  function openEditModal(s: Staff) {
+    setEditingStaff(s);
+    setFormName(s.name);
+    setFormRole(s.role || "");
+    setShowModal(true);
+  }
+
+  function openAddModal() {
+    setEditingStaff(null);
+    setFormName("");
+    setFormRole("");
+    setShowModal(true);
+  }
+
+  function toggleService(serviceId: string) {
+    setStaffServices(prev =>
+      prev.includes(serviceId)
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  }
+
+  if (loading) {
+    return <div style={styles.container}><p>Đang tải...</p></div>;
+  }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f5f5" }}>
-      <aside style={{ width: 250, background: "#1a1a2e", color: "white", padding: 20 }}>
-        <h1 style={{ fontSize: 24, marginBottom: 30, color: "#ff69b4" }}>🌸 Hera Admin</h1>
-        <nav>{menu.map((m) => (
-          <Link key={m.href} href={m.href} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 8, marginBottom: 8, background: m.active ? "#ff69b4" : "transparent", color: "white", textDecoration: "none" }}>
-            <span>{m.icon}</span><span>{m.label}</span>
-          </Link>
-        ))}</nav>
-      </aside>
-      <main style={{ flex: 1, padding: 30 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 30 }}>
-          <h2 style={{ fontSize: 28 }}>Quản lý nhân viên</h2>
-          <button onClick={() => { setEditing(null); setForm({ name: "", role: "", active: true }); setShowModal(true); }} style={{ padding: "12px 24px", background: "#ff69b4", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>➕ Thêm nhân viên</button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-          {staffList.map((s) => (
-            <div key={s.id} style={{ background: "white", borderRadius: 12, padding: 24, opacity: s.active ? 1 : 0.6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <div>
-                  <h3 style={{ fontSize: 20, marginBottom: 8 }}>{s.name}</h3>
-                  <p style={{ color: "#666", marginBottom: 12 }}>{s.role || "Chưa có chức vụ"}</p>
-                  <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: s.active ? "#d4edda" : "#f8d7da", color: s.active ? "#155724" : "#721c24" }}>
-                    {s.active ? "Đang làm việc" : "Tạm nghỉ"}
-                  </span>
-                </div>
-                <span style={{ fontSize: 40 }}>👩‍💼</span>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Quản lý nhân viên</h1>
+        <button style={styles.btnPrimary} onClick={openAddModal}>
+          + Thêm nhân viên
+        </button>
+      </div>
+
+      <div style={styles.grid}>
+        {staff.map((s) => (
+          <div key={s.id} style={styles.card}>
+            <div style={styles.cardHeader}>
+              <div style={styles.avatar}>
+                {s.name.charAt(0).toUpperCase()}
               </div>
-              <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
-                <button onClick={() => { setEditing(s); setForm({ name: s.name, role: s.role || "", active: s.active }); setShowModal(true); }} style={{ padding: "8px 12px", background: "#3498db", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>✏️</button>
-                <button onClick={() => toggleActive(s)} style={{ padding: "8px 12px", background: "#f39c12", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>{s.active ? "⏸️" : "▶️"}</button>
-                <button onClick={() => handleDelete(s.id)} style={{ padding: "8px 12px", background: "#e74c3c", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>🗑️</button>
+              <div>
+                <h3 style={styles.staffName}>{s.name}</h3>
+                <p style={styles.staffRole}>{s.role || "Nail Technician"}</p>
               </div>
             </div>
-          ))}
-        </div>
-        {showModal && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-            <div style={{ background: "white", padding: 32, borderRadius: 12, width: 400 }}>
-              <h3 style={{ marginBottom: 20 }}>{editing ? "Sửa nhân viên" : "Thêm nhân viên"}</h3>
-              <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6 }}>Tên *</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required style={{ width: "100%", padding: 10, border: "1px solid #ddd", borderRadius: 6 }} />
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6 }}>Chức vụ</label>
-                  <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} style={{ width: "100%", padding: 10, border: "1px solid #ddd", borderRadius: 6 }}>
-                    <option value="">-- Chọn --</option>
-                    <option value="Nail Technician">Nail Technician</option>
-                    <option value="Head Spa Specialist">Head Spa Specialist</option>
-                    <option value="Eyelash Technician">Eyelash Technician</option>
-                    <option value="Manager">Manager</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                    <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-                    <span>Đang làm việc</span>
-                  </label>
-                </div>
-                <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-                  <button type="button" onClick={() => setShowModal(false)} style={{ padding: "10px 20px", background: "#f0f0f0", border: "none", borderRadius: 6, cursor: "pointer" }}>Hủy</button>
-                  <button type="submit" style={{ padding: "10px 20px", background: "#ff69b4", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>{editing ? "Lưu" : "Thêm"}</button>
-                </div>
-              </form>
+            
+            <div style={{
+              ...styles.statusBadge,
+              backgroundColor: s.active ? "#D1FAE5" : "#FEE2E2",
+              color: s.active ? "#059669" : "#DC2626",
+            }}>
+              {s.active ? "Đang làm việc" : "Nghỉ"}
+            </div>
+
+            <div style={styles.cardActions}>
+              <button
+                style={styles.btnService}
+                onClick={() => openServiceModal(s)}
+                title="Gán dịch vụ"
+              >
+                💅 Dịch vụ
+              </button>
+              <button
+                style={styles.btnEdit}
+                onClick={() => openEditModal(s)}
+                title="Sửa"
+              >
+                ✏️
+              </button>
+              <button
+                style={styles.btnToggle}
+                onClick={() => handleToggleActive(s)}
+                title={s.active ? "Tạm nghỉ" : "Kích hoạt"}
+              >
+                {s.active ? "⏸️" : "▶️"}
+              </button>
+              <button
+                style={styles.btnDelete}
+                onClick={() => handleDelete(s)}
+                title="Xóa"
+              >
+                🗑️
+              </button>
             </div>
           </div>
-        )}
-      </main>
+        ))}
+      </div>
+
+      {/* Modal thêm/sửa nhân viên */}
+      {showModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2 style={styles.modalTitle}>
+              {editingStaff ? "Sửa nhân viên" : "Thêm nhân viên"}
+            </h2>
+            <label style={styles.label}>
+              Tên
+              <input
+                style={styles.input}
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="Nhập tên nhân viên"
+              />
+            </label>
+            <label style={styles.label}>
+              Vai trò
+              <input
+                style={styles.input}
+                value={formRole}
+                onChange={(e) => setFormRole(e.target.value)}
+                placeholder="Nail Technician"
+              />
+            </label>
+            <div style={styles.modalActions}>
+              <button style={styles.btnSecondary} onClick={() => setShowModal(false)}>
+                Hủy
+              </button>
+              <button style={styles.btnPrimary} onClick={handleSaveStaff} disabled={saving}>
+                {saving ? "Đang lưu..." : "Lưu"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal gán dịch vụ */}
+      {showServiceModal && selectedStaff && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2 style={styles.modalTitle}>
+              Dịch vụ của {selectedStaff.name}
+            </h2>
+            <p style={styles.modalSubtitle}>Chọn các dịch vụ nhân viên này có thể làm:</p>
+            
+            <div style={styles.serviceList}>
+              {services.map((service) => (
+                <label key={service.id} style={styles.serviceItem}>
+                  <input
+                    type="checkbox"
+                    checked={staffServices.includes(service.id)}
+                    onChange={() => toggleService(service.id)}
+                    style={styles.checkbox}
+                  />
+                  <span style={styles.serviceName}>{service.name}</span>
+                  <span style={styles.serviceMeta}>
+                    {service.durationMinutes} phút • £{service.price}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div style={styles.modalActions}>
+              <button style={styles.btnSecondary} onClick={() => setShowServiceModal(false)}>
+                Hủy
+              </button>
+              <button style={styles.btnPrimary} onClick={handleSaveServices} disabled={saving}>
+                {saving ? "Đang lưu..." : "Lưu dịch vụ"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    padding: 24,
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#111827",
+    margin: 0,
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: 16,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 20,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: "50%",
+    backgroundColor: "#EC4899",
+    color: "#FFFFFF",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 20,
+    fontWeight: 600,
+  },
+  staffName: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: "#111827",
+    margin: 0,
+  },
+  staffRole: {
+    fontSize: 13,
+    color: "#6B7280",
+    margin: 0,
+  },
+  statusBadge: {
+    display: "inline-block",
+    padding: "4px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 500,
+    marginBottom: 12,
+  },
+  cardActions: {
+    display: "flex",
+    gap: 8,
+  },
+  btnService: {
+    flex: 1,
+    padding: "8px 12px",
+    backgroundColor: "#F0FDF4",
+    border: "1px solid #86EFAC",
+    borderRadius: 8,
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  btnEdit: {
+    padding: "8px 12px",
+    backgroundColor: "#FEF3C7",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  btnToggle: {
+    padding: "8px 12px",
+    backgroundColor: "#E0E7FF",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  btnDelete: {
+    padding: "8px 12px",
+    backgroundColor: "#FEE2E2",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  btnPrimary: {
+    padding: "10px 20px",
+    backgroundColor: "#EC4899",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  btnSecondary: {
+    padding: "10px 20px",
+    backgroundColor: "#FFFFFF",
+    color: "#374151",
+    border: "1px solid #D1D5DB",
+    borderRadius: 8,
+    fontSize: 14,
+    cursor: "pointer",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    width: "90%",
+    maxWidth: 400,
+    maxHeight: "80vh",
+    overflow: "auto",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 600,
+    color: "#111827",
+    margin: "0 0 8px 0",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    margin: "0 0 16px 0",
+  },
+  modalActions: {
+    display: "flex",
+    gap: 12,
+    marginTop: 24,
+    justifyContent: "flex-end",
+  },
+  label: {
+    display: "block",
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#374151",
+    marginBottom: 16,
+  },
+  input: {
+    display: "block",
+    width: "100%",
+    padding: "10px 12px",
+    marginTop: 6,
+    border: "1px solid #D1D5DB",
+    borderRadius: 8,
+    fontSize: 14,
+    boxSizing: "border-box",
+  },
+  serviceList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  serviceItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    cursor: "pointer",
+  },
+  serviceName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#111827",
+  },
+  serviceMeta: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+};

@@ -16,6 +16,7 @@ model Service {
   createdAt       DateTime      @default(now())
 
   appointments    Appointment[]
+  staffServices   StaffService[]
 }
 
 model Staff {
@@ -27,6 +28,18 @@ model Staff {
 
   appointments  Appointment[]
   workingHours  WorkingHours[]
+  staffServices StaffService[]
+}
+
+model StaffService {
+  id        String   @id @default(uuid())
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staffId   String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, serviceId])
 }
 
 model Customer {
@@ -83,7 +96,7 @@ model Settings {
   salonName             String   @default("Hera Nail Spa")
   salonPhone            String   @default("020 1234 5678")
   salonAddress          String   @default("123 Example Street, London, SW11 1AA")
-  cancelMinutesAdvance  Int      @default(1440)  // 1440 minutes = 24 hours
+  cancelMinutesAdvance  Int      @default(1440)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
