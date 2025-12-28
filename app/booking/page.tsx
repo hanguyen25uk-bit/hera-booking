@@ -17,10 +17,19 @@ type Staff = {
 };
 
 type WorkingHour = {
+  staffId: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
   isWorking: boolean;
+};
+
+type Appointment = {
+  id: string;
+  staffId: string;
+  startTime: string;
+  endTime: string;
+  status: string;
 };
 
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -37,7 +46,10 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [allWorkingHours, setAllWorkingHours] = useState<WorkingHour[]>([]);
+  const [existingAppointments, setExistingAppointments] = useState<Appointment[]>([]);
   const [loadingHours, setLoadingHours] = useState(false);
+  const [assignedStaffId, setAssignedStaffId] = useState<string>("");
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -46,6 +58,8 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
+
+  const isAnyStaff = selectedStaffId === "any";
 
   useEffect(() => {
     async function loadData() {
@@ -73,15 +87,26 @@ export default function BookingPage() {
     setSelectedDate(today);
   }, []);
 
+  // Load working hours when staff is selected
   useEffect(() => {
     if (!selectedStaffId) return;
+
     async function loadWorkingHours() {
       setLoadingHours(true);
       try {
-        const res = await fetch(`/api/working-hours?staffId=${selectedStaffId}`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setWorkingHours(data);
+        if (selectedStaffId === "any") {
+          // Load all staff working hours
+          const res = await fetch(`/api/working-hours`);
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setAllWorkingHours(data);
+          }
+        } else {
+          const res = await fetch(`/api/working-hours?staffId=${selectedStaffId}`);
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setWorkingHours(data);
+          }
         }
       } catch (err) {
         console.error("Failed to load working hours:", err);
@@ -92,26 +117,145 @@ export default function BookingPage() {
     loadWorkingHours();
   }, [selectedStaffId]);
 
+  // Load existing appointments for the selected date
+  useEffect(() => {
+    if (!selectedDate || !isAnyStaff) return;
+
+    async function loadAppointments() {
+      try {
+        const res = await fetch(`/api/appointments?date=${selectedDate}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setExistingAppointments(data);
+        }
+      } catch (err) {
+        console.error("Failed to load appointments:", err);
+      }
+    }
+    loadAppointments();
+  }, [selectedDate, isAnyStaff]);
+
   const currentService = services.find((s) => s.id === selectedServiceId);
-  const currentStaff = staff.find((s) => s.id === selectedStaffId);
+  const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
 
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
 
+  // Get working hours for selected date (single staff)
   const getWorkingHoursForDate = () => {
     if (!selectedDate || workingHours.length === 0) return null;
     const dayOfWeek = new Date(selectedDate).getDay();
     return workingHours.find((h) => h.dayOfWeek === dayOfWeek);
   };
 
+  // Check if a staff member is available at a specific time
+  const isStaffAvailable = (staffId: string, time: string): boolean => {
+    const serviceDuration = currentService?.durationMinutes || 60;
+    const slotStart = new Date(`${selectedDate}T${time}:00`);
+    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+
+    // Check existing appointments
+    const hasConflict = existingAppointments.some((apt) => {
+      if (apt.staffId !== staffId || apt.status === "cancelled") return false;
+      const aptStart = new Date(apt.startTime);
+      const aptEnd = new Date(apt.endTime);
+      return (slotStart < aptEnd && slotEnd > aptStart);
+    });
+
+    return !hasConflict;
+  };
+
+  // Find first available staff for a time slot
+  const findAvailableStaff = (time: string): string | null => {
+    const dayOfWeek = new Date(selectedDate).getDay();
+    
+    for (const member of staff) {
+      // Check if staff is working on this day
+      const staffHours = allWorkingHours.find(
+        (h) => h.staffId === member.id && h.dayOfWeek === dayOfWeek && h.isWorking
+      );
+      if (!staffHours) continue;
+
+      // Check if time is within working hours
+      const [timeH, timeM] = time.split(":").map(Number);
+      const [startH, startM] = staffHours.startTime.split(":").map(Number);
+      const [endH, endM] = staffHours.endTime.split(":").map(Number);
+      
+      const timeMinutes = timeH * 60 + timeM;
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      
+      if (timeMinutes < startMinutes || timeMinutes >= endMinutes) continue;
+
+      // Check if staff is available (no conflicting appointments)
+      if (isStaffAvailable(member.id, time)) {
+        return member.id;
+      }
+    }
+    return null;
+  };
+
+  // Generate time slots for "Any Staff" option
+  const generateAnySlotsTimeSlots = () => {
+    if (!selectedDate || allWorkingHours.length === 0) return [];
+    
+    const dayOfWeek = new Date(selectedDate).getDay();
+    const slots: string[] = [];
+    const addedSlots = new Set<string>();
+
+    // Find earliest start and latest end across all staff
+    let earliestStart = 24 * 60;
+    let latestEnd = 0;
+
+    for (const member of staff) {
+      const hours = allWorkingHours.find(
+        (h) => h.staffId === member.id && h.dayOfWeek === dayOfWeek && h.isWorking
+      );
+      if (!hours) continue;
+
+      const [startH, startM] = hours.startTime.split(":").map(Number);
+      const [endH, endM] = hours.endTime.split(":").map(Number);
+      
+      earliestStart = Math.min(earliestStart, startH * 60 + startM);
+      latestEnd = Math.max(latestEnd, endH * 60 + endM);
+    }
+
+    if (earliestStart >= latestEnd) return [];
+
+    // Generate slots every 30 minutes
+    for (let minutes = earliestStart; minutes < latestEnd; minutes += 30) {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      const time = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+      
+      // Check if any staff is available at this time
+      if (findAvailableStaff(time)) {
+        if (!addedSlots.has(time)) {
+          slots.push(time);
+          addedSlots.add(time);
+        }
+      }
+    }
+
+    return slots;
+  };
+
+  // Generate time slots based on working hours (single staff)
   const generateTimeSlots = () => {
+    if (isAnyStaff) {
+      return generateAnySlotsTimeSlots();
+    }
+
     const todayHours = getWorkingHoursForDate();
     if (!todayHours || !todayHours.isWorking) return [];
+
     const slots: string[] = [];
     const [startH, startM] = todayHours.startTime.split(":").map(Number);
     const [endH, endM] = todayHours.endTime.split(":").map(Number);
+
     let currentH = startH;
     let currentM = startM;
+
     while (currentH < endH || (currentH === endH && currentM < endM)) {
       slots.push(`${currentH.toString().padStart(2, "0")}:${currentM.toString().padStart(2, "0")}`);
       currentM += 30;
@@ -120,53 +264,74 @@ export default function BookingPage() {
         currentH += 1;
       }
     }
+
     return slots;
   };
 
   const timeSlots = generateTimeSlots();
   const todayHours = getWorkingHoursForDate();
 
+  // Check if time slot is in the past
   const isTimeSlotPast = (time: string) => {
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     if (selectedDate > today) return false;
     if (selectedDate < today) return true;
+
     const [hours, minutes] = time.split(":").map(Number);
     const slotTime = new Date();
     slotTime.setHours(hours, minutes, 0, 0);
     return slotTime <= now;
   };
 
+  // Handle time selection for "Any Staff"
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    if (isAnyStaff) {
+      const availableStaffId = findAvailableStaff(time);
+      setAssignedStaffId(availableStaffId || "");
+    }
+  };
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!selectedServiceId || !selectedStaffId || !selectedDate || !selectedTime) {
+
+    const finalStaffId = isAnyStaff ? assignedStaffId : selectedStaffId;
+
+    if (!selectedServiceId || !finalStaffId || !selectedDate || !selectedTime) {
       setError("Please complete all selections.");
       return;
     }
+
     if (!customerName || !customerPhone || !customerEmail) {
       setError("Please fill in your details.");
       return;
     }
+
     setSubmitting(true);
+
     try {
       const startTimeIso = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           serviceId: selectedServiceId,
-          staffId: selectedStaffId,
+          staffId: finalStaffId,
           customerName,
           customerPhone,
           customerEmail,
           startTime: startTimeIso,
         }),
       });
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to create appointment");
       }
+
       const appointment = await res.json();
       setSuccessAppointmentId(appointment.id);
       setStep(5);
@@ -269,6 +434,30 @@ export default function BookingPage() {
             <h2 style={styles.stepTitle}>Select Staff Member</h2>
             <div style={styles.summary}>Service: <strong>{currentService?.name}</strong></div>
             <div style={styles.optionsList}>
+              {/* Any Available Staff Option */}
+              <label style={{
+                ...styles.optionCard,
+                borderColor: selectedStaffId === "any" ? "#EC4899" : "#E5E7EB",
+                backgroundColor: selectedStaffId === "any" ? "#FCE7F3" : "#FFFFFF",
+              }}>
+                <input
+                  type="radio"
+                  name="staff"
+                  value="any"
+                  checked={selectedStaffId === "any"}
+                  onChange={() => {
+                    setSelectedStaffId("any");
+                    setAssignedStaffId("");
+                    setSelectedTime("");
+                  }}
+                  style={styles.radio}
+                />
+                <div style={styles.optionContent}>
+                  <div style={styles.optionTitle}>⭐ Any Available Staff</div>
+                  <div style={styles.optionMeta}>First available technician</div>
+                </div>
+              </label>
+
               {staff.map((member) => (
                 <label key={member.id} style={{
                   ...styles.optionCard,
@@ -280,7 +469,11 @@ export default function BookingPage() {
                     name="staff"
                     value={member.id}
                     checked={selectedStaffId === member.id}
-                    onChange={() => setSelectedStaffId(member.id)}
+                    onChange={() => {
+                      setSelectedStaffId(member.id);
+                      setAssignedStaffId("");
+                      setSelectedTime("");
+                    }}
                     style={styles.radio}
                   />
                   <div style={styles.optionContent}>
@@ -314,7 +507,12 @@ export default function BookingPage() {
           <div>
             <h2 style={styles.stepTitle}>Select Date & Time</h2>
             <div style={styles.summary}>
-              {currentService?.name} with <strong>{currentStaff?.name}</strong>
+              {currentService?.name} with <strong>{isAnyStaff ? "Any Available Staff" : currentStaff?.name}</strong>
+              {isAnyStaff && assignedStaffId && selectedTime && (
+                <div style={{ marginTop: 8, color: "#10B981" }}>
+                  ✓ {staff.find(s => s.id === assignedStaffId)?.name} is available
+                </div>
+              )}
             </div>
             <label style={styles.label}>
               Date
@@ -324,6 +522,7 @@ export default function BookingPage() {
                 onChange={(e) => {
                   setSelectedDate(e.target.value);
                   setSelectedTime("");
+                  setAssignedStaffId("");
                 }}
                 min={new Date().toISOString().split("T")[0]}
                 style={styles.input}
@@ -331,7 +530,7 @@ export default function BookingPage() {
             </label>
             {loadingHours ? (
               <p>Loading available times...</p>
-            ) : todayHours && !todayHours.isWorking ? (
+            ) : !isAnyStaff && todayHours && !todayHours.isWorking ? (
               <div style={styles.closedMessage}>
                 {currentStaff?.name} is not working on this day. Please select another date.
               </div>
@@ -350,7 +549,7 @@ export default function BookingPage() {
                         key={time}
                         type="button"
                         disabled={isPast}
-                        onClick={() => !isPast && setSelectedTime(time)}
+                        onClick={() => !isPast && handleTimeSelect(time)}
                         style={{
                           ...styles.timeSlot,
                           borderColor: selectedTime === time ? "#EC4899" : "#E5E7EB",
@@ -373,6 +572,10 @@ export default function BookingPage() {
                 onClick={() => {
                   if (!selectedTime) {
                     setError("Please select a time slot.");
+                    return;
+                  }
+                  if (isAnyStaff && !assignedStaffId) {
+                    setError("No staff available at this time.");
                     return;
                   }
                   setError(null);
@@ -480,6 +683,7 @@ export default function BookingPage() {
                 setSelectedStaffId("");
                 setSelectedDate(new Date().toISOString().split("T")[0]);
                 setSelectedTime("");
+                setAssignedStaffId("");
                 setCustomerName("");
                 setCustomerPhone("");
                 setCustomerEmail("");
@@ -523,7 +727,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: "4px solid #E5E7EB",
     borderTop: "4px solid #EC4899",
     borderRadius: "50%",
-    animation: "spin 1s linear infinite",
   },
   loadingText: {
     marginTop: 16,
