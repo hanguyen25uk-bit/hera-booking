@@ -13,6 +13,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/calendar", label: "Calendar", icon: "📅" },
     { href: "/admin/services", label: "Services", icon: "✨" },
     { href: "/admin/staff", label: "Staff", icon: "👤" },
+    { href: "/admin/schedule", label: "Schedule", icon: "🗓" },
     { href: "/admin/working-hours", label: "Hours", icon: "🕐" },
     { href: "/admin/settings", label: "Settings", icon: "⚙️" },
   ];
@@ -24,18 +25,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div style={styles.container}>
-      {/* Sidebar */}
       <aside style={{
         ...styles.sidebar,
         width: collapsed ? 72 : 240,
       }}>
-        {/* Logo */}
         <div style={styles.logoSection}>
           <div style={styles.logoIcon}>H</div>
           {!collapsed && <span style={styles.logoText}>Hera</span>}
         </div>
 
-        {/* Navigation */}
         <nav style={styles.nav}>
           {menuItems.map((item) => (
             <Link
@@ -52,7 +50,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
 
-        {/* Collapse Button */}
         <button
           style={styles.collapseBtn}
           onClick={() => setCollapsed(!collapsed)}
@@ -60,7 +57,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {collapsed ? "→" : "←"}
         </button>
 
-        {/* Booking Link */}
         <div style={styles.sidebarFooter}>
           <Link href="/booking" target="_blank" style={styles.bookingLink}>
             {collapsed ? "🔗" : "Open Booking Page →"}
@@ -68,8 +64,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main style={styles.main}>
+      <main style={{
+        ...styles.main,
+        marginLeft: collapsed ? 72 : 240,
+      }}>
         {children}
       </main>
     </div>
@@ -178,7 +176,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   main: {
     flex: 1,
-    marginLeft: 240,
     padding: "32px 40px",
     transition: "margin-left 0.2s ease",
   },
