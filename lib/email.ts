@@ -2,251 +2,223 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const BASE_URL = "https://hera-booking.vercel.app";
+const FROM_EMAIL = "booking@heranailspa.uk";
+const SALON_NAME = "Hera Nail Spa";
+const SALON_PHONE = "020 1234 5678";
+const SALON_ADDRESS = "123 Example Street, London, SW11 1AA";
 
-type BookingEmailData = {
+type EmailData = {
   customerEmail: string;
   customerName: string;
   serviceName: string;
   staffName: string;
-  startTime: Date;
-  endTime: Date;
-  bookingId: string;
-  manageToken: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  duration: number;
+  bookingRef: string;
+  manageUrl: string;
 };
 
-export async function sendBookingConfirmation(data: BookingEmailData) {
+export async function sendBookingConfirmation(data: EmailData) {
   const {
     customerEmail,
     customerName,
     serviceName,
     staffName,
-    startTime,
-    endTime,
-    bookingId,
-    manageToken,
+    appointmentDate,
+    appointmentTime,
+    duration,
+    bookingRef,
+    manageUrl,
   } = data;
 
-  const formattedDate = startTime.toLocaleDateString("en-GB", {
+  const formattedDate = new Date(appointmentDate).toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
-  
-  const formattedTime = startTime.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
-  const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-  const manageUrl = BASE_URL + "/manage-booking?token=" + manageToken;
-
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 500px; margin: 0 auto; padding: 20px;">
-        
-        <div style="background: #EC4899; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 22px;">Booking Confirmed</h1>
-        </div>
-
-        <div style="background: #ffffff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Confirmed</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 520px;">
           
-          <p style="font-size: 15px; margin: 0 0 20px 0;">Hi <strong>${customerName}</strong>, your appointment is confirmed!</p>
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom: 32px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
+                    <span style="color: #ffffff; font-size: 24px; font-weight: 700;">H</span>
+                  </td>
+                  <td style="padding-left: 12px;">
+                    <span style="color: #ffffff; font-size: 20px; font-weight: 600;">${SALON_NAME}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666; width: 100px;">Service</td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600;">${serviceName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666;">Staff</td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${staffName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666;">Date</td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${formattedDate}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee; color: #666;">Time</td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600; color: #EC4899;">${formattedTime} (${duration} min)</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #666;">Ref</td>
-              <td style="padding: 8px 0; font-family: monospace;">${bookingId.slice(0, 8).toUpperCase()}</td>
-            </tr>
-          </table>
+          <!-- Main Card -->
+          <tr>
+            <td>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+                
+                <!-- Success Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px; text-align: center;">
+                    <div style="width: 56px; height: 56px; background-color: rgba(255,255,255,0.2); border-radius: 14px; margin: 0 auto 16px; line-height: 56px;">
+                      <span style="color: #ffffff; font-size: 28px;">✓</span>
+                    </div>
+                    <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 0;">Booking Confirmed</h1>
+                  </td>
+                </tr>
 
-          <div style="text-align: center; margin: 24px 0;">
-            <a href="${manageUrl}" 
-               style="display: inline-block; background: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
-              Manage Booking
-            </a>
-          </div>
+                <!-- Greeting -->
+                <tr>
+                  <td style="padding: 32px 32px 24px;">
+                    <p style="color: #334155; font-size: 16px; margin: 0;">
+                      Hi <strong>${customerName}</strong>, your appointment is confirmed!
+                    </p>
+                  </td>
+                </tr>
 
-          <p style="font-size: 13px; color: #666; margin: 20px 0 0 0; padding-top: 16px; border-top: 1px solid #eee;">
-            Hera Nail Spa - 020 1234 5678
-          </p>
+                <!-- Booking Details -->
+                <tr>
+                  <td style="padding: 0 32px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; overflow: hidden;">
+                      
+                      <tr>
+                        <td style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Service</td>
+                              <td align="right" style="color: #0f172a; font-size: 15px; font-weight: 600;">${serviceName}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      
+                      <tr>
+                        <td style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Specialist</td>
+                              <td align="right" style="color: #0f172a; font-size: 15px; font-weight: 600;">${staffName}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      
+                      <tr>
+                        <td style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Date</td>
+                              <td align="right" style="color: #0f172a; font-size: 15px; font-weight: 600;">${formattedDate}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      
+                      <tr>
+                        <td style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Time</td>
+                              <td align="right" style="color: #6366f1; font-size: 15px; font-weight: 700;">${appointmentTime} (${duration} min)</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      
+                      <tr>
+                        <td style="padding: 16px 20px;">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Reference</td>
+                              <td align="right" style="color: #0f172a; font-size: 15px; font-weight: 600; font-family: monospace;">${bookingRef}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      
+                    </table>
+                  </td>
+                </tr>
 
-        </div>
-      </body>
-    </html>
+                <!-- CTA Button -->
+                <tr>
+                  <td style="padding: 32px; text-align: center;">
+                    <a href="${manageUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+                      Manage Booking
+                    </a>
+                  </td>
+                </tr>
+
+                <!-- Divider -->
+                <tr>
+                  <td style="padding: 0 32px;">
+                    <div style="height: 1px; background-color: #e2e8f0;"></div>
+                  </td>
+                </tr>
+
+                <!-- Footer Info -->
+                <tr>
+                  <td style="padding: 24px 32px 32px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="color: #64748b; font-size: 13px; line-height: 1.6;">
+                          <strong style="color: #334155;">${SALON_NAME}</strong><br>
+                          ${SALON_ADDRESS}<br>
+                          ${SALON_PHONE}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <!-- Bottom Note -->
+          <tr>
+            <td style="padding: 24px; text-align: center;">
+              <p style="color: #64748b; font-size: 12px; margin: 0;">
+                Need to reschedule? Click "Manage Booking" above or contact us directly.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || "onboarding@resend.dev",
+    await resend.emails.send({
+      from: `${SALON_NAME} <${FROM_EMAIL}>`,
       to: customerEmail,
-      subject: "Booking Confirmed - " + serviceName,
-      html: emailHtml,
+      subject: `Booking Confirmed - ${serviceName}`,
+      html,
     });
-
-    if (error) {
-      console.error("Resend error:", error);
-      return { success: false, error };
-    }
-
-    console.log("Email sent successfully:", data);
-    return { success: true, data };
+    return { success: true };
   } catch (error) {
-    console.error("Failed to send email:", error);
-    return { success: false, error };
-  }
-}
-
-export async function sendRescheduleConfirmation(data: {
-  customerEmail: string;
-  customerName: string;
-  serviceName: string;
-  staffName: string;
-  oldTime: Date;
-  newTime: Date;
-  manageToken: string;
-}) {
-  const { customerEmail, customerName, serviceName, staffName, oldTime, newTime, manageToken } = data;
-
-  const formatDate = (date: Date) => date.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const manageUrl = BASE_URL + "/manage-booking?token=" + manageToken;
-
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-      <body style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-        
-        <div style="background: #10B981; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 22px;">Appointment Rescheduled</h1>
-        </div>
-
-        <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-          
-          <p>Hi <strong>${customerName}</strong>, your appointment has been rescheduled.</p>
-
-          <p style="color: #DC2626; text-decoration: line-through;">Old: ${formatDate(oldTime)}</p>
-          <p style="color: #10B981; font-weight: 600; font-size: 16px;">New: ${formatDate(newTime)}</p>
-
-          <p><strong>${serviceName}</strong> with ${staffName}</p>
-
-          <div style="text-align: center; margin: 24px 0;">
-            <a href="${manageUrl}" 
-               style="display: inline-block; background: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-              View Booking
-            </a>
-          </div>
-
-          <p style="font-size: 13px; color: #666;">Hera Nail Spa - 020 1234 5678</p>
-        </div>
-      </body>
-    </html>
-  `;
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || "onboarding@resend.dev",
-      to: customerEmail,
-      subject: "Rescheduled - " + serviceName,
-      html: emailHtml,
-    });
-
-    if (error) return { success: false, error };
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error };
-  }
-}
-
-export async function sendCancellationConfirmation(data: {
-  customerEmail: string;
-  customerName: string;
-  serviceName: string;
-  staffName: string;
-  appointmentTime: Date;
-}) {
-  const { customerEmail, customerName, serviceName, staffName, appointmentTime } = data;
-
-  const formatDate = (date: Date) => date.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const bookingUrl = BASE_URL + "/booking";
-
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-      <body style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-        
-        <div style="background: #DC2626; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 22px;">Booking Cancelled</h1>
-        </div>
-
-        <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-          
-          <p>Hi <strong>${customerName}</strong>, your appointment has been cancelled.</p>
-
-          <p style="color: #666; text-decoration: line-through;">
-            ${serviceName} with ${staffName}<br>
-            ${formatDate(appointmentTime)}
-          </p>
-
-          <div style="text-align: center; margin: 24px 0;">
-            <a href="${bookingUrl}" 
-               style="display: inline-block; background: #EC4899; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-              Book Again
-            </a>
-          </div>
-
-          <p style="font-size: 13px; color: #666;">Hera Nail Spa - 020 1234 5678</p>
-        </div>
-      </body>
-    </html>
-  `;
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || "onboarding@resend.dev",
-      to: customerEmail,
-      subject: "Cancelled - " + serviceName,
-      html: emailHtml,
-    });
-
-    if (error) return { success: false, error };
-    return { success: true, data };
-  } catch (error) {
+    console.error("Email error:", error);
     return { success: false, error };
   }
 }
