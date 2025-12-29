@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/admin";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +22,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push(redirect);
+        router.push("/admin");
       } else {
         setError("Invalid password");
       }
@@ -36,32 +34,40 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.logoSection}>
-          <div style={styles.logo}>H</div>
-          <h1 style={styles.title}>Hera Admin</h1>
-        </div>
-        
-        <p style={styles.subtitle}>Enter password to continue</p>
-
-        <form onSubmit={handleSubmit}>
-          {error && <div style={styles.error}>{error}</div>}
-          
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            style={styles.input}
-            autoFocus
-          />
-          
-          <button type="submit" style={styles.button} disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
+    <div style={styles.card}>
+      <div style={styles.logoSection}>
+        <div style={styles.logo}>H</div>
+        <h1 style={styles.title}>Hera Admin</h1>
       </div>
+      
+      <p style={styles.subtitle}>Enter password to continue</p>
+
+      <form onSubmit={handleSubmit}>
+        {error && <div style={styles.error}>{error}</div>}
+        
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          style={styles.input}
+          autoFocus
+        />
+        
+        <button type="submit" style={styles.button} disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div style={styles.page}>
+      <Suspense fallback={<div style={styles.loading}>Loading...</div>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }
@@ -75,6 +81,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "center",
     padding: 20,
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+  },
+  loading: {
+    color: "#94a3b8",
+    fontSize: 16,
   },
   card: {
     backgroundColor: "#1e293b",
