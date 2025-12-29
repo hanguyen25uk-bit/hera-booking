@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
   const staffId = req.nextUrl.searchParams.get("staffId");
   
   try {
-    // Query by token (for manage booking page)
     if (token) {
       const appointment = await prisma.appointment.findFirst({
         where: { manageToken: token },
@@ -23,7 +22,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(appointment);
     }
 
-    // Query by date and optionally by staffId
     const where: any = {};
     
     if (date) {
@@ -56,7 +54,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = body;
 
-    // Check if customer is blocked
     const existingCustomer = await prisma.customer.findUnique({
       where: { email: customerEmail.toLowerCase() },
     });
@@ -68,13 +65,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get service duration
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
-    // Get staff
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
@@ -83,7 +78,6 @@ export async function POST(req: NextRequest) {
     const start = new Date(startTime);
     const end = new Date(start.getTime() + service.durationMinutes * 60000);
 
-    // Check for double booking
     const conflictingAppointment = await prisma.appointment.findFirst({
       where: {
         staffId,
@@ -120,7 +114,6 @@ export async function POST(req: NextRequest) {
 
     const manageToken = crypto.randomBytes(32).toString("hex");
 
-    // Create or update customer
     let customer = existingCustomer;
     if (!customer) {
       customer = await prisma.customer.create({
@@ -132,7 +125,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         serviceId,
@@ -148,17 +140,20 @@ export async function POST(req: NextRequest) {
       include: { service: true, staff: true },
     });
 
-    // Send confirmation email
+    // Send confirmation email with correct params
     try {
+      const manageUrl = `https://hera-booking.vercel.app/manage-booking?token=${manageToken}`;
+      
       await sendBookingConfirmation({
         customerEmail: customerEmail.toLowerCase(),
         customerName,
         serviceName: service.name,
         staffName: staff.name,
-        startTime: start,
-        endTime: end,
-        bookingId: appointment.id,
-        manageToken,
+        appointmentDate: start.toISOString().split("T")[0],
+        appointmentTime: start.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        duration: service.durationMinutes,
+        bookingRef: appointment.id.slice(0, 8).toUpperCase(),
+        manageUrl,
       });
     } catch (emailError) {
       console.error("Failed to send email:", emailError);
