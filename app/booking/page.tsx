@@ -293,26 +293,40 @@ export default function BookingPage() {
 
   if (loading || !dataReady) {
     return (
-      <div style={styles.page}>
-        <div style={styles.loadingCard}>
-          <div style={styles.spinner}></div>
-          <p style={styles.loadingText}>Loading...</p>
+      <div className="booking-page">
+        <style>{responsiveStyles}</style>
+        <div className="loading-container">
+          <div className="spinner"></div>
+          <p>Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        {/* Left Panel - Progress */}
-        <div style={styles.leftPanel}>
-          <div style={styles.brand}>
-            <div style={styles.logo}>H</div>
-            <span style={styles.brandName}>Hera Booking</span>
+    <div className="booking-page">
+      <style>{responsiveStyles}</style>
+      
+      {/* Mobile Header */}
+      <div className="mobile-header">
+        <div className="mobile-logo">
+          <span className="logo-icon">H</span>
+          <span className="logo-text">Hera Booking</span>
+        </div>
+        <div className="mobile-steps">
+          Step {step} of 5
+        </div>
+      </div>
+
+      <div className="container">
+        {/* Left Panel - Hidden on Mobile */}
+        <div className="left-panel">
+          <div className="brand">
+            <div className="logo">H</div>
+            <span className="brand-name">Hera Booking</span>
           </div>
           
-          <div style={styles.progressList}>
+          <div className="progress-list">
             {[
               { num: 1, label: "Service", desc: "Choose your treatment" },
               { num: 2, label: "Specialist", desc: "Pick your technician" },
@@ -320,80 +334,61 @@ export default function BookingPage() {
               { num: 4, label: "Your Info", desc: "Contact details" },
               { num: 5, label: "Confirmed", desc: "Booking complete" },
             ].map((item) => (
-              <div key={item.num} style={{
-                ...styles.progressItem,
-                opacity: step >= item.num ? 1 : 0.4,
-              }}>
-                <div style={{
-                  ...styles.progressNum,
-                  background: step > item.num ? "#10b981" : step === item.num ? "#6366f1" : "rgba(255,255,255,0.2)",
-                }}>
+              <div key={item.num} className={`progress-item ${step >= item.num ? "active" : ""}`}>
+                <div className={`progress-num ${step > item.num ? "done" : step === item.num ? "current" : ""}`}>
                   {step > item.num ? "✓" : item.num}
                 </div>
                 <div>
-                  <div style={styles.progressLabel}>{item.label}</div>
-                  <div style={styles.progressDesc}>{item.desc}</div>
+                  <div className="progress-label">{item.label}</div>
+                  <div className="progress-desc">{item.desc}</div>
                 </div>
               </div>
             ))}
           </div>
 
           {currentService && (
-            <div style={styles.summary}>
-              <div style={styles.summaryTitle}>Your Selection</div>
-              <div style={styles.summaryItem}>
-                <span style={styles.summaryIcon}>✨</span>
-                <span>{currentService.name}</span>
-              </div>
-              {currentStaff && (
-                <div style={styles.summaryItem}>
-                  <span style={styles.summaryIcon}>👤</span>
-                  <span>{currentStaff.name}</span>
-                </div>
-              )}
+            <div className="summary">
+              <div className="summary-title">Your Selection</div>
+              <div className="summary-item">✨ {currentService.name}</div>
+              {currentStaff && <div className="summary-item">👤 {currentStaff.name}</div>}
               {selectedDate && selectedTime && (
-                <div style={styles.summaryItem}>
-                  <span style={styles.summaryIcon}>📅</span>
-                  <span>{new Date(`${selectedDate}T${selectedTime}`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {selectedTime}</span>
+                <div className="summary-item">
+                  📅 {new Date(`${selectedDate}T${selectedTime}`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {selectedTime}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Right Panel - Content */}
-        <div style={styles.rightPanel}>
-          {error && <div style={styles.error}>{error}</div>}
+        {/* Right Panel */}
+        <div className="right-panel">
+          {error && <div className="error">{error}</div>}
 
           {/* Step 1: Service */}
           {step === 1 && (
-            <div style={styles.stepContent}>
-              <h1 style={styles.stepTitle}>Select a Service</h1>
-              <p style={styles.stepSubtitle}>Choose the treatment you'd like to book</p>
-              <div style={styles.serviceGrid}>
+            <div className="step-content">
+              <h1 className="step-title">Select a Service</h1>
+              <p className="step-subtitle">Choose the treatment you'd like to book</p>
+              <div className="service-grid">
                 {services.map((service) => (
                   <div
                     key={service.id}
                     onClick={() => setSelectedServiceId(service.id)}
-                    style={{
-                      ...styles.serviceCard,
-                      borderColor: selectedServiceId === service.id ? "#6366f1" : "#e2e8f0",
-                      backgroundColor: selectedServiceId === service.id ? "#f5f3ff" : "#fff",
-                    }}
+                    className={`service-card ${selectedServiceId === service.id ? "selected" : ""}`}
                   >
-                    <div style={styles.serviceHeader}>
-                      <h3 style={styles.serviceName}>{service.name}</h3>
-                      {selectedServiceId === service.id && <span style={styles.checkmark}>✓</span>}
+                    <div className="service-header">
+                      <h3 className="service-name">{service.name}</h3>
+                      {selectedServiceId === service.id && <span className="checkmark">✓</span>}
                     </div>
-                    <div style={styles.serviceMeta}>
-                      <span style={styles.duration}>{service.durationMinutes} min</span>
-                      <span style={styles.price}>£{service.price}</span>
+                    <div className="service-meta">
+                      <span className="duration">{service.durationMinutes} min</span>
+                      <span className="price">£{service.price}</span>
                     </div>
                   </div>
                 ))}
               </div>
-              <div style={styles.actions}>
-                <button style={styles.btnPrimary} onClick={() => { if (selectedServiceId) { setError(null); goNext(); } else setError("Please select a service"); }}>
+              <div className="actions">
+                <button className="btn-primary" onClick={() => { if (selectedServiceId) { setError(null); goNext(); } else setError("Please select a service"); }}>
                   Continue
                 </button>
               </div>
@@ -402,51 +397,43 @@ export default function BookingPage() {
 
           {/* Step 2: Staff */}
           {step === 2 && (
-            <div style={styles.stepContent}>
-              <h1 style={styles.stepTitle}>Choose a Specialist</h1>
-              <p style={styles.stepSubtitle}>Select your preferred technician</p>
+            <div className="step-content">
+              <h1 className="step-title">Choose a Specialist</h1>
+              <p className="step-subtitle">Select your preferred technician</p>
               {loadingStaff ? (
                 <p>Loading specialists...</p>
               ) : (
-                <div style={styles.staffGrid}>
+                <div className="staff-grid">
                   <div
                     onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }}
-                    style={{
-                      ...styles.staffCard,
-                      borderColor: selectedStaffId === "any" ? "#6366f1" : "#e2e8f0",
-                      backgroundColor: selectedStaffId === "any" ? "#f5f3ff" : "#fff",
-                    }}
+                    className={`staff-card ${selectedStaffId === "any" ? "selected" : ""}`}
                   >
-                    <div style={styles.staffAvatar}>⭐</div>
-                    <div style={styles.staffInfo}>
-                      <div style={styles.staffName}>Any Available</div>
-                      <div style={styles.staffRole}>First available specialist</div>
+                    <div className="staff-avatar">⭐</div>
+                    <div className="staff-info">
+                      <div className="staff-name">Any Available</div>
+                      <div className="staff-role">First available specialist</div>
                     </div>
-                    {selectedStaffId === "any" && <span style={styles.checkmark}>✓</span>}
+                    {selectedStaffId === "any" && <span className="checkmark">✓</span>}
                   </div>
                   {staff.map((member) => (
                     <div
                       key={member.id}
                       onClick={() => { setSelectedStaffId(member.id); setAssignedStaffId(""); setSelectedTime(""); }}
-                      style={{
-                        ...styles.staffCard,
-                        borderColor: selectedStaffId === member.id ? "#6366f1" : "#e2e8f0",
-                        backgroundColor: selectedStaffId === member.id ? "#f5f3ff" : "#fff",
-                      }}
+                      className={`staff-card ${selectedStaffId === member.id ? "selected" : ""}`}
                     >
-                      <div style={styles.staffAvatar}>{member.name.charAt(0)}</div>
-                      <div style={styles.staffInfo}>
-                        <div style={styles.staffName}>{member.name}</div>
-                        <div style={styles.staffRole}>{member.role || "Nail Technician"}</div>
+                      <div className="staff-avatar">{member.name.charAt(0)}</div>
+                      <div className="staff-info">
+                        <div className="staff-name">{member.name}</div>
+                        <div className="staff-role">{member.role || "Nail Technician"}</div>
                       </div>
-                      {selectedStaffId === member.id && <span style={styles.checkmark}>✓</span>}
+                      {selectedStaffId === member.id && <span className="checkmark">✓</span>}
                     </div>
                   ))}
                 </div>
               )}
-              <div style={styles.actions}>
-                <button style={styles.btnSecondary} onClick={goBack}>Back</button>
-                <button style={styles.btnPrimary} onClick={() => { if (selectedStaffId) { setError(null); goNext(); } else setError("Please select a specialist"); }}>
+              <div className="actions">
+                <button className="btn-secondary" onClick={goBack}>Back</button>
+                <button className="btn-primary" onClick={() => { if (selectedStaffId) { setError(null); goNext(); } else setError("Please select a specialist"); }}>
                   Continue
                 </button>
               </div>
@@ -455,29 +442,29 @@ export default function BookingPage() {
 
           {/* Step 3: Date & Time */}
           {step === 3 && (
-            <div style={styles.stepContent}>
-              <h1 style={styles.stepTitle}>Pick Date & Time</h1>
-              <p style={styles.stepSubtitle}>Choose when you'd like to visit</p>
+            <div className="step-content">
+              <h1 className="step-title">Pick Date & Time</h1>
+              <p className="step-subtitle">Choose when you'd like to visit</p>
               
-              <div style={styles.dateSection}>
-                <label style={styles.label}>Date</label>
+              <div className="date-section">
+                <label className="label">Date</label>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setAssignedStaffId(""); }}
                   min={new Date().toISOString().split("T")[0]}
-                  style={styles.dateInput}
+                  className="date-input"
                 />
               </div>
 
               {loadingHours ? (
                 <p>Loading times...</p>
               ) : timeSlots.length === 0 ? (
-                <div style={styles.noSlots}>No available times on this date</div>
+                <div className="no-slots">No available times on this date</div>
               ) : (
-                <div style={styles.timeSection}>
-                  <label style={styles.label}>Available Times</label>
-                  <div style={styles.timeGrid}>
+                <div className="time-section">
+                  <label className="label">Available Times</label>
+                  <div className="time-grid">
                     {timeSlots.map((time) => {
                       const isPast = isTimeSlotPast(time);
                       return (
@@ -485,13 +472,7 @@ export default function BookingPage() {
                           key={time}
                           disabled={isPast}
                           onClick={() => !isPast && handleTimeSelect(time)}
-                          style={{
-                            ...styles.timeSlot,
-                            borderColor: selectedTime === time ? "#6366f1" : "#e2e8f0",
-                            backgroundColor: isPast ? "#f1f5f9" : selectedTime === time ? "#6366f1" : "#fff",
-                            color: isPast ? "#94a3b8" : selectedTime === time ? "#fff" : "#1e293b",
-                            cursor: isPast ? "not-allowed" : "pointer",
-                          }}
+                          className={`time-slot ${selectedTime === time ? "selected" : ""} ${isPast ? "past" : ""}`}
                         >
                           {time}
                         </button>
@@ -502,14 +483,14 @@ export default function BookingPage() {
               )}
 
               {isAnyStaff && assignedStaffId && selectedTime && (
-                <div style={styles.assignedNote}>
+                <div className="assigned-note">
                   ✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist
                 </div>
               )}
 
-              <div style={styles.actions}>
-                <button style={styles.btnSecondary} onClick={goBack}>Back</button>
-                <button style={styles.btnPrimary} onClick={() => { if (selectedTime) { setError(null); goNext(); } else setError("Please select a time"); }}>
+              <div className="actions">
+                <button className="btn-secondary" onClick={goBack}>Back</button>
+                <button className="btn-primary" onClick={() => { if (selectedTime) { setError(null); goNext(); } else setError("Please select a time"); }}>
                   Continue
                 </button>
               </div>
@@ -518,47 +499,47 @@ export default function BookingPage() {
 
           {/* Step 4: Details */}
           {step === 4 && (
-            <div style={styles.stepContent}>
-              <h1 style={styles.stepTitle}>Your Details</h1>
-              <p style={styles.stepSubtitle}>We'll send your confirmation here</p>
+            <div className="step-content">
+              <h1 className="step-title">Your Details</h1>
+              <p className="step-subtitle">We'll send your confirmation here</p>
               
-              <form onSubmit={handleSubmit} style={styles.form}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Full Name</label>
+              <form onSubmit={handleSubmit} className="form">
+                <div className="form-group">
+                  <label className="label">Full Name</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Enter your name"
-                    style={styles.input}
+                    className="input"
                     required
                   />
                 </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Phone Number</label>
+                <div className="form-group">
+                  <label className="label">Phone Number</label>
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="07xxx xxxxxx"
-                    style={styles.input}
+                    className="input"
                     required
                   />
                 </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Email Address</label>
+                <div className="form-group">
+                  <label className="label">Email Address</label>
                   <input
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     placeholder="you@example.com"
-                    style={styles.input}
+                    className="input"
                     required
                   />
                 </div>
-                <div style={styles.actions}>
-                  <button type="button" style={styles.btnSecondary} onClick={goBack}>Back</button>
-                  <button type="submit" style={styles.btnPrimary} disabled={submitting}>
+                <div className="actions">
+                  <button type="button" className="btn-secondary" onClick={goBack}>Back</button>
+                  <button type="submit" className="btn-primary" disabled={submitting}>
                     {submitting ? "Booking..." : "Confirm Booking"}
                   </button>
                 </div>
@@ -568,39 +549,39 @@ export default function BookingPage() {
 
           {/* Step 5: Success */}
           {step === 5 && (
-            <div style={styles.stepContent}>
-              <div style={styles.successBox}>
-                <div style={styles.successIcon}>✓</div>
-                <h1 style={styles.successTitle}>You're all set!</h1>
-                <p style={styles.successText}>Your appointment has been confirmed</p>
+            <div className="step-content">
+              <div className="success-box">
+                <div className="success-icon">✓</div>
+                <h1 className="success-title">You're all set!</h1>
+                <p className="success-text">Your appointment has been confirmed</p>
                 
-                <div style={styles.confirmCard}>
-                  <div style={styles.confirmRow}>
-                    <span style={styles.confirmLabel}>Service</span>
-                    <span style={styles.confirmValue}>{currentService?.name}</span>
+                <div className="confirm-card">
+                  <div className="confirm-row">
+                    <span className="confirm-label">Service</span>
+                    <span className="confirm-value">{currentService?.name}</span>
                   </div>
-                  <div style={styles.confirmRow}>
-                    <span style={styles.confirmLabel}>Specialist</span>
-                    <span style={styles.confirmValue}>{currentStaff?.name}</span>
+                  <div className="confirm-row">
+                    <span className="confirm-label">Specialist</span>
+                    <span className="confirm-value">{currentStaff?.name}</span>
                   </div>
-                  <div style={styles.confirmRow}>
-                    <span style={styles.confirmLabel}>Date & Time</span>
-                    <span style={styles.confirmValue}>
+                  <div className="confirm-row">
+                    <span className="confirm-label">Date & Time</span>
+                    <span className="confirm-value">
                       {selectedDate && selectedTime && new Date(`${selectedDate}T${selectedTime}`).toLocaleString("en-GB", {
-                        weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit"
+                        weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
                       })}
                     </span>
                   </div>
-                  <div style={styles.confirmRow}>
-                    <span style={styles.confirmLabel}>Booking ID</span>
-                    <span style={styles.confirmValue}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span>
+                  <div className="confirm-row">
+                    <span className="confirm-label">Booking ID</span>
+                    <span className="confirm-value">{successAppointmentId?.slice(0, 8).toUpperCase()}</span>
                   </div>
                 </div>
 
-                <p style={styles.emailNote}>📧 Confirmation sent to {customerEmail}</p>
+                <p className="email-note">�� Confirmation sent to {customerEmail}</p>
 
                 <button
-                  style={styles.btnPrimary}
+                  className="btn-primary"
                   onClick={() => {
                     setStep(1);
                     setSelectedServiceId("");
@@ -625,390 +606,523 @@ export default function BookingPage() {
   );
 }
 
-const styles: { [key: string]: React.CSSProperties } = {
-  page: {
-    minHeight: "100vh",
-    backgroundColor: "#0f172a",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
-  container: {
-    display: "flex",
-    minHeight: "100vh",
-  },
-  leftPanel: {
-    width: 320,
-    backgroundColor: "#1e293b",
-    padding: 32,
-    display: "flex",
-    flexDirection: "column",
-  },
-  brand: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 48,
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#fff",
-    fontWeight: 700,
-    fontSize: 18,
-  },
-  brandName: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: 600,
-  },
-  progressList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 24,
-  },
-  progressItem: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 16,
-    transition: "opacity 0.3s ease",
-  },
-  progressNum: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  progressLabel: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  progressDesc: {
-    color: "#94a3b8",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  summary: {
-    marginTop: "auto",
-    padding: 20,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.1)",
-  },
-  summaryTitle: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    marginBottom: 16,
-  },
-  summaryItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    color: "#fff",
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  summaryIcon: {
-    fontSize: 16,
-  },
-  rightPanel: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: "24px 0 0 24px",
-    padding: 48,
-    overflowY: "auto",
-  },
-  stepContent: {
-    maxWidth: 560,
-    margin: "0 auto",
-  },
-  stepTitle: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: "#0f172a",
-    margin: "0 0 8px",
-    letterSpacing: "-0.5px",
-  },
-  stepSubtitle: {
-    fontSize: 16,
-    color: "#64748b",
-    margin: "0 0 32px",
-  },
-  serviceGrid: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  serviceCard: {
-    padding: 20,
-    borderRadius: 12,
-    border: "2px solid",
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-  serviceHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  serviceName: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: "#6366f1",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 14,
-  },
-  serviceMeta: {
-    display: "flex",
-    gap: 16,
-  },
-  duration: {
-    fontSize: 14,
-    color: "#64748b",
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#059669",
-  },
-  staffGrid: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-  staffCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    padding: 16,
-    borderRadius: 12,
-    border: "2px solid",
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-  staffAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 20,
-    fontWeight: 600,
-  },
-  staffInfo: {
-    flex: 1,
-  },
-  staffName: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#0f172a",
-  },
-  staffRole: {
-    fontSize: 14,
-    color: "#64748b",
-  },
-  dateSection: {
-    marginBottom: 24,
-  },
-  label: {
-    display: "block",
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#374151",
-    marginBottom: 8,
-  },
-  dateInput: {
-    width: "100%",
-    padding: "14px 16px",
-    border: "2px solid #e2e8f0",
-    borderRadius: 10,
-    fontSize: 16,
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  timeSection: {
-    marginBottom: 24,
-  },
-  timeGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 10,
-  },
-  timeSlot: {
-    padding: "12px 8px",
-    borderRadius: 8,
-    border: "2px solid",
-    fontSize: 14,
-    fontWeight: 600,
-    textAlign: "center",
-    transition: "all 0.15s ease",
-  },
-  noSlots: {
-    padding: 24,
-    backgroundColor: "#fef2f2",
-    borderRadius: 10,
-    color: "#dc2626",
-    textAlign: "center",
-  },
-  assignedNote: {
-    padding: 16,
-    backgroundColor: "#ecfdf5",
-    borderRadius: 10,
-    color: "#059669",
-    fontSize: 14,
-    fontWeight: 500,
-    marginBottom: 24,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 20,
-  },
-  formGroup: {},
-  input: {
-    width: "100%",
-    padding: "14px 16px",
-    border: "2px solid #e2e8f0",
-    borderRadius: 10,
-    fontSize: 16,
-    outline: "none",
-    boxSizing: "border-box",
-    transition: "border-color 0.15s ease",
-  },
-  actions: {
-    display: "flex",
-    gap: 12,
-    marginTop: 32,
-  },
-  btnPrimary: {
-    flex: 1,
-    padding: "16px 24px",
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "transform 0.15s ease",
-  },
-  btnSecondary: {
-    padding: "16px 24px",
-    backgroundColor: "#fff",
-    color: "#475569",
-    border: "2px solid #e2e8f0",
-    borderRadius: 10,
-    fontSize: 16,
-    fontWeight: 500,
-    cursor: "pointer",
-  },
-  error: {
-    padding: 16,
-    backgroundColor: "#fef2f2",
-    border: "1px solid #fecaca",
-    borderRadius: 10,
-    color: "#dc2626",
-    fontSize: 14,
-    marginBottom: 24,
-  },
-  successBox: {
-    textAlign: "center",
-    padding: "40px 0",
-  },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-    color: "#fff",
-    fontSize: 40,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    margin: "0 auto 24px",
-  },
-  successTitle: {
-    fontSize: 28,
-    fontWeight: 700,
-    color: "#0f172a",
-    margin: "0 0 8px",
-  },
-  successText: {
-    fontSize: 16,
-    color: "#64748b",
-    margin: "0 0 32px",
-  },
-  confirmCard: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    padding: 24,
-    textAlign: "left",
-    marginBottom: 24,
-  },
-  confirmRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "12px 0",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  confirmLabel: {
-    fontSize: 14,
-    color: "#64748b",
-  },
-  confirmValue: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#0f172a",
-  },
-  emailNote: {
-    fontSize: 14,
-    color: "#64748b",
-    marginBottom: 24,
-  },
-  loadingCard: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-  },
-  spinner: {
-    width: 40,
-    height: 40,
-    border: "4px solid rgba(255,255,255,0.2)",
-    borderTop: "4px solid #6366f1",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  loadingText: {
-    color: "#94a3b8",
-    marginTop: 16,
-  },
-};
+const responsiveStyles = `
+  * { box-sizing: border-box; }
+  
+  .booking-page {
+    min-height: 100vh;
+    background-color: #0f172a;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: #94a3b8;
+  }
+  
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255,255,255,0.2);
+    border-top: 4px solid #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .mobile-header {
+    display: none;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .mobile-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  
+  .mobile-logo .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  
+  .mobile-logo .logo-text {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .mobile-steps {
+    color: rgba(255,255,255,0.8);
+    font-size: 13px;
+  }
+  
+  .container {
+    display: flex;
+    min-height: 100vh;
+  }
+  
+  .left-panel {
+    width: 320px;
+    background-color: #1e293b;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+  
+  .logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  
+  .brand-name {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  .progress-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    opacity: 0.4;
+    transition: opacity 0.3s ease;
+  }
+  
+  .progress-item.active { opacity: 1; }
+  
+  .progress-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  
+  .progress-num.done { background: #10b981; }
+  .progress-num.current { background: #6366f1; }
+  
+  .progress-label {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  
+  .progress-desc {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  
+  .summary {
+    margin-top: auto;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  
+  .summary-title {
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+  
+  .summary-item {
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  
+  .right-panel {
+    flex: 1;
+    margin-left: 320px;
+    background-color: #fff;
+    border-radius: 24px 0 0 24px;
+    padding: 48px;
+    min-height: 100vh;
+  }
+  
+  .step-content {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  
+  .step-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+  }
+  
+  .step-subtitle {
+    font-size: 15px;
+    color: #64748b;
+    margin: 0 0 32px;
+  }
+  
+  .service-grid, .staff-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .service-card, .staff-card {
+    padding: 20px;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #fff;
+  }
+  
+  .service-card.selected, .staff-card.selected {
+    border-color: #6366f1;
+    background: #f5f3ff;
+  }
+  
+  .service-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .service-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+  }
+  
+  .checkmark {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #6366f1;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  
+  .service-meta {
+    display: flex;
+    gap: 16px;
+  }
+  
+  .duration { font-size: 14px; color: #64748b; }
+  .price { font-size: 16px; font-weight: 700; color: #059669; }
+  
+  .staff-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+  }
+  
+  .staff-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  
+  .staff-info { flex: 1; }
+  .staff-name { font-size: 16px; font-weight: 600; color: #0f172a; }
+  .staff-role { font-size: 14px; color: #64748b; }
+  
+  .date-section { margin-bottom: 24px; }
+  
+  .label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+  }
+  
+  .date-input, .input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  
+  .date-input:focus, .input:focus {
+    border-color: #6366f1;
+  }
+  
+  .time-section { margin-bottom: 24px; }
+  
+  .time-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  
+  .time-slot {
+    padding: 12px 8px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #fff;
+    color: #1e293b;
+  }
+  
+  .time-slot.selected {
+    border-color: #6366f1;
+    background: #6366f1;
+    color: #fff;
+  }
+  
+  .time-slot.past {
+    background: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+  
+  .no-slots {
+    padding: 24px;
+    background: #fef2f2;
+    border-radius: 10px;
+    color: #dc2626;
+    text-align: center;
+  }
+  
+  .assigned-note {
+    padding: 16px;
+    background: #ecfdf5;
+    border-radius: 10px;
+    color: #059669;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 24px;
+  }
+  
+  .form { display: flex; flex-direction: column; gap: 20px; }
+  .form-group { }
+  
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  
+  .btn-primary {
+    flex: 1;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  
+  .btn-secondary {
+    padding: 16px 24px;
+    background: #fff;
+    color: #475569;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  
+  .error {
+    padding: 16px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    color: #dc2626;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  
+  .success-box { text-align: center; padding: 20px 0; }
+  
+  .success-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+    font-size: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+  }
+  
+  .success-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 8px;
+  }
+  
+  .success-text {
+    font-size: 15px;
+    color: #64748b;
+    margin: 0 0 32px;
+  }
+  
+  .confirm-card {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  
+  .confirm-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .confirm-row:last-child { border-bottom: none; }
+  
+  .confirm-label { font-size: 14px; color: #64748b; }
+  .confirm-value { font-size: 14px; font-weight: 600; color: #0f172a; }
+  
+  .email-note {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 24px;
+  }
+  
+  /* MOBILE RESPONSIVE */
+  @media (max-width: 768px) {
+    .mobile-header {
+      display: block;
+    }
+    
+    .left-panel {
+      display: none;
+    }
+    
+    .right-panel {
+      margin-left: 0;
+      border-radius: 0;
+      padding: 24px 20px;
+      min-height: calc(100vh - 80px);
+    }
+    
+    .step-title {
+      font-size: 24px;
+    }
+    
+    .step-subtitle {
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    
+    .time-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .actions {
+      flex-direction: column-reverse;
+    }
+    
+    .btn-secondary {
+      width: 100%;
+    }
+    
+    .service-name {
+      font-size: 16px;
+    }
+    
+    .staff-avatar {
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+    }
+    
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      font-size: 32px;
+    }
+    
+    .success-title {
+      font-size: 22px;
+    }
+  }
+`;
