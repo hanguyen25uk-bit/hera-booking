@@ -8,7 +8,6 @@ export async function PATCH(req: NextRequest) {
     const { id, token, status, startTime } = body;
 
     let appointment;
-
     if (token) {
       appointment = await prisma.appointment.findFirst({
         where: { manageToken: token },
@@ -29,8 +28,7 @@ export async function PATCH(req: NextRequest) {
 
     if (status) {
       updateData.status = status;
-
-      // If marking as no-show, update customer record
+      
       if (status === "noshow" && appointment.customerEmail) {
         const customer = await prisma.customer.findUnique({
           where: { email: appointment.customerEmail.toLowerCase() },
@@ -89,7 +87,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
     }
 
-    // Update status to cancelled
     const updated = await prisma.appointment.update({
       where: { id: appointment.id },
       data: { status: "cancelled" },
@@ -98,12 +95,15 @@ export async function DELETE(req: NextRequest) {
 
     // Send cancellation email
     try {
+      const startDate = new Date(appointment.startTime);
       await sendCancellationConfirmation({
         customerEmail: appointment.customerEmail,
         customerName: appointment.customerName,
         serviceName: appointment.service.name,
         staffName: appointment.staff.name,
-        appointmentTime: appointment.startTime,
+        appointmentDate: startDate.toISOString().split("T")[0],
+        appointmentTime: startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        bookingRef: appointment.id.slice(0, 8).toUpperCase(),
       });
       console.log("Cancellation email sent to:", appointment.customerEmail);
     } catch (emailError) {
