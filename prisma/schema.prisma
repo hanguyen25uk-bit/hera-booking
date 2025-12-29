@@ -14,7 +14,7 @@ model Service {
   price           Float
   category        String?
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  updatedAt       DateTime      @default(now())
   appointments    Appointment[]
   staffServices   StaffService[]
 }
@@ -25,7 +25,7 @@ model Staff {
   role         String?
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  updatedAt    DateTime      @default(now())
   appointments Appointment[]
   workingHours WorkingHours[]
   staffServices StaffService[]
@@ -52,7 +52,7 @@ model WorkingHours {
   endTime   String
   isWorking Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 
   @@unique([staffId, dayOfWeek])
 }
@@ -67,7 +67,7 @@ model StaffScheduleOverride {
   endTime   String?
   note      String?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 
   @@unique([staffId, date])
 }
@@ -88,7 +88,7 @@ model Appointment {
   status        String   @default("confirmed")
   manageToken   String   @unique
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  updatedAt     DateTime @default(now())
 }
 
 model Customer {
@@ -100,14 +100,16 @@ model Customer {
   isBlocked   Boolean       @default(false)
   blockedAt   DateTime?
   createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  updatedAt   DateTime      @default(now())
   appointments Appointment[]
 }
 
 model Settings {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String   @id @default("default")
+  salonName            String   @default("Hera Nail Spa")
+  salonPhone           String   @default("")
+  salonAddress         String   @default("")
+  cancelMinutesAdvance Int      @default(60)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now())
 }
