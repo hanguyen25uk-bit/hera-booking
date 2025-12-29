@@ -8,23 +8,17 @@ export function middleware(request: NextRequest) {
   if (path.startsWith("/admin")) {
     const sessionToken = request.cookies.get("admin_session")?.value;
 
-    // Check if session exists and is valid format (64 hex chars)
-    const isValidFormat = sessionToken && /^[a-f0-9]{64}$/.test(sessionToken);
-
-    if (!isValidFormat) {
-      // Redirect to login
+    if (!sessionToken) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("redirect", path);
       return NextResponse.redirect(loginUrl);
     }
   }
 
-  // Protect admin API routes (except auth)
-  if (path.startsWith("/api/admin") && !path.startsWith("/api/auth")) {
+  // Protect admin API routes
+  if (path.startsWith("/api/admin")) {
     const sessionToken = request.cookies.get("admin_session")?.value;
-    const isValidFormat = sessionToken && /^[a-f0-9]{64}$/.test(sessionToken);
 
-    if (!isValidFormat) {
+    if (!sessionToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
