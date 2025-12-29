@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 function LoginForm() {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -45,14 +46,23 @@ function LoginForm() {
       <form onSubmit={handleSubmit}>
         {error && <div style={styles.error}>{error}</div>}
         
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          style={styles.input}
-          autoFocus
-        />
+        <div style={styles.inputWrapper}>
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            style={styles.input}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={styles.eyeButton}
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
         
         <button type="submit" style={styles.button} disabled={loading}>
           {loading ? "Logging in..." : "Login"}
@@ -130,17 +140,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 14,
     marginBottom: 16,
   },
+  inputWrapper: {
+    position: "relative",
+    marginBottom: 16,
+  },
   input: {
     width: "100%",
-    padding: "14px 16px",
+    padding: "14px 50px 14px 16px",
     backgroundColor: "#0f172a",
     border: "2px solid #334155",
     borderRadius: 10,
     color: "#fff",
     fontSize: 16,
     outline: "none",
-    marginBottom: 16,
     boxSizing: "border-box",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    fontSize: 20,
+    cursor: "pointer",
+    padding: 4,
   },
   button: {
     width: "100%",
