@@ -26,7 +26,6 @@ export default function StaffPage() {
   const [showModal, setShowModal] = useState(false);
   const [showServiceModal, setShowServiceModal] = useState(false);
 
-  // Form states
   const [formName, setFormName] = useState("");
   const [formRole, setFormRole] = useState("");
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -56,7 +55,6 @@ export default function StaffPage() {
       const data = await res.json();
       setStaffServices(data.map((s: Service) => s.id));
     } catch (err) {
-      console.error("Failed to load staff services:", err);
       setStaffServices([]);
     }
   }
@@ -68,45 +66,34 @@ export default function StaffPage() {
       await fetch("/api/admin/staff-services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          staffId: selectedStaff.id,
-          serviceIds: staffServices,
-        }),
+        body: JSON.stringify({ staffId: selectedStaff.id, serviceIds: staffServices }),
       });
       setShowServiceModal(false);
-      alert("Đã lưu dịch vụ cho " + selectedStaff.name);
     } catch (err) {
-      alert("Lỗi khi lưu");
+      alert("Error saving");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleSaveStaff() {
-    if (!formName.trim()) {
-      alert("Vui lòng nhập tên");
-      return;
-    }
+    if (!formName.trim()) return;
     setSaving(true);
     try {
-      const url = editingStaff
-        ? `/api/admin/staff/${editingStaff.id}`
-        : "/api/admin/staff";
+      const url = editingStaff ? `/api/admin/staff/${editingStaff.id}` : "/api/admin/staff";
       const method = editingStaff ? "PUT" : "POST";
-      
       await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: formName, role: formRole || "Nail Technician" }),
       });
-      
       setShowModal(false);
       setFormName("");
       setFormRole("");
       setEditingStaff(null);
       loadData();
     } catch (err) {
-      alert("Lỗi khi lưu");
+      alert("Error saving");
     } finally {
       setSaving(false);
     }
@@ -121,17 +108,17 @@ export default function StaffPage() {
       });
       loadData();
     } catch (err) {
-      alert("Lỗi");
+      alert("Error");
     }
   }
 
   async function handleDelete(s: Staff) {
-    if (!confirm(`Xóa ${s.name}?`)) return;
+    if (!confirm(`Delete ${s.name}?`)) return;
     try {
       await fetch(`/api/admin/staff/${s.id}`, { method: "DELETE" });
       loadData();
     } catch (err) {
-      alert("Lỗi khi xóa");
+      alert("Error deleting");
     }
   }
 
@@ -157,149 +144,168 @@ export default function StaffPage() {
 
   function toggleService(serviceId: string) {
     setStaffServices(prev =>
-      prev.includes(serviceId)
-        ? prev.filter(id => id !== serviceId)
-        : [...prev, serviceId]
+      prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]
     );
   }
 
   if (loading) {
-    return <div style={styles.container}><p>Đang tải...</p></div>;
+    return (
+      <div style={styles.page}>
+        <div style={styles.loading}>Loading...</div>
+      </div>
+    );
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.page}>
+      {/* Header */}
       <div style={styles.header}>
-        <h1 style={styles.title}>Quản lý nhân viên</h1>
+        <div>
+          <h1 style={styles.title}>Staff</h1>
+          <p style={styles.subtitle}>Manage your team members and their services</p>
+        </div>
         <button style={styles.btnPrimary} onClick={openAddModal}>
-          + Thêm nhân viên
+          + Add Staff
         </button>
       </div>
 
-      <div style={styles.grid}>
-        {staff.map((s) => (
-          <div key={s.id} style={styles.card}>
-            <div style={styles.cardHeader}>
-              <div style={styles.avatar}>
-                {s.name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 style={styles.staffName}>{s.name}</h3>
-                <p style={styles.staffRole}>{s.role || "Nail Technician"}</p>
-              </div>
-            </div>
-            
-            <div style={{
-              ...styles.statusBadge,
-              backgroundColor: s.active ? "#D1FAE5" : "#FEE2E2",
-              color: s.active ? "#059669" : "#DC2626",
-            }}>
-              {s.active ? "Đang làm việc" : "Nghỉ"}
-            </div>
+      {/* Staff Table */}
+      <div style={styles.tableCard}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Name</th>
+              <th style={styles.th}>Role</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Services</th>
+              <th style={{...styles.th, textAlign: "right"}}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {staff.map((s) => (
+              <tr key={s.id} style={styles.tr}>
+                <td style={styles.td}>
+                  <div style={styles.nameCell}>
+                    <div style={styles.avatar}>{s.name.charAt(0)}</div>
+                    <span style={styles.name}>{s.name}</span>
+                  </div>
+                </td>
+                <td style={styles.td}>
+                  <span style={styles.role}>{s.role || "Nail Technician"}</span>
+                </td>
+                <td style={styles.td}>
+                  <span style={{
+                    ...styles.badge,
+                    backgroundColor: s.active ? "#ecfdf5" : "#fef2f2",
+                    color: s.active ? "#059669" : "#dc2626",
+                  }}>
+                    {s.active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td style={styles.td}>
+                  <button style={styles.btnServices} onClick={() => openServiceModal(s)}>
+                    Manage Services
+                  </button>
+                </td>
+                <td style={{...styles.td, textAlign: "right"}}>
+                  <div style={styles.actions}>
+                    <button style={styles.btnIcon} onClick={() => openEditModal(s)} title="Edit">
+                      ✏️
+                    </button>
+                    <button style={styles.btnIcon} onClick={() => handleToggleActive(s)} title={s.active ? "Deactivate" : "Activate"}>
+                      {s.active ? "⏸" : "▶️"}
+                    </button>
+                    <button style={{...styles.btnIcon, color: "#dc2626"}} onClick={() => handleDelete(s)} title="Delete">
+                      🗑
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-            <div style={styles.cardActions}>
-              <button
-                style={styles.btnService}
-                onClick={() => openServiceModal(s)}
-                title="Gán dịch vụ"
-              >
-                💅 Dịch vụ
-              </button>
-              <button
-                style={styles.btnEdit}
-                onClick={() => openEditModal(s)}
-                title="Sửa"
-              >
-                ✏️
-              </button>
-              <button
-                style={styles.btnToggle}
-                onClick={() => handleToggleActive(s)}
-                title={s.active ? "Tạm nghỉ" : "Kích hoạt"}
-              >
-                {s.active ? "⏸️" : "▶️"}
-              </button>
-              <button
-                style={styles.btnDelete}
-                onClick={() => handleDelete(s)}
-                title="Xóa"
-              >
-                🗑️
-              </button>
-            </div>
+        {staff.length === 0 && (
+          <div style={styles.empty}>
+            <p>No staff members yet</p>
+            <button style={styles.btnPrimary} onClick={openAddModal}>Add your first staff</button>
           </div>
-        ))}
+        )}
       </div>
 
-      {/* Modal thêm/sửa nhân viên */}
+      {/* Add/Edit Modal */}
       {showModal && (
-        <div style={styles.modalOverlay}>
+        <div style={styles.overlay}>
           <div style={styles.modal}>
-            <h2 style={styles.modalTitle}>
-              {editingStaff ? "Sửa nhân viên" : "Thêm nhân viên"}
-            </h2>
-            <label style={styles.label}>
-              Tên
-              <input
-                style={styles.input}
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="Nhập tên nhân viên"
-              />
-            </label>
-            <label style={styles.label}>
-              Vai trò
-              <input
-                style={styles.input}
-                value={formRole}
-                onChange={(e) => setFormRole(e.target.value)}
-                placeholder="Nail Technician"
-              />
-            </label>
-            <div style={styles.modalActions}>
-              <button style={styles.btnSecondary} onClick={() => setShowModal(false)}>
-                Hủy
-              </button>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>{editingStaff ? "Edit Staff" : "Add Staff"}</h2>
+              <button style={styles.closeBtn} onClick={() => setShowModal(false)}>×</button>
+            </div>
+            <div style={styles.modalBody}>
+              <label style={styles.label}>
+                Name
+                <input
+                  style={styles.input}
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="Enter name"
+                />
+              </label>
+              <label style={styles.label}>
+                Role
+                <input
+                  style={styles.input}
+                  value={formRole}
+                  onChange={(e) => setFormRole(e.target.value)}
+                  placeholder="Nail Technician"
+                />
+              </label>
+            </div>
+            <div style={styles.modalFooter}>
+              <button style={styles.btnSecondary} onClick={() => setShowModal(false)}>Cancel</button>
               <button style={styles.btnPrimary} onClick={handleSaveStaff} disabled={saving}>
-                {saving ? "Đang lưu..." : "Lưu"}
+                {saving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal gán dịch vụ */}
+      {/* Services Modal */}
       {showServiceModal && selectedStaff && (
-        <div style={styles.modalOverlay}>
+        <div style={styles.overlay}>
           <div style={styles.modal}>
-            <h2 style={styles.modalTitle}>
-              Dịch vụ của {selectedStaff.name}
-            </h2>
-            <p style={styles.modalSubtitle}>Chọn các dịch vụ nhân viên này có thể làm:</p>
-            
-            <div style={styles.serviceList}>
-              {services.map((service) => (
-                <label key={service.id} style={styles.serviceItem}>
-                  <input
-                    type="checkbox"
-                    checked={staffServices.includes(service.id)}
-                    onChange={() => toggleService(service.id)}
-                    style={styles.checkbox}
-                  />
-                  <span style={styles.serviceName}>{service.name}</span>
-                  <span style={styles.serviceMeta}>
-                    {service.durationMinutes} phút • £{service.price}
-                  </span>
-                </label>
-              ))}
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Services for {selectedStaff.name}</h2>
+              <button style={styles.closeBtn} onClick={() => setShowServiceModal(false)}>×</button>
             </div>
-
-            <div style={styles.modalActions}>
-              <button style={styles.btnSecondary} onClick={() => setShowServiceModal(false)}>
-                Hủy
-              </button>
+            <div style={styles.modalBody}>
+              <p style={styles.modalSubtitle}>Select services this staff member can perform:</p>
+              <div style={styles.serviceGrid}>
+                {services.map((service) => (
+                  <label key={service.id} style={{
+                    ...styles.serviceCard,
+                    borderColor: staffServices.includes(service.id) ? "#6366f1" : "#e2e8f0",
+                    backgroundColor: staffServices.includes(service.id) ? "#eef2ff" : "#fff",
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={staffServices.includes(service.id)}
+                      onChange={() => toggleService(service.id)}
+                      style={styles.checkbox}
+                    />
+                    <div>
+                      <div style={styles.serviceName}>{service.name}</div>
+                      <div style={styles.serviceMeta}>{service.durationMinutes}min • £{service.price}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={styles.modalFooter}>
+              <button style={styles.btnSecondary} onClick={() => setShowServiceModal(false)}>Cancel</button>
               <button style={styles.btnPrimary} onClick={handleSaveServices} disabled={saving}>
-                {saving ? "Đang lưu..." : "Lưu dịch vụ"}
+                {saving ? "Saving..." : "Save Services"}
               </button>
             </div>
           </div>
@@ -310,107 +316,123 @@ export default function StaffPage() {
 }
 
 const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    padding: 24,
+  page: {
+    maxWidth: 1200,
+  },
+  loading: {
+    padding: 40,
+    textAlign: "center",
+    color: "#64748b",
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
+    alignItems: "flex-start",
+    marginBottom: 32,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 700,
-    color: "#111827",
+    color: "#0f172a",
     margin: 0,
+    letterSpacing: "-0.5px",
   },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: 16,
+  subtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    margin: "4px 0 0",
   },
-  card: {
-    backgroundColor: "#FFFFFF",
+  tableCard: {
+    backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 20,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    border: "1px solid #e2e8f0",
+    overflow: "hidden",
   },
-  cardHeader: {
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  th: {
+    textAlign: "left",
+    padding: "14px 20px",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    borderBottom: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+  },
+  tr: {
+    borderBottom: "1px solid #f1f5f9",
+  },
+  td: {
+    padding: "16px 20px",
+    fontSize: 14,
+    color: "#334155",
+  },
+  nameCell: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    marginBottom: 12,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: "50%",
-    backgroundColor: "#EC4899",
-    color: "#FFFFFF",
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+    color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 20,
     fontWeight: 600,
+    fontSize: 14,
   },
-  staffName: {
-    fontSize: 16,
+  name: {
     fontWeight: 600,
-    color: "#111827",
-    margin: 0,
+    color: "#0f172a",
   },
-  staffRole: {
-    fontSize: 13,
-    color: "#6B7280",
-    margin: 0,
+  role: {
+    color: "#64748b",
   },
-  statusBadge: {
+  badge: {
     display: "inline-block",
-    padding: "4px 12px",
-    borderRadius: 20,
+    padding: "4px 10px",
+    borderRadius: 6,
     fontSize: 12,
     fontWeight: 500,
-    marginBottom: 12,
   },
-  cardActions: {
+  actions: {
     display: "flex",
     gap: 8,
+    justifyContent: "flex-end",
   },
-  btnService: {
-    flex: 1,
-    padding: "8px 12px",
-    backgroundColor: "#F0FDF4",
-    border: "1px solid #86EFAC",
-    borderRadius: 8,
+  btnIcon: {
+    width: 32,
+    height: 32,
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnServices: {
+    padding: "6px 12px",
+    backgroundColor: "#f1f5f9",
+    border: "1px solid #e2e8f0",
+    borderRadius: 6,
     fontSize: 13,
+    color: "#475569",
     cursor: "pointer",
-  },
-  btnEdit: {
-    padding: "8px 12px",
-    backgroundColor: "#FEF3C7",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-  btnToggle: {
-    padding: "8px 12px",
-    backgroundColor: "#E0E7FF",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-  btnDelete: {
-    padding: "8px 12px",
-    backgroundColor: "#FEE2E2",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
+    fontWeight: 500,
   },
   btnPrimary: {
     padding: "10px 20px",
-    backgroundColor: "#EC4899",
-    color: "#FFFFFF",
+    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+    color: "#fff",
     border: "none",
     borderRadius: 8,
     fontSize: 14,
@@ -419,50 +441,81 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   btnSecondary: {
     padding: "10px 20px",
-    backgroundColor: "#FFFFFF",
-    color: "#374151",
-    border: "1px solid #D1D5DB",
+    backgroundColor: "#fff",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
     borderRadius: 8,
     fontSize: 14,
+    fontWeight: 500,
     cursor: "pointer",
   },
-  modalOverlay: {
+  empty: {
+    padding: 60,
+    textAlign: "center",
+    color: "#64748b",
+  },
+  overlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backdropFilter: "blur(4px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1000,
   },
   modal: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#fff",
     borderRadius: 16,
-    padding: 24,
     width: "90%",
-    maxWidth: 400,
-    maxHeight: "80vh",
-    overflow: "auto",
+    maxWidth: 480,
+    maxHeight: "85vh",
+    overflow: "hidden",
+    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "20px 24px",
+    borderBottom: "1px solid #e2e8f0",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 600,
-    color: "#111827",
-    margin: "0 0 8px 0",
+    color: "#0f172a",
+    margin: 0,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: "#6B7280",
-    margin: "0 0 16px 0",
+    color: "#64748b",
+    margin: "0 0 16px",
   },
-  modalActions: {
+  closeBtn: {
+    width: 32,
+    height: 32,
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
+    fontSize: 20,
+    cursor: "pointer",
+    color: "#64748b",
+  },
+  modalBody: {
+    padding: 24,
+    overflowY: "auto",
+    maxHeight: "60vh",
+  },
+  modalFooter: {
     display: "flex",
     gap: 12,
-    marginTop: 24,
     justifyContent: "flex-end",
+    padding: "16px 24px",
+    borderTop: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
   },
   label: {
     display: "block",
@@ -474,26 +527,28 @@ const styles: { [key: string]: React.CSSProperties } = {
   input: {
     display: "block",
     width: "100%",
-    padding: "10px 12px",
+    padding: "10px 14px",
     marginTop: 6,
-    border: "1px solid #D1D5DB",
+    border: "1px solid #e2e8f0",
     borderRadius: 8,
     fontSize: 14,
     boxSizing: "border-box",
+    outline: "none",
   },
-  serviceList: {
+  serviceGrid: {
     display: "flex",
     flexDirection: "column",
     gap: 8,
   },
-  serviceItem: {
+  serviceCard: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    padding: 12,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 8,
+    padding: 14,
+    border: "2px solid",
+    borderRadius: 10,
     cursor: "pointer",
+    transition: "all 0.15s ease",
   },
   checkbox: {
     width: 18,
@@ -501,13 +556,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
   },
   serviceName: {
-    flex: 1,
+    fontWeight: 600,
+    color: "#0f172a",
     fontSize: 14,
-    fontWeight: 500,
-    color: "#111827",
   },
   serviceMeta: {
     fontSize: 12,
-    color: "#6B7280",
+    color: "#64748b",
+    marginTop: 2,
   },
 };

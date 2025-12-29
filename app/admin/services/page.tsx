@@ -1,116 +1,421 @@
 "use client";
-import { useState, useEffect } from "react";
-import Link from "next/link";
 
-interface Service { id: string; name: string; durationMinutes: number; price: number; category: string | null; }
+import { useEffect, useState } from "react";
 
-export default function AdminServices() {
+type Service = {
+  id: string;
+  name: string;
+  durationMinutes: number;
+  price: number;
+  category: string | null;
+};
+
+export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Service | null>(null);
-  const [form, setForm] = useState({ name: "", durationMinutes: 30, price: 0, category: "" });
+  const [saving, setSaving] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
 
-  useEffect(() => { fetchServices(); }, []);
-  const fetchServices = () => fetch("/api/services").then(r => r.json()).then(setServices);
+  const [formName, setFormName] = useState("");
+  const [formDuration, setFormDuration] = useState("60");
+  const [formPrice, setFormPrice] = useState("");
+  const [formCategory, setFormCategory] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await fetch(editing ? `/api/admin/services/${editing.id}` : "/api/admin/services", {
-      method: editing ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    fetchServices(); setShowModal(false); setEditing(null);
-  };
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Xóa dịch vụ này?")) return;
-    await fetch(`/api/admin/services/${id}`, { method: "DELETE" });
-    fetchServices();
-  };
+  async function loadData() {
+    try {
+      const res = await fetch("/api/services");
+      setServices(await res.json());
+    } catch (err) {
+      console.error("Failed to load:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const menu = [
-    { href: "/admin", label: "Dashboard", icon: "📊" },
-    { href: "/admin/services", label: "Dịch vụ", icon: "💅", active: true },
-    { href: "/admin/staff", label: "Nhân viên", icon: "👩‍💼" },
-    { href: "/admin/working-hours", label: "Giờ làm việc", icon: "🕐" },
-    { href: "/admin/calendar", label: "Lịch đặt", icon: "📅" },
-  ];
+  async function handleSave() {
+    if (!formName.trim() || !formPrice) return;
+    setSaving(true);
+    try {
+      const url = editingService ? `/api/admin/services/${editingService.id}` : "/api/admin/services";
+      const method = editingService ? "PUT" : "POST";
+      await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formName,
+          durationMinutes: parseInt(formDuration),
+          price: parseFloat(formPrice),
+          category: formCategory || "General",
+        }),
+      });
+      setShowModal(false);
+      resetForm();
+      loadData();
+    } catch (err) {
+      alert("Error saving");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(service: Service) {
+    if (!confirm(`Delete "${service.name}"?`)) return;
+    try {
+      await fetch(`/api/admin/services/${service.id}`, { method: "DELETE" });
+      loadData();
+    } catch (err) {
+      alert("Error deleting");
+    }
+  }
+
+  function resetForm() {
+    setFormName("");
+    setFormDuration("60");
+    setFormPrice("");
+    setFormCategory("");
+    setEditingService(null);
+  }
+
+  function openAddModal() {
+    resetForm();
+    setShowModal(true);
+  }
+
+  function openEditModal(service: Service) {
+    setEditingService(service);
+    setFormName(service.name);
+    setFormDuration(service.durationMinutes.toString());
+    setFormPrice(service.price.toString());
+    setFormCategory(service.category || "");
+    setShowModal(true);
+  }
+
+  if (loading) {
+    return <div style={styles.page}><div style={styles.loading}>Loading...</div></div>;
+  }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f5f5" }}>
-      <aside style={{ width: 250, background: "#1a1a2e", color: "white", padding: 20 }}>
-        <h1 style={{ fontSize: 24, marginBottom: 30, color: "#ff69b4" }}>🌸 Hera Admin</h1>
-        <nav>{menu.map((m) => (
-          <Link key={m.href} href={m.href} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 8, marginBottom: 8, background: m.active ? "#ff69b4" : "transparent", color: "white", textDecoration: "none" }}>
-            <span>{m.icon}</span><span>{m.label}</span>
-          </Link>
-        ))}</nav>
-      </aside>
-      <main style={{ flex: 1, padding: 30 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 30 }}>
-          <h2 style={{ fontSize: 28 }}>Quản lý dịch vụ</h2>
-          <button onClick={() => { setEditing(null); setForm({ name: "", durationMinutes: 30, price: 0, category: "" }); setShowModal(true); }} style={{ padding: "12px 24px", background: "#ff69b4", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>➕ Thêm dịch vụ</button>
+    <div style={styles.page}>
+      {/* Header */}
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.title}>Services</h1>
+          <p style={styles.subtitle}>Manage your service menu and pricing</p>
         </div>
-        <div style={{ background: "white", borderRadius: 12, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr style={{ background: "#f8f9fa" }}>
-              <th style={{ padding: 16, textAlign: "left" }}>Tên</th>
-              <th style={{ padding: 16, textAlign: "left" }}>Thời gian</th>
-              <th style={{ padding: 16, textAlign: "left" }}>Giá</th>
-              <th style={{ padding: 16, textAlign: "left" }}>Danh mục</th>
-              <th style={{ padding: 16, textAlign: "left" }}>Thao tác</th>
-            </tr></thead>
-            <tbody>{services.map((s) => (
-              <tr key={s.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={{ padding: 16 }}>{s.name}</td>
-                <td style={{ padding: 16 }}>{s.durationMinutes} phút</td>
-                <td style={{ padding: 16 }}>£{s.price}</td>
-                <td style={{ padding: 16 }}>{s.category || "-"}</td>
-                <td style={{ padding: 16 }}>
-                  <button onClick={() => { setEditing(s); setForm({ name: s.name, durationMinutes: s.durationMinutes, price: s.price, category: s.category || "" }); setShowModal(true); }} style={{ padding: "6px 12px", background: "#3498db", color: "white", border: "none", borderRadius: 4, marginRight: 8, cursor: "pointer" }}>✏️</button>
-                  <button onClick={() => handleDelete(s.id)} style={{ padding: "6px 12px", background: "#e74c3c", color: "white", border: "none", borderRadius: 4, cursor: "pointer" }}>🗑️</button>
-                </td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-        {showModal && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-            <div style={{ background: "white", padding: 32, borderRadius: 12, width: 400 }}>
-              <h3 style={{ marginBottom: 20 }}>{editing ? "Sửa dịch vụ" : "Thêm dịch vụ"}</h3>
-              <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6 }}>Tên *</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required style={{ width: "100%", padding: 10, border: "1px solid #ddd", borderRadius: 6 }} />
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6 }}>Thời gian (phút) *</label>
-                  <input type="number" value={form.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: +e.target.value })} required style={{ width: "100%", padding: 10, border: "1px solid #ddd", borderRadius: 6 }} />
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 6 }}>Giá (£) *</label>
-                  <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: +e.target.value })} required style={{ width: "100%", padding: 10, border: "1px solid #ddd", borderRadius: 6 }} />
-                </div>
-                <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: "block", marginBottom: 6 }}>Danh mục</label>
-                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={{ width: "100%", padding: 10, border: "1px solid #ddd", borderRadius: 6 }}>
-                    <option value="">-- Chọn --</option>
-                    <option value="Nails">Nails</option>
-                    <option value="Head Spa">Head Spa</option>
-                    <option value="Eyelash">Eyelash</option>
-                    <option value="Waxing">Waxing</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-                  <button type="button" onClick={() => setShowModal(false)} style={{ padding: "10px 20px", background: "#f0f0f0", border: "none", borderRadius: 6, cursor: "pointer" }}>Hủy</button>
-                  <button type="submit" style={{ padding: "10px 20px", background: "#ff69b4", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>{editing ? "Lưu" : "Thêm"}</button>
-                </div>
-              </form>
+        <button style={styles.btnPrimary} onClick={openAddModal}>
+          + Add Service
+        </button>
+      </div>
+
+      {/* Services Grid */}
+      <div style={styles.grid}>
+        {services.map((service) => (
+          <div key={service.id} style={styles.card}>
+            <div style={styles.cardTop}>
+              <span style={styles.category}>{service.category || "General"}</span>
+              <div style={styles.cardActions}>
+                <button style={styles.btnIcon} onClick={() => openEditModal(service)}>✏️</button>
+                <button style={{...styles.btnIcon, color: "#dc2626"}} onClick={() => handleDelete(service)}>🗑</button>
+              </div>
+            </div>
+            <h3 style={styles.serviceName}>{service.name}</h3>
+            <div style={styles.cardMeta}>
+              <div style={styles.metaItem}>
+                <span style={styles.metaLabel}>Duration</span>
+                <span style={styles.metaValue}>{service.durationMinutes} min</span>
+              </div>
+              <div style={styles.metaItem}>
+                <span style={styles.metaLabel}>Price</span>
+                <span style={styles.price}>£{service.price}</span>
+              </div>
             </div>
           </div>
-        )}
-      </main>
+        ))}
+      </div>
+
+      {services.length === 0 && (
+        <div style={styles.empty}>
+          <div style={styles.emptyIcon}>✨</div>
+          <p>No services yet</p>
+          <button style={styles.btnPrimary} onClick={openAddModal}>Add your first service</button>
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div style={styles.overlay}>
+          <div style={styles.modal}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>{editingService ? "Edit Service" : "Add Service"}</h2>
+              <button style={styles.closeBtn} onClick={() => setShowModal(false)}>×</button>
+            </div>
+            <div style={styles.modalBody}>
+              <label style={styles.label}>
+                Service Name
+                <input
+                  style={styles.input}
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="e.g. Gel Manicure"
+                />
+              </label>
+              <div style={styles.row}>
+                <label style={{...styles.label, flex: 1}}>
+                  Duration (minutes)
+                  <input
+                    style={styles.input}
+                    type="number"
+                    value={formDuration}
+                    onChange={(e) => setFormDuration(e.target.value)}
+                    placeholder="60"
+                  />
+                </label>
+                <label style={{...styles.label, flex: 1}}>
+                  Price (£)
+                  <input
+                    style={styles.input}
+                    type="number"
+                    step="0.01"
+                    value={formPrice}
+                    onChange={(e) => setFormPrice(e.target.value)}
+                    placeholder="35.00"
+                  />
+                </label>
+              </div>
+              <label style={styles.label}>
+                Category
+                <input
+                  style={styles.input}
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                  placeholder="e.g. Nails, Waxing, Lashes"
+                />
+              </label>
+            </div>
+            <div style={styles.modalFooter}>
+              <button style={styles.btnSecondary} onClick={() => setShowModal(false)}>Cancel</button>
+              <button style={styles.btnPrimary} onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Service"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const styles: { [key: string]: React.CSSProperties } = {
+  page: {
+    maxWidth: 1200,
+  },
+  loading: {
+    padding: 40,
+    textAlign: "center",
+    color: "#64748b",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: "#0f172a",
+    margin: 0,
+    letterSpacing: "-0.5px",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    margin: "4px 0 0",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: 20,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    border: "1px solid #e2e8f0",
+    padding: 20,
+    transition: "all 0.15s ease",
+  },
+  cardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  category: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#6366f1",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    backgroundColor: "#eef2ff",
+    padding: "4px 8px",
+    borderRadius: 4,
+  },
+  cardActions: {
+    display: "flex",
+    gap: 6,
+  },
+  btnIcon: {
+    width: 28,
+    height: 28,
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  serviceName: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#0f172a",
+    margin: "0 0 16px",
+  },
+  cardMeta: {
+    display: "flex",
+    gap: 24,
+  },
+  metaItem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  metaLabel: {
+    fontSize: 11,
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  metaValue: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: "#334155",
+  },
+  price: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#059669",
+  },
+  empty: {
+    padding: 80,
+    textAlign: "center",
+    color: "#64748b",
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  btnPrimary: {
+    padding: "10px 20px",
+    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  btnSecondary: {
+    padding: "10px 20px",
+    backgroundColor: "#fff",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  modal: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    width: "90%",
+    maxWidth: 480,
+    overflow: "hidden",
+    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "20px 24px",
+    borderBottom: "1px solid #e2e8f0",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#0f172a",
+    margin: 0,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
+    fontSize: 20,
+    cursor: "pointer",
+    color: "#64748b",
+  },
+  modalBody: {
+    padding: 24,
+  },
+  modalFooter: {
+    display: "flex",
+    gap: 12,
+    justifyContent: "flex-end",
+    padding: "16px 24px",
+    borderTop: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+  },
+  label: {
+    display: "block",
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#374151",
+    marginBottom: 16,
+  },
+  input: {
+    display: "block",
+    width: "100%",
+    padding: "10px 14px",
+    marginTop: 6,
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    fontSize: 14,
+    boxSizing: "border-box",
+    outline: "none",
+  },
+  row: {
+    display: "flex",
+    gap: 16,
+  },
+};
