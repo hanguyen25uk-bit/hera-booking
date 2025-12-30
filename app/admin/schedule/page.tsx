@@ -25,6 +25,7 @@ export default function SchedulePage() {
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingOverride, setEditingOverride] = useState<Override | null>(null);
 
   // Form state
   const [formDate, setFormDate] = useState("");
@@ -96,11 +97,28 @@ export default function SchedulePage() {
     setFormEndTime("17:00");
     setFormNote("");
     setSelectedStaffId("");
+    setEditingOverride(null);
   }
 
-  function openModal(staffId: string) {
+  function openAddModal(staffId: string) {
     setSelectedStaffId(staffId);
     setFormDate(new Date().toISOString().split("T")[0]);
+    setFormIsDayOff(true);
+    setFormStartTime("09:00");
+    setFormEndTime("17:00");
+    setFormNote("");
+    setEditingOverride(null);
+    setShowModal(true);
+  }
+
+  function openEditModal(override: Override) {
+    setSelectedStaffId(override.staffId);
+    setFormDate(override.date.split("T")[0]);
+    setFormIsDayOff(override.isDayOff);
+    setFormStartTime(override.startTime || "09:00");
+    setFormEndTime(override.endTime || "17:00");
+    setFormNote(override.note || "");
+    setEditingOverride(override);
     setShowModal(true);
   }
 
@@ -111,6 +129,14 @@ export default function SchedulePage() {
       month: "short",
       year: "numeric",
     });
+  }
+
+  // Generate time options
+  const timeOptions: string[] = [];
+  for (let h = 6; h <= 22; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      timeOptions.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+    }
   }
 
   if (loading) {
@@ -134,7 +160,7 @@ export default function SchedulePage() {
               <div style={styles.avatar}>{s.name.charAt(0)}</div>
               <span style={styles.staffName}>{s.name}</span>
             </div>
-            <button style={styles.btnAdd} onClick={() => openModal(s.id)}>
+            <button style={styles.btnAdd} onClick={() => openAddModal(s.id)}>
               + Add Day Off / Custom Hours
             </button>
           </div>
@@ -155,7 +181,7 @@ export default function SchedulePage() {
                 <th style={styles.th}>Type</th>
                 <th style={styles.th}>Hours</th>
                 <th style={styles.th}>Note</th>
-                <th style={{...styles.th, textAlign: "right"}}>Action</th>
+                <th style={{...styles.th, textAlign: "right"}}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -177,9 +203,14 @@ export default function SchedulePage() {
                   </td>
                   <td style={styles.td}>{o.note || "—"}</td>
                   <td style={{...styles.td, textAlign: "right"}}>
-                    <button style={styles.btnDelete} onClick={() => handleDelete(o.id)}>
-                      🗑
-                    </button>
+                    <div style={styles.actionButtons}>
+                      <button style={styles.btnEdit} onClick={() => openEditModal(o)}>
+                        ✏️
+                      </button>
+                      <button style={styles.btnDelete} onClick={() => handleDelete(o.id)}>
+                        🗑
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -194,9 +225,9 @@ export default function SchedulePage() {
           <div style={styles.modal}>
             <div style={styles.modalHeader}>
               <h2 style={styles.modalTitle}>
-                Add Schedule Override
+                {editingOverride ? "Edit Schedule Override" : "Add Schedule Override"}
               </h2>
-              <button style={styles.closeBtn} onClick={() => setShowModal(false)}>×</button>
+              <button style={styles.closeBtn} onClick={() => { setShowModal(false); resetForm(); }}>×</button>
             </div>
             <div style={styles.modalBody}>
               <p style={styles.staffLabel}>
@@ -230,21 +261,27 @@ export default function SchedulePage() {
                 <div style={styles.timeRow}>
                   <label style={{...styles.label, flex: 1}}>
                     Start Time
-                    <input
-                      type="time"
+                    <select
                       value={formStartTime}
                       onChange={(e) => setFormStartTime(e.target.value)}
                       style={styles.input}
-                    />
+                    >
+                      {timeOptions.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
                   </label>
                   <label style={{...styles.label, flex: 1}}>
                     End Time
-                    <input
-                      type="time"
+                    <select
                       value={formEndTime}
                       onChange={(e) => setFormEndTime(e.target.value)}
                       style={styles.input}
-                    />
+                    >
+                      {timeOptions.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
               )}
@@ -261,11 +298,11 @@ export default function SchedulePage() {
               </label>
             </div>
             <div style={styles.modalFooter}>
-              <button style={styles.btnSecondary} onClick={() => setShowModal(false)}>
+              <button style={styles.btnSecondary} onClick={() => { setShowModal(false); resetForm(); }}>
                 Cancel
               </button>
               <button style={styles.btnPrimary} onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : "Save"}
+                {saving ? "Saving..." : (editingOverride ? "Update" : "Save")}
               </button>
             </div>
           </div>
@@ -380,6 +417,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 12,
     fontWeight: 500,
   },
+  actionButtons: {
+    display: "flex",
+    gap: 8,
+    justifyContent: "flex-end",
+  },
+  btnEdit: {
+    width: 32,
+    height: 32,
+    border: "none",
+    backgroundColor: "#e0f2fe",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   btnDelete: {
     width: 32,
     height: 32,
@@ -388,6 +442,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 6,
     cursor: "pointer",
     fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   empty: {
     padding: 40,
