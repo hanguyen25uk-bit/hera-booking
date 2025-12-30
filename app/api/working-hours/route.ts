@@ -3,14 +3,13 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const staffId = req.nextUrl.searchParams.get("staffId");
-  const date = req.nextUrl.searchParams.get("date"); // format: 2025-01-15
+  const date = req.nextUrl.searchParams.get("date");
   
   try {
     // If date is provided, check for schedule override first
     if (staffId && date) {
       const dateObj = new Date(date);
       
-      // Check for override
       const override = await prisma.staffScheduleOverride.findUnique({
         where: {
           staffId_date: {
@@ -22,14 +21,12 @@ export async function GET(req: NextRequest) {
       
       if (override) {
         if (override.isDayOff) {
-          // Day off - return empty/not working
           return NextResponse.json({
             isWorking: false,
             isDayOff: true,
             note: override.note,
           });
         } else {
-          // Custom hours
           return NextResponse.json({
             isWorking: true,
             startTime: override.startTime,
@@ -59,6 +56,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST - single day update
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -75,6 +73,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(workingHours);
   } catch (error) {
     console.error("Update working hours error:", error);
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+  }
+}
+
+// PUT - bulk update all days for a staff
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { staffId, hours } = body;
+    
+    if (!staffId || !hours || !Array.isArray(hours)) {
+      return NextResponse.json({ error: "staffId and hours array required" }, { status: 400 });
+    }
+    
+    // Update all working hours for this staff
+    const results = await Promise.all(
+      hours.map(async (hour: any) => {
+        return prisma.workingHours.upsert({
+          where: {
+            staffId_dayOfWeek: {
+              staffId,
+              dayOfWeek: hour.dayOfWeek,
+            },
+          },
+          update: {
+            startTime: hour.startTime,
+            endTime: hour.endTime,
+            isWorking: hour.isWorking,
+          },
+          create: {
+            staffId,
+            dayOfWeek: hour.dayOfWeek,
+            startTime: hour.startTime,
+            endTime: hour.endTime,
+            isWorking: hour.isWorking,
+          },
+        });
+      })
+    );
+    
+    return NextResponse.json(results);
+  } catch (error) {
+    console.error("Bulk update working hours error:", error);
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
