@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// API để check staff có available trong ngày cụ thể không
 export async function GET(req: NextRequest) {
   const staffId = req.nextUrl.searchParams.get("staffId");
-  const date = req.nextUrl.searchParams.get("date"); // format: 2025-01-15
+  const date = req.nextUrl.searchParams.get("date");
   
   if (!staffId || !date) {
     return NextResponse.json({ error: "staffId and date required" }, { status: 400 });
@@ -13,13 +12,15 @@ export async function GET(req: NextRequest) {
   try {
     const dayOfWeek = new Date(date).getDay();
     
-    // Check for schedule override (day off or custom hours)
-    const override = await prisma.staffScheduleOverride.findFirst({
+    // Create date object at midnight UTC for exact match
+    const targetDate = new Date(date + "T00:00:00.000Z");
+    
+    // Check for schedule override using exact date match
+    const override = await prisma.staffScheduleOverride.findUnique({
       where: {
-        staffId,
-        date: {
-          gte: new Date(date + "T00:00:00.000Z"),
-          lt: new Date(date + "T23:59:59.999Z"),
+        staffId_date: {
+          staffId,
+          date: targetDate,
         },
       },
     });
@@ -32,7 +33,6 @@ export async function GET(req: NextRequest) {
           note: override.note,
         });
       } else {
-        // Custom hours
         return NextResponse.json({
           available: true,
           startTime: override.startTime,
@@ -54,12 +54,10 @@ export async function GET(req: NextRequest) {
     });
     
     if (!workingHours) {
-      // No working hours set - return default hours
       return NextResponse.json({
         available: true,
         startTime: "10:00",
         endTime: "19:00",
-        isCustom: false,
         isDefault: true,
       });
     }
@@ -75,10 +73,9 @@ export async function GET(req: NextRequest) {
       available: true,
       startTime: workingHours.startTime,
       endTime: workingHours.endTime,
-      isCustom: false,
     });
   } catch (error) {
     console.error("Check availability error:", error);
-    return NextResponse.json({ error: "Failed to check availability" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to check" }, { status: 500 });
   }
 }
