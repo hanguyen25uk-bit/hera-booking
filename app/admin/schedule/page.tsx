@@ -28,7 +28,9 @@ export default function SchedulePage() {
   const [editingOverride, setEditingOverride] = useState<Override | null>(null);
 
   // Form state
-  const [formDate, setFormDate] = useState("");
+  const [formStartDate, setFormStartDate] = useState("");
+  const [formEndDate, setFormEndDate] = useState("");
+  const [formIsMultipleDays, setFormIsMultipleDays] = useState(false);
   const [formIsDayOff, setFormIsDayOff] = useState(true);
   const [formStartTime, setFormStartTime] = useState("09:00");
   const [formEndTime, setFormEndTime] = useState("17:00");
@@ -54,22 +56,44 @@ export default function SchedulePage() {
   }
 
   async function handleSave() {
-    if (!selectedStaffId || !formDate) return;
+    if (!selectedStaffId || !formStartDate) return;
     setSaving(true);
 
     try {
-      await fetch("/api/admin/schedule-override", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          staffId: selectedStaffId,
-          date: formDate,
-          isDayOff: formIsDayOff,
-          startTime: formIsDayOff ? null : formStartTime,
-          endTime: formIsDayOff ? null : formEndTime,
-          note: formNote || null,
-        }),
-      });
+      // Calculate dates to create
+      const dates: string[] = [];
+      
+      if (formIsMultipleDays && formEndDate) {
+        // Multiple days
+        const start = new Date(formStartDate);
+        const end = new Date(formEndDate);
+        
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          dates.push(d.toISOString().split("T")[0]);
+        }
+      } else {
+        // Single day
+        dates.push(formStartDate);
+      }
+
+      // Create override for each date
+      await Promise.all(
+        dates.map((date) =>
+          fetch("/api/admin/schedule-override", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              staffId: selectedStaffId,
+              date,
+              isDayOff: formIsDayOff,
+              startTime: formIsDayOff ? null : formStartTime,
+              endTime: formIsDayOff ? null : formEndTime,
+              note: formNote || null,
+            }),
+          })
+        )
+      );
+
       setShowModal(false);
       resetForm();
       loadData();
@@ -91,7 +115,9 @@ export default function SchedulePage() {
   }
 
   function resetForm() {
-    setFormDate("");
+    setFormStartDate("");
+    setFormEndDate("");
+    setFormIsMultipleDays(false);
     setFormIsDayOff(true);
     setFormStartTime("09:00");
     setFormEndTime("17:00");
@@ -102,7 +128,10 @@ export default function SchedulePage() {
 
   function openAddModal(staffId: string) {
     setSelectedStaffId(staffId);
-    setFormDate(new Date().toISOString().split("T")[0]);
+    const today = new Date().toISOString().split("T")[0];
+    setFormStartDate(today);
+    setFormEndDate(today);
+    setFormIsMultipleDays(false);
     setFormIsDayOff(true);
     setFormStartTime("09:00");
     setFormEndTime("17:00");
@@ -113,7 +142,9 @@ export default function SchedulePage() {
 
   function openEditModal(override: Override) {
     setSelectedStaffId(override.staffId);
-    setFormDate(override.date.split("T")[0]);
+    setFormStartDate(override.date.split("T")[0]);
+    setFormEndDate(override.date.split("T")[0]);
+    setFormIsMultipleDays(false);
     setFormIsDayOff(override.isDayOff);
     setFormStartTime(override.startTime || "09:00");
     setFormEndTime(override.endTime || "17:00");
@@ -129,6 +160,15 @@ export default function SchedulePage() {
       month: "short",
       year: "numeric",
     });
+  }
+
+  // Calculate number of days selected
+  function getDaysCount() {
+    if (!formIsMultipleDays || !formStartDate || !formEndDate) return 1;
+    const start = new Date(formStartDate);
+    const end = new Date(formEndDate);
+    const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return diff > 0 ? diff : 1;
   }
 
   // Generate time options
@@ -234,16 +274,53 @@ export default function SchedulePage() {
                 For: <strong>{staff.find(s => s.id === selectedStaffId)?.name}</strong>
               </p>
 
-              <label style={styles.label}>
-                Date
-                <input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
-                  style={styles.input}
-                />
-              </label>
+              {/* Multiple Days Toggle - only for new entries */}
+              {!editingOverride && (
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={formIsMultipleDays}
+                    onChange={(e) => setFormIsMultipleDays(e.target.checked)}
+                    style={styles.checkbox}
+                  />
+                  Multiple days (Nghỉ nhiều ngày)
+                </label>
+              )}
+
+              <div style={formIsMultipleDays ? styles.dateRow : {}}>
+                <label style={{...styles.label, flex: 1}}>
+                  {formIsMultipleDays ? "From Date" : "Date"}
+                  <input
+                    type="date"
+                    value={formStartDate}
+                    onChange={(e) => {
+                      setFormStartDate(e.target.value);
+                      if (!formIsMultipleDays) setFormEndDate(e.target.value);
+                    }}
+                    min={new Date().toISOString().split("T")[0]}
+                    style={styles.input}
+                  />
+                </label>
+
+                {formIsMultipleDays && (
+                  <label style={{...styles.label, flex: 1}}>
+                    To Date
+                    <input
+                      type="date"
+                      value={formEndDate}
+                      onChange={(e) => setFormEndDate(e.target.value)}
+                      min={formStartDate || new Date().toISOString().split("T")[0]}
+                      style={styles.input}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {formIsMultipleDays && formStartDate && formEndDate && (
+                <div style={styles.daysInfo}>
+                  📅 {getDaysCount()} day(s) selected
+                </div>
+              )}
 
               <label style={styles.label}>
                 Type
@@ -292,7 +369,7 @@ export default function SchedulePage() {
                   type="text"
                   value={formNote}
                   onChange={(e) => setFormNote(e.target.value)}
-                  placeholder="e.g. Doctor appointment, Holiday"
+                  placeholder="e.g. Holiday, Doctor appointment, Vacation"
                   style={styles.input}
                 />
               </label>
@@ -302,7 +379,7 @@ export default function SchedulePage() {
                 Cancel
               </button>
               <button style={styles.btnPrimary} onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : (editingOverride ? "Update" : "Save")}
+                {saving ? "Saving..." : (editingOverride ? "Update" : `Save${formIsMultipleDays ? ` (${getDaysCount()} days)` : ""}`)}
               </button>
             </div>
           </div>
@@ -468,7 +545,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: "#fff",
     borderRadius: 16,
     width: "90%",
-    maxWidth: 480,
+    maxWidth: 500,
     overflow: "hidden",
   },
   modalHeader: {
@@ -508,7 +585,24 @@ const styles: { [key: string]: React.CSSProperties } = {
   staffLabel: {
     fontSize: 14,
     color: "#64748b",
+    marginBottom: 16,
+  },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 14,
+    color: "#374151",
     marginBottom: 20,
+    padding: "12px 16px",
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    cursor: "pointer",
   },
   label: {
     display: "block",
@@ -527,9 +621,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 14,
     boxSizing: "border-box",
   },
+  dateRow: {
+    display: "flex",
+    gap: 16,
+  },
   timeRow: {
     display: "flex",
     gap: 16,
+  },
+  daysInfo: {
+    padding: "10px 14px",
+    backgroundColor: "#ecfdf5",
+    borderRadius: 8,
+    color: "#059669",
+    fontSize: 14,
+    fontWeight: 500,
+    marginBottom: 16,
   },
   btnPrimary: {
     padding: "10px 20px",
