@@ -21,8 +21,6 @@ type StaffAvailability = {
   reason?: string; 
   startTime?: string; 
   endTime?: string;
-  isCustom?: boolean;
-  note?: string;
 };
 
 export default function CalendarPage() {
@@ -33,6 +31,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
   
+  // View/Edit appointment modal
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
   const [editData, setEditData] = useState({ serviceId: "", staffId: "", date: "", time: "" });
@@ -40,25 +39,48 @@ export default function CalendarPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<"cancel" | "noshow" | "delete" | null>(null);
 
+  // Add booking modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addData, setAddData] = useState({
+    serviceId: "",
+    staffId: "",
+    date: "",
+    time: "",
+    customerName: "",
+    customerPhone: "",
+    customerEmail: "",
+  });
+  const [addAvailability, setAddAvailability] = useState<StaffAvailability | null>(null);
+  const [addBookedSlots, setAddBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
+  const [loadingAddAvailability, setLoadingAddAvailability] = useState(false);
+
   // For edit mode
   const [editAvailability, setEditAvailability] = useState<StaffAvailability | null>(null);
   const [editBookedSlots, setEditBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
-  useEffect(() => { loadData(); }, [selectedDate]);
-  useEffect(() => { loadStaffAndServices(); }, []);
+  useEffect(function() { loadData(); }, [selectedDate]);
+  useEffect(function() { loadStaffAndServices(); }, []);
 
-  useEffect(() => {
+  useEffect(function() {
     if (modalMode === "edit" && editData.staffId && editData.date) {
       loadEditAvailability();
     }
   }, [editData.staffId, editData.date, modalMode]);
 
+  useEffect(function() {
+    if (showAddModal && addData.staffId && addData.date) {
+      loadAddAvailability();
+    }
+  }, [addData.staffId, addData.date, showAddModal]);
+
   async function loadStaffAndServices() {
     try {
       const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
-      setStaffList(await staffRes.json());
-      setServices(await servicesRes.json());
+      const staffData = await staffRes.json();
+      const servicesData = await servicesRes.json();
+      setStaffList(staffData);
+      setServices(servicesData);
     } catch (err) { console.error(err); }
   }
 
@@ -74,10 +96,9 @@ export default function CalendarPage() {
       setAppointments(apts);
       setStaffList(staffData);
 
-      // Load availability for each staff
       const availabilityMap: Record<string, StaffAvailability> = {};
       await Promise.all(
-        staffData.map(async (staff: Staff) => {
+        staffData.map(async function(staff: Staff) {
           try {
             const res = await fetch("/api/staff-availability?staffId=" + staff.id + "&date=" + selectedDate);
             availabilityMap[staff.id] = await res.json();
@@ -101,8 +122,8 @@ export default function CalendarPage() {
       const aptsRes = await fetch("/api/appointments?date=" + editData.date);
       const apts: Appointment[] = await aptsRes.json();
       const booked = apts
-        .filter(a => a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id)
-        .map(a => ({ startTime: a.startTime, endTime: a.endTime }));
+        .filter(function(a) { return a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id; })
+        .map(function(a) { return { startTime: a.startTime, endTime: a.endTime }; });
       setEditBookedSlots(booked);
     } catch (err) {
       console.error(err);
@@ -111,24 +132,45 @@ export default function CalendarPage() {
     }
   }
 
-  function generateEditTimeSlots(): string[] {
-    if (!editAvailability?.available) return [];
+  async function loadAddAvailability() {
+    setLoadingAddAvailability(true);
+    try {
+      const availRes = await fetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date);
+      const avail = await availRes.json();
+      setAddAvailability(avail);
+
+      const aptsRes = await fetch("/api/appointments?date=" + addData.date);
+      const apts: Appointment[] = await aptsRes.json();
+      const booked = apts
+        .filter(function(a) { return a.staff.id === addData.staffId && a.status !== "cancelled" && a.status !== "no-show"; })
+        .map(function(a) { return { startTime: a.startTime, endTime: a.endTime }; });
+      setAddBookedSlots(booked);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAddAvailability(false);
+    }
+  }
+
+  function generateTimeSlots(availability: StaffAvailability | null, bookedSlots: { startTime: string; endTime: string }[], serviceId: string, date: string): string[] {
+    if (!availability?.available) return [];
     
-    const startTime = editAvailability.startTime || "09:00";
-    const endTime = editAvailability.endTime || "17:00";
+    const startTime = availability.startTime || "09:00";
+    const endTime = availability.endTime || "17:00";
     const [startH, startM] = startTime.split(":").map(Number);
     const [endH, endM] = endTime.split(":").map(Number);
+    
+    const selectedService = services.find(function(s) { return s.id === serviceId; });
+    const duration = selectedService?.durationMinutes || 60;
     
     const slots: string[] = [];
     for (let h = startH, m = startM; h < endH || (h === endH && m < endM); ) {
       const timeStr = h.toString().padStart(2, "0") + ":" + m.toString().padStart(2, "0");
       
-      const selectedService = services.find(s => s.id === editData.serviceId);
-      const duration = selectedService?.durationMinutes || 60;
-      const slotStart = new Date(editData.date + "T" + timeStr + ":00");
+      const slotStart = new Date(date + "T" + timeStr + ":00");
       const slotEnd = new Date(slotStart.getTime() + duration * 60000);
       
-      const hasConflict = editBookedSlots.some(booked => {
+      const hasConflict = bookedSlots.some(function(booked) {
         const bookedStart = new Date(booked.startTime);
         const bookedEnd = new Date(booked.endTime);
         return slotStart < bookedEnd && slotEnd > bookedStart;
@@ -143,6 +185,70 @@ export default function CalendarPage() {
     }
     
     return slots;
+  }
+
+  function openAddModal() {
+    setAddData({
+      serviceId: services.length > 0 ? services[0].id : "",
+      staffId: staffList.length > 0 ? staffList[0].id : "",
+      date: selectedDate,
+      time: "",
+      customerName: "",
+      customerPhone: "",
+      customerEmail: "",
+    });
+    setAddAvailability(null);
+    setAddBookedSlots([]);
+    setMessage(null);
+    setShowAddModal(true);
+  }
+
+  function closeAddModal() {
+    setShowAddModal(false);
+    setAddData({ serviceId: "", staffId: "", date: "", time: "", customerName: "", customerPhone: "", customerEmail: "" });
+    setAddAvailability(null);
+    setAddBookedSlots([]);
+    setMessage(null);
+  }
+
+  async function handleAddBooking() {
+    if (!addData.customerName || !addData.customerPhone || !addData.time) {
+      setMessage({ type: "error", text: "Please fill in all required fields" });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const startTime = new Date(addData.date + "T" + addData.time + ":00").toISOString();
+      
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: addData.serviceId,
+          staffId: addData.staffId,
+          customerName: addData.customerName,
+          customerPhone: addData.customerPhone,
+          customerEmail: addData.customerEmail || "walkin@salon.com",
+          startTime: startTime,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create booking");
+      }
+
+      setMessage({ type: "success", text: "Booking created successfully!" });
+      loadData();
+      setTimeout(function() { closeAddModal(); }, 1500);
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setSaving(false);
+    }
   }
 
   function goToPreviousDay() {
@@ -215,7 +321,7 @@ export default function CalendarPage() {
       const res = await fetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serviceId: editData.serviceId, staffId: editData.staffId, startTime }),
+        body: JSON.stringify({ serviceId: editData.serviceId, staffId: editData.staffId, startTime: startTime }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -359,7 +465,8 @@ export default function CalendarPage() {
   const activeAppointments = appointments.filter(function(a) { return a.status !== "cancelled"; });
   const confirmedCount = appointments.filter(function(a) { return a.status === "confirmed" || a.status === "booked"; }).length;
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
-  const editTimeSlots = generateEditTimeSlots();
+  const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date);
+  const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date);
 
   return (
     <div style={{ maxWidth: 1400 }}>
@@ -371,6 +478,28 @@ export default function CalendarPage() {
         </div>
         
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Add Booking Button */}
+          <button 
+            onClick={openAddModal}
+            style={{ 
+              padding: "10px 20px", 
+              background: "linear-gradient(135deg, #10b981, #059669)", 
+              color: "#fff", 
+              border: "none", 
+              borderRadius: 8, 
+              fontSize: 14, 
+              fontWeight: 600, 
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6
+            }}
+          >
+            + Add Booking
+          </button>
+
+          <div style={{ width: 1, height: 30, background: "#e2e8f0", margin: "0 8px" }}></div>
+
           <button onClick={goToPreviousDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
           
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#f8fafc", borderRadius: 8, minWidth: 200, justifyContent: "center" }}>
@@ -452,11 +581,11 @@ export default function CalendarPage() {
                   let bgColor = "#fff";
                   
                   if (isOff) {
-                    bgColor = "#fef2f2"; // Light red for day off
+                    bgColor = "#fef2f2";
                   } else if (!inWorkingHours) {
-                    bgColor = "#f1f5f9"; // Gray for outside working hours
+                    bgColor = "#f1f5f9";
                   } else if (hour % 2 !== 0) {
-                    bgColor = "#fafafa"; // Alternating for working hours
+                    bgColor = "#fafafa";
                   }
                   
                   return (
@@ -478,7 +607,6 @@ export default function CalendarPage() {
                   );
                 })}
                 
-                {/* Working hours indicator */}
                 {!isOff && avail && avail.startTime && avail.endTime && (
                   <div style={{
                     position: "absolute",
@@ -493,7 +621,6 @@ export default function CalendarPage() {
                   }} />
                 )}
                 
-                {/* Appointments */}
                 {activeAppointments.filter(function(apt) { return apt.staff.id === staff.id; }).map(function(apt) {
                   const style = getAppointmentStyle(apt);
                   return (
@@ -528,10 +655,168 @@ export default function CalendarPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#94a3b8" }}></div> Cancelled</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#fef2f2", border: "1px solid #fca5a5" }}></div> Day Off</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#f1f5f9", border: "1px solid #e2e8f0" }}></div> Outside Hours</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#fff", border: "2px solid #10b981" }}></div> Working Hours</div>
       </div>
 
-      {/* Modal */}
+      {/* Add Booking Modal */}
+      {showAddModal && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 500, maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb", background: "linear-gradient(135deg, #10b981, #059669)" }}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0, color: "#fff" }}>+ Add Walk-in Booking</h2>
+              <button onClick={closeAddModal} style={{ width: 32, height: 32, border: "none", background: "rgba(255,255,255,0.2)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "#fff" }}>×</button>
+            </div>
+
+            {message && (
+              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#d1fae5" : "#fee2e2", color: message.type === "success" ? "#065f46" : "#991b1b", fontSize: 14 }}>
+                {message.text}
+              </div>
+            )}
+
+            <div style={{ padding: 24 }}>
+              {/* Customer Info */}
+              <div style={{ marginBottom: 20, padding: 16, background: "#f8fafc", borderRadius: 12 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: "#374151", margin: "0 0 12px" }}>Customer Information</h3>
+                
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Name *</label>
+                  <input 
+                    type="text" 
+                    value={addData.customerName} 
+                    onChange={function(e) { setAddData({ ...addData, customerName: e.target.value }); }}
+                    placeholder="Customer name"
+                    style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Phone *</label>
+                  <input 
+                    type="tel" 
+                    value={addData.customerPhone} 
+                    onChange={function(e) { setAddData({ ...addData, customerPhone: e.target.value }); }}
+                    placeholder="Phone number"
+                    style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Email (optional)</label>
+                  <input 
+                    type="email" 
+                    value={addData.customerEmail} 
+                    onChange={function(e) { setAddData({ ...addData, customerEmail: e.target.value }); }}
+                    placeholder="Email address"
+                    style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
+                  />
+                </div>
+              </div>
+
+              {/* Service */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
+                <select 
+                  value={addData.serviceId} 
+                  onChange={function(e) { setAddData({ ...addData, serviceId: e.target.value, time: "" }); }} 
+                  style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
+                >
+                  {services.map(function(s) { 
+                    return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; 
+                  })}
+                </select>
+              </div>
+
+              {/* Staff */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
+                <select 
+                  value={addData.staffId} 
+                  onChange={function(e) { setAddData({ ...addData, staffId: e.target.value, time: "" }); }} 
+                  style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
+                >
+                  {staffList.map(function(s) { 
+                    return <option key={s.id} value={s.id}>{s.name}</option>; 
+                  })}
+                </select>
+              </div>
+
+              {/* Date */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
+                <input 
+                  type="date" 
+                  value={addData.date} 
+                  onChange={function(e) { setAddData({ ...addData, date: e.target.value, time: "" }); }} 
+                  style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} 
+                />
+              </div>
+
+              {/* Time */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
+                {loadingAddAvailability ? (
+                  <p style={{ color: "#64748b", fontSize: 14 }}>Loading available times...</p>
+                ) : !addAvailability?.available ? (
+                  <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
+                    Staff is not available on this date {addAvailability?.reason ? "(" + addAvailability.reason + ")" : ""}
+                  </div>
+                ) : addTimeSlots.length === 0 ? (
+                  <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>
+                    No available time slots
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                      {addTimeSlots.map(function(t) {
+                        return (
+                          <button
+                            key={t}
+                            onClick={function() { setAddData({ ...addData, time: t }); }}
+                            style={{
+                              padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer",
+                              border: addData.time === t ? "2px solid #10b981" : "1px solid #e2e8f0",
+                              background: addData.time === t ? "#10b981" : "#fff",
+                              color: addData.time === t ? "#fff" : "#374151",
+                            }}
+                          >
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+                      Working: {addAvailability.startTime} - {addAvailability.endTime}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button 
+                  onClick={closeAddModal} 
+                  style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddBooking} 
+                  disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone || !addAvailability?.available} 
+                  style={{ 
+                    flex: 1, padding: 14, border: "none", borderRadius: 10, 
+                    background: addData.time && addData.customerName && addData.customerPhone && addAvailability?.available ? "linear-gradient(135deg, #10b981, #059669)" : "#e2e8f0", 
+                    color: addData.time && addData.customerName && addData.customerPhone ? "#fff" : "#94a3b8", 
+                    fontSize: 15, fontWeight: 600, cursor: addData.time ? "pointer" : "not-allowed" 
+                  }}
+                >
+                  {saving ? "Creating..." : "Create Booking"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View/Edit Appointment Modal */}
       {selectedAppointment && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
           <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
