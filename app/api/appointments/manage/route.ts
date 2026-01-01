@@ -8,6 +8,7 @@ export async function PATCH(req: NextRequest) {
     const { id, token, status, startTime } = body;
 
     let appointment;
+
     if (token) {
       appointment = await prisma.appointment.findFirst({
         where: { manageToken: token },
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest) {
 
     if (status) {
       updateData.status = status;
-      
+
       if (status === "noshow" && appointment.customerEmail) {
         const customer = await prisma.customer.findUnique({
           where: { email: appointment.customerEmail.toLowerCase() },
@@ -44,7 +45,7 @@ export async function PATCH(req: NextRequest) {
               blockedAt: newNoShowCount >= 3 ? new Date() : null,
             },
           });
-          console.log(`Customer ${appointment.customerEmail} no-show count: ${newNoShowCount}`);
+          console.log("Customer " + appointment.customerEmail + " no-show count: " + newNoShowCount);
         }
       }
     }
@@ -93,17 +94,13 @@ export async function DELETE(req: NextRequest) {
       include: { service: true, staff: true },
     });
 
-    // Send cancellation email
     try {
-      const startDate = new Date(appointment.startTime);
       await sendCancellationConfirmation({
         customerEmail: appointment.customerEmail,
         customerName: appointment.customerName,
         serviceName: appointment.service.name,
         staffName: appointment.staff.name,
-        appointmentDate: startDate.toISOString().split("T")[0],
-        appointmentTime: startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        bookingRef: appointment.id.slice(0, 8).toUpperCase(),
+        appointmentTime: new Date(appointment.startTime),
       });
       console.log("Cancellation email sent to:", appointment.customerEmail);
     } catch (emailError) {
