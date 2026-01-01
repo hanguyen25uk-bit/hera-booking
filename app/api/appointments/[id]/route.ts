@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // GET - Get single appointment
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  
   try {
     const appointment = await prisma.appointment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { service: true, staff: true, customer: true },
     });
     if (!appointment) {
@@ -18,13 +23,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT - Update appointment (reschedule, change service/staff, or update status)
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  
   try {
     const body = await req.json();
     const { serviceId, staffId, startTime, status } = body;
 
     const appointment = await prisma.appointment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { service: true, customer: true },
     });
 
@@ -36,7 +46,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (status) {
       // NO-SHOW: Increment customer's noShowCount
       if (status === "no-show" && appointment.status !== "no-show") {
-        // Find or create customer by email
         let customer = await prisma.customer.findUnique({
           where: { email: appointment.customerEmail },
         });
@@ -54,7 +63,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             },
           });
         } else {
-          // Create customer record if doesn't exist
           await prisma.customer.create({
             data: {
               email: appointment.customerEmail,
@@ -66,14 +74,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           });
         }
 
-        // Update appointment status
         const updated = await prisma.appointment.update({
-          where: { id: params.id },
+          where: { id },
           data: { status: "no-show" },
           include: { service: true, staff: true },
         });
 
-        // Get updated customer info
         const updatedCustomer = await prisma.customer.findUnique({
           where: { email: appointment.customerEmail },
         });
@@ -85,20 +91,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         });
       }
 
-      // CANCELLED: Just update status (slot becomes available automatically)
+      // CANCELLED: Just update status
       if (status === "cancelled") {
         const updated = await prisma.appointment.update({
-          where: { id: params.id },
+          where: { id },
           data: { status: "cancelled" },
           include: { service: true, staff: true },
         });
         return NextResponse.json(updated);
       }
 
-      // CONFIRMED: Revert to confirmed
+      // CONFIRMED: Restore to confirmed
       if (status === "confirmed") {
         const updated = await prisma.appointment.update({
-          where: { id: params.id },
+          where: { id },
           data: { status: "confirmed" },
           include: { service: true, staff: true },
         });
@@ -116,14 +122,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       }
       updateData.serviceId = serviceId;
       
-      // Recalculate endTime based on new service duration
       if (startTime) {
         const start = new Date(startTime);
         const end = new Date(start.getTime() + service.durationMinutes * 60000);
         updateData.startTime = start;
         updateData.endTime = end;
       } else {
-        // Keep same start time but update end time
         const end = new Date(appointment.startTime.getTime() + service.durationMinutes * 60000);
         updateData.endTime = end;
       }
@@ -134,7 +138,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     if (startTime && !serviceId) {
-      // Only startTime changed, keep same duration
       const start = new Date(startTime);
       const duration = appointment.service.durationMinutes;
       const end = new Date(start.getTime() + duration * 60000);
@@ -142,7 +145,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       updateData.endTime = end;
     }
 
-    // Check for conflicts if time or staff changed
+    // Check for conflicts
     if (updateData.startTime || updateData.staffId) {
       const checkStaffId = updateData.staffId || appointment.staffId;
       const checkStart = updateData.startTime || appointment.startTime;
@@ -150,7 +153,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
       const conflict = await prisma.appointment.findFirst({
         where: {
-          id: { not: params.id },
+          id: { not: id },
           staffId: checkStaffId,
           status: { notIn: ["cancelled", "no-show"] },
           OR: [
@@ -165,7 +168,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const updated = await prisma.appointment.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: { service: true, staff: true },
     });
@@ -178,10 +181,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE - Permanently delete appointment
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  
   try {
     await prisma.appointment.delete({
-      where: { id: params.id },
+      where: { id },
     });
     return NextResponse.json({ success: true });
   } catch (error) {
