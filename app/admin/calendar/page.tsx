@@ -24,7 +24,6 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
   
-  // Modal states
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
   const [editData, setEditData] = useState({ serviceId: "", staffId: "", date: "", time: "" });
@@ -32,25 +31,15 @@ export default function CalendarPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<"cancel" | "noshow" | "delete" | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [selectedDate]);
-
-  useEffect(() => {
-    loadStaffAndServices();
-  }, []);
+  useEffect(() => { loadData(); }, [selectedDate]);
+  useEffect(() => { loadStaffAndServices(); }, []);
 
   async function loadStaffAndServices() {
     try {
-      const [staffRes, servicesRes] = await Promise.all([
-        fetch("/api/staff"),
-        fetch("/api/services"),
-      ]);
+      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
       setStaffList(await staffRes.json());
       setServices(await servicesRes.json());
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   }
 
   async function loadData() {
@@ -58,11 +47,40 @@ export default function CalendarPage() {
     try {
       const res = await fetch(`/api/appointments?date=${selectedDate}`);
       setAppointments(await res.json());
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  }
+
+  // Date navigation
+  function goToPreviousDay() {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() - 1);
+    setSelectedDate(date.toISOString().split("T")[0]);
+  }
+
+  function goToNextDay() {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + 1);
+    setSelectedDate(date.toISOString().split("T")[0]);
+  }
+
+  function goToToday() {
+    setSelectedDate(new Date().toISOString().split("T")[0]);
+  }
+
+  function formatDateDisplay(dateStr: string) {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (dateStr === today.toISOString().split("T")[0]) return "Today";
+    if (dateStr === tomorrow.toISOString().split("T")[0]) return "Tomorrow";
+    if (dateStr === yesterday.toISOString().split("T")[0]) return "Yesterday";
+    
+    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
   function openAppointment(apt: Appointment) {
@@ -100,11 +118,7 @@ export default function CalendarPage() {
       const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: editData.serviceId,
-          staffId: editData.staffId,
-          startTime,
-        }),
+        body: JSON.stringify({ serviceId: editData.serviceId, staffId: editData.staffId, startTime }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -123,7 +137,6 @@ export default function CalendarPage() {
   async function handleCancel() {
     if (!selectedAppointment) return;
     setSaving(true);
-    setMessage(null);
     try {
       const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
         method: "PUT",
@@ -131,7 +144,7 @@ export default function CalendarPage() {
         body: JSON.stringify({ status: "cancelled" }),
       });
       if (!res.ok) throw new Error("Failed to cancel");
-      setMessage({ type: "success", text: "Appointment cancelled. Slot is now available." });
+      setMessage({ type: "success", text: "Appointment cancelled." });
       loadData();
       setTimeout(() => closeModal(), 1500);
     } catch (err: any) {
@@ -145,7 +158,6 @@ export default function CalendarPage() {
   async function handleNoShow() {
     if (!selectedAppointment) return;
     setSaving(true);
-    setMessage(null);
     try {
       const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
         method: "PUT",
@@ -154,14 +166,12 @@ export default function CalendarPage() {
       });
       if (!res.ok) throw new Error("Failed to mark no-show");
       const data = await res.json();
-      
       let msg = "Marked as no-show.";
       if (data.customerBlocked) {
-        msg += ` Customer has been BLOCKED (${data.customerNoShowCount} no-shows).`;
+        msg += ` Customer BLOCKED (${data.customerNoShowCount} no-shows).`;
       } else if (data.customerNoShowCount) {
-        msg += ` Customer has ${data.customerNoShowCount}/3 no-shows.`;
+        msg += ` (${data.customerNoShowCount}/3 no-shows)`;
       }
-      
       setMessage({ type: "success", text: msg });
       loadData();
       setTimeout(() => closeModal(), 2500);
@@ -179,7 +189,7 @@ export default function CalendarPage() {
     try {
       const res = await fetch(`/api/appointments/${selectedAppointment.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      setMessage({ type: "success", text: "Appointment deleted." });
+      setMessage({ type: "success", text: "Deleted." });
       loadData();
       setTimeout(() => closeModal(), 1500);
     } catch (err: any) {
@@ -200,7 +210,7 @@ export default function CalendarPage() {
         body: JSON.stringify({ status: "confirmed" }),
       });
       if (!res.ok) throw new Error("Failed to restore");
-      setMessage({ type: "success", text: "Appointment restored!" });
+      setMessage({ type: "success", text: "Restored!" });
       loadData();
       setTimeout(() => closeModal(), 1500);
     } catch (err: any) {
@@ -210,19 +220,25 @@ export default function CalendarPage() {
     }
   }
 
-  // Generate time slots for calendar
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 9:00 - 20:00
+  // Generate time options for edit (every 15 minutes)
+  const timeOptions: string[] = [];
+  for (let h = 8; h <= 21; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      timeOptions.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+    }
+  }
+
+  const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 - 20:00
 
   function getAppointmentStyle(apt: Appointment) {
     const start = new Date(apt.startTime);
     const end = new Date(apt.endTime);
     const startHour = start.getHours() + start.getMinutes() / 60;
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    const top = (startHour - 9) * 60;
-    const height = duration * 60;
+    const top = (startHour - 8) * 60;
+    const height = Math.max(duration * 60, 30);
     
-    let bgColor = "#6366f1";
-    let borderColor = "#4f46e5";
+    let bgColor = "#6366f1", borderColor = "#4f46e5";
     if (apt.status === "cancelled") { bgColor = "#94a3b8"; borderColor = "#64748b"; }
     if (apt.status === "no-show") { bgColor = "#ef4444"; borderColor = "#dc2626"; }
     if (apt.status === "completed") { bgColor = "#10b981"; borderColor = "#059669"; }
@@ -234,39 +250,69 @@ export default function CalendarPage() {
     return new Date(dateStr).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   }
 
-  function formatDate(dateStr: string) {
+  function formatDateLong(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   }
 
   const activeAppointments = appointments.filter(a => a.status !== "cancelled");
   const confirmedCount = appointments.filter(a => a.status === "confirmed" || a.status === "booked").length;
+  const isToday = selectedDate === new Date().toISOString().split("T")[0];
 
   return (
-    <div style={{ maxWidth: 1200 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+    <div style={{ maxWidth: 1400 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: 0 }}>Calendar</h1>
           <p style={{ color: "#64748b", margin: "4px 0 0" }}>Manage appointments</p>
         </div>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          style={{ padding: "10px 16px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
-        />
+        
+        {/* Date Navigation */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={goToPreviousDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#f8fafc", borderRadius: 8, minWidth: 200, justifyContent: "center" }}>
+            <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{formatDateDisplay(selectedDate)}</span>
+          </div>
+          
+          <button onClick={goToNextDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
+          
+          {!isToday && (
+            <button onClick={goToToday} style={{ padding: "8px 16px", border: "1px solid #6366f1", borderRadius: 8, background: "#fff", color: "#6366f1", fontSize: 14, fontWeight: 500, cursor: "pointer", marginLeft: 8 }}>Today</button>
+          )}
+          
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, marginLeft: 8 }}
+          />
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+        <div style={{ padding: "12px 20px", background: "#f0fdf4", borderRadius: 10, border: "1px solid #bbf7d0" }}>
+          <span style={{ color: "#15803d", fontSize: 14 }}>Confirmed: <strong>{confirmedCount}</strong></span>
+        </div>
+        <div style={{ padding: "12px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+          <span style={{ color: "#64748b", fontSize: 14 }}>Total: <strong>{activeAppointments.length}</strong></span>
+        </div>
       </div>
 
       {/* Calendar Grid */}
       <div style={{ backgroundColor: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
         {/* Staff Headers */}
-        <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", backgroundColor: "#f8fafc" }}>
-          <div style={{ width: 60, padding: 16, borderRight: "1px solid #e2e8f0" }}></div>
+        <div style={{ display: "flex", borderBottom: "2px solid #e2e8f0", backgroundColor: "#f8fafc" }}>
+          <div style={{ width: 70, padding: 16, borderRight: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 12, color: "#64748b" }}>Time</span>
+          </div>
           {staffList.filter(s => s.name).map((staff) => (
             <div key={staff.id} style={{ flex: 1, padding: 16, textAlign: "center", borderRight: "1px solid #e2e8f0" }}>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontWeight: 600 }}>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontWeight: 600, fontSize: 18 }}>
                 {staff.name.charAt(0)}
               </div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{staff.name}</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{staff.name}</div>
               <div style={{ color: "#64748b", fontSize: 12 }}>{staff.role || "Staff"}</div>
             </div>
           ))}
@@ -275,9 +321,9 @@ export default function CalendarPage() {
         {/* Time Grid */}
         <div style={{ display: "flex", position: "relative" }}>
           {/* Time Labels */}
-          <div style={{ width: 60, borderRight: "1px solid #e2e8f0" }}>
+          <div style={{ width: 70, borderRight: "1px solid #e2e8f0", background: "#fafafa" }}>
             {hours.map((hour) => (
-              <div key={hour} style={{ height: 60, padding: "4px 8px", fontSize: 12, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>
+              <div key={hour} style={{ height: 60, padding: "4px 12px", fontSize: 13, color: "#64748b", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", fontWeight: 500 }}>
                 {hour}:00
               </div>
             ))}
@@ -285,9 +331,9 @@ export default function CalendarPage() {
 
           {/* Staff Columns */}
           {staffList.filter(s => s.name).map((staff) => (
-            <div key={staff.id} style={{ flex: 1, position: "relative", borderRight: "1px solid #e2e8f0" }}>
+            <div key={staff.id} style={{ flex: 1, position: "relative", borderRight: "1px solid #e2e8f0", background: "#fff" }}>
               {hours.map((hour) => (
-                <div key={hour} style={{ height: 60, borderBottom: "1px solid #f1f5f9" }}></div>
+                <div key={hour} style={{ height: 60, borderBottom: "1px solid #f1f5f9", background: hour % 2 === 0 ? "#fff" : "#fafafa" }}></div>
               ))}
               
               {/* Appointments */}
@@ -306,17 +352,20 @@ export default function CalendarPage() {
                         right: 4,
                         height: style.height - 4,
                         backgroundColor: style.bgColor,
-                        borderLeft: `3px solid ${style.borderColor}`,
-                        borderRadius: 6,
-                        padding: "6px 8px",
+                        borderLeft: `4px solid ${style.borderColor}`,
+                        borderRadius: 8,
+                        padding: "8px 10px",
                         cursor: "pointer",
                         overflow: "hidden",
-                        opacity: apt.status === "cancelled" ? 0.5 : 1,
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        transition: "transform 0.1s, box-shadow 0.1s",
                       }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.02)"; e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)"; }}
                     >
-                      <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{formatTime(apt.startTime)}</div>
-                      <div style={{ color: "#fff", fontSize: 11, opacity: 0.9 }}>{apt.service.name}</div>
-                      <div style={{ color: "#fff", fontSize: 11, opacity: 0.8 }}>{apt.customerName}</div>
+                      <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{formatTime(apt.startTime)}</div>
+                      <div style={{ color: "#fff", fontSize: 12, opacity: 0.95, fontWeight: 500, marginTop: 2 }}>{apt.service.name}</div>
+                      <div style={{ color: "#fff", fontSize: 11, opacity: 0.85, marginTop: 2 }}>{apt.customerName}</div>
                     </div>
                   );
                 })}
@@ -325,16 +374,16 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Footer Stats */}
-      <div style={{ marginTop: 16, display: "flex", gap: 24, fontSize: 14, color: "#64748b" }}>
-        <span>Total <strong style={{ color: "#0f172a" }}>{activeAppointments.length}</strong></span>
-        <span>Confirmed <strong style={{ color: "#10b981" }}>{confirmedCount}</strong></span>
-        <span>Staff <strong style={{ color: "#6366f1" }}>{staffList.length}</strong></span>
+      {/* Legend */}
+      <div style={{ marginTop: 16, display: "flex", gap: 20, fontSize: 13, color: "#64748b" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#6366f1" }}></div> Confirmed</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#ef4444" }}></div> No-Show</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#94a3b8" }}></div> Cancelled</div>
       </div>
 
       {/* Appointment Modal */}
       {selectedAppointment && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
           <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb" }}>
@@ -351,7 +400,7 @@ export default function CalendarPage() {
               </div>
             )}
 
-            {/* Confirm Action Dialog */}
+            {/* Confirm Dialog */}
             {confirmAction && (
               <div style={{ margin: "16px 24px", padding: 16, backgroundColor: "#fef3c7", borderRadius: 12, border: "1px solid #fcd34d" }}>
                 <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#92400e" }}>
@@ -360,21 +409,13 @@ export default function CalendarPage() {
                   {confirmAction === "delete" && "Permanently delete?"}
                 </p>
                 <p style={{ margin: "0 0 16px", fontSize: 13, color: "#a16207" }}>
-                  {confirmAction === "cancel" && "The time slot will become available again."}
-                  {confirmAction === "noshow" && "This will count toward the customer's no-show record. 3 no-shows = blocked."}
-                  {confirmAction === "delete" && "This action cannot be undone."}
+                  {confirmAction === "cancel" && "The time slot will become available."}
+                  {confirmAction === "noshow" && "This counts toward no-show record. 3 = blocked."}
+                  {confirmAction === "delete" && "This cannot be undone."}
                 </p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", cursor: "pointer" }}>Cancel</button>
-                  <button
-                    onClick={() => {
-                      if (confirmAction === "cancel") handleCancel();
-                      if (confirmAction === "noshow") handleNoShow();
-                      if (confirmAction === "delete") handleDelete();
-                    }}
-                    disabled={saving}
-                    style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#dc2626" : "#f59e0b", color: "#fff", fontWeight: 600, cursor: "pointer" }}
-                  >
+                  <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", cursor: "pointer" }}>Back</button>
+                  <button onClick={() => { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }} disabled={saving} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#dc2626" : "#f59e0b", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
                     {saving ? "..." : "Confirm"}
                   </button>
                 </div>
@@ -385,27 +426,20 @@ export default function CalendarPage() {
             <div style={{ padding: 24 }}>
               {modalMode === "view" ? (
                 <>
-                  {/* Status Badge */}
+                  {/* Status */}
                   <div style={{ marginBottom: 20 }}>
                     <span style={{
-                      padding: "6px 12px",
+                      padding: "6px 14px",
                       borderRadius: 20,
                       fontSize: 13,
                       fontWeight: 600,
-                      backgroundColor:
-                        selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#d1fae5" :
-                        selectedAppointment.status === "cancelled" ? "#f3f4f6" :
-                        selectedAppointment.status === "no-show" ? "#fee2e2" : "#e0e7ff",
-                      color:
-                        selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#065f46" :
-                        selectedAppointment.status === "cancelled" ? "#64748b" :
-                        selectedAppointment.status === "no-show" ? "#991b1b" : "#3730a3",
+                      backgroundColor: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#d1fae5" : selectedAppointment.status === "cancelled" ? "#f3f4f6" : selectedAppointment.status === "no-show" ? "#fee2e2" : "#e0e7ff",
+                      color: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#065f46" : selectedAppointment.status === "cancelled" ? "#64748b" : selectedAppointment.status === "no-show" ? "#991b1b" : "#3730a3",
                     }}>
                       {selectedAppointment.status === "booked" ? "Confirmed" : selectedAppointment.status.charAt(0).toUpperCase() + selectedAppointment.status.slice(1)}
                     </span>
                   </div>
 
-                  {/* Details */}
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Service</div>
                     <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.service.name}</div>
@@ -414,7 +448,7 @@ export default function CalendarPage() {
 
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Date & Time</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatDate(selectedAppointment.startTime)}</div>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatDateLong(selectedAppointment.startTime)}</div>
                     <div style={{ fontSize: 14, color: "#64748b" }}>{formatTime(selectedAppointment.startTime)} - {formatTime(selectedAppointment.endTime)}</div>
                   </div>
 
@@ -430,7 +464,7 @@ export default function CalendarPage() {
                     <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.customerEmail}</div>
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Actions */}
                   {!confirmAction && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {(selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked") && (
@@ -452,10 +486,10 @@ export default function CalendarPage() {
                       {(selectedAppointment.status === "cancelled" || selectedAppointment.status === "no-show") && (
                         <>
                           <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 10, background: "#10b981", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-                            ↩️ Restore Appointment
+                            ↩️ Restore
                           </button>
                           <button onClick={() => setConfirmAction("delete")} style={{ padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fff", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
-                            🗑 Delete Permanently
+                            🗑 Delete
                           </button>
                         </>
                       )}
@@ -471,57 +505,39 @@ export default function CalendarPage() {
                 <>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                    <select
-                      value={editData.serviceId}
-                      onChange={(e) => setEditData({ ...editData, serviceId: e.target.value })}
-                      style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-                    >
-                      {services.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>
-                      ))}
+                    <select value={editData.serviceId} onChange={(e) => setEditData({ ...editData, serviceId: e.target.value })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
+                      {services.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>)}
                     </select>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
-                    <select
-                      value={editData.staffId}
-                      onChange={(e) => setEditData({ ...editData, staffId: e.target.value })}
-                      style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-                    >
-                      {staffList.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
+                    <select value={editData.staffId} onChange={(e) => setEditData({ ...editData, staffId: e.target.value })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
+                      {staffList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
 
-                  <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+                  <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                      <input
-                        type="date"
-                        value={editData.date}
-                        onChange={(e) => setEditData({ ...editData, date: e.target.value })}
-                        style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-                      />
+                      <input type="date" value={editData.date} onChange={(e) => setEditData({ ...editData, date: e.target.value })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                      <input
-                        type="time"
-                        value={editData.time}
-                        onChange={(e) => setEditData({ ...editData, time: e.target.value })}
-                        style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-                      />
+                      <select value={editData.time} onChange={(e) => setEditData({ ...editData, time: e.target.value })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
+                        {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
                   </div>
 
+                  <p style={{ fontSize: 12, color: "#64748b", marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 8 }}>
+                    ⚠️ Admin can set any time. No availability check.
+                  </p>
+
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setModalMode("view")} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>
-                      Cancel
-                    </button>
+                    <button onClick={() => setModalMode("view")} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
                     <button onClick={handleSaveEdit} disabled={saving} style={{ flex: 1, padding: 14, border: "none", borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-                      {saving ? "Saving..." : "Save Changes"}
+                      {saving ? "Saving..." : "Save"}
                     </button>
                   </div>
                 </>
