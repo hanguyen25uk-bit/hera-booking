@@ -30,7 +30,7 @@ type ReservedSlot = {
   endTime: string;
 };
 
-type Step = 0 | 1 | 2 | 3 | 4 | 5; // 0 = policy agreement
+type Step = 1 | 2 | 3 | 4 | 5;
 
 function generateSessionId() {
   return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -49,8 +49,8 @@ export default function BookingPage() {
     return generateSessionId();
   });
 
-  const [step, setStep] = useState<Step>(0); // Start with policy
-  const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [step, setStep] = useState<Step>(1);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,17 +83,6 @@ export default function BookingPage() {
   const isAnyStaff = selectedStaffId === "any";
   const currentService = services.find((s) => s.id === selectedServiceId);
   const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
-
-  // Check if policy was already accepted this session
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const accepted = sessionStorage.getItem('policy_accepted');
-      if (accepted === 'true') {
-        setPolicyAccepted(true);
-        setStep(1);
-      }
-    }
-  }, []);
 
   // Load services
   useEffect(() => {
@@ -219,14 +208,23 @@ export default function BookingPage() {
     };
   }, [sessionId]);
 
-  const handleAcceptPolicy = () => {
-    setPolicyAccepted(true);
-    sessionStorage.setItem('policy_accepted', 'true');
-    setStep(1);
-  };
-
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+
+  // Show policy modal before going to step 4 (Your Info)
+  const handleContinueToDetails = () => {
+    if (selectedTime) {
+      setError(null);
+      setShowPolicyModal(true);
+    } else {
+      setError("Please select a time");
+    }
+  };
+
+  const handleAcceptPolicy = () => {
+    setShowPolicyModal(false);
+    setStep(4);
+  };
 
   const isSlotReserved = useCallback((time: string, staffIdToCheck: string) => {
     const slotStart = new Date(`${selectedDate}T${time}:00`);
@@ -454,45 +452,48 @@ export default function BookingPage() {
     );
   }
 
-  // Step 0: Policy Agreement
-  if (step === 0) {
-    return (
-      <div className="booking-page">
-        <style>{responsiveStyles}</style>
+  return (
+    <div className="booking-page">
+      <style>{responsiveStyles}</style>
+      
+      {/* Policy Modal - Shows before step 4 */}
+      {showPolicyModal && (
         <div className="policy-overlay">
           <div className="policy-modal">
             <div className="policy-header">
-              <div className="policy-logo">H</div>
-              <h1 className="policy-title">HERA NAIL SPA</h1>
-              <div className="policy-rating">
-                <span className="stars">★★★★☆</span>
-                <span className="rating-text">4.4 • 150 reviews</span>
-              </div>
+              <h2>Our Booking Policy</h2>
+              <button className="policy-close" onClick={() => setShowPolicyModal(false)}>×</button>
             </div>
             
             <div className="policy-content">
-              <h2 className="policy-section-title">Our Booking Policy</h2>
-              
               <div className="policy-item">
-                <span className="policy-icon">💵</span>
-                <div>
+                <div className="policy-icon">💵</div>
+                <div className="policy-text">
                   <strong>We accept CASH only.</strong>
                   <p>By booking an appointment, you confirm that you agree to pay in cash on the day of your service.</p>
                 </div>
               </div>
               
               <div className="policy-item">
-                <span className="policy-icon">⏰</span>
-                <div>
+                <div className="policy-icon">🚫</div>
+                <div className="policy-text">
+                  <strong>No Deposit Required</strong>
+                  <p>We do not take a deposit for this booking. During peak hours, we always prioritise booking customers first, but if you can't wait and have plans afterwards, please do not book and leave the slot for someone who needs it.</p>
+                </div>
+              </div>
+              
+              <div className="policy-item">
+                <div className="policy-icon">⏰</div>
+                <div className="policy-text">
                   <strong>Cancellation Policy</strong>
                   <p>Please cancel at least 2 hours before your appointment. No-shows may result in booking restrictions.</p>
                 </div>
               </div>
               
               <div className="policy-item">
-                <span className="policy-icon">📍</span>
-                <div>
-                  <strong>Location</strong>
+                <div className="policy-icon">📍</div>
+                <div className="policy-text">
+                  <strong>Arrival Time</strong>
                   <p>Please arrive 5 minutes before your appointment time.</p>
                 </div>
               </div>
@@ -500,18 +501,12 @@ export default function BookingPage() {
             
             <div className="policy-footer">
               <button className="btn-policy-accept" onClick={handleAcceptPolicy}>
-                I Agree - Continue Booking
+                Okay
               </button>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="booking-page">
-      <style>{responsiveStyles}</style>
+      )}
       
       <div className="mobile-header">
         <div className="mobile-logo">
@@ -716,7 +711,7 @@ export default function BookingPage() {
 
               <div className="actions">
                 <button className="btn-secondary" onClick={goBack}>Back</button>
-                <button className="btn-primary" onClick={() => { if (selectedTime) { setError(null); goNext(); } else setError("Please select a time"); }}>
+                <button className="btn-primary" onClick={handleContinueToDetails}>
                   Continue
                 </button>
               </div>
@@ -817,7 +812,6 @@ export default function BookingPage() {
                   onClick={() => {
                     const newSessionId = generateSessionId();
                     sessionStorage.setItem('booking_session_id', newSessionId);
-                    sessionStorage.removeItem('policy_accepted');
                     window.location.reload();
                   }}
                 >
@@ -861,73 +855,68 @@ const responsiveStyles = `
   
   @keyframes spin { to { transform: rotate(360deg); } }
   
-  /* Policy Modal Styles */
+  /* Policy Modal - Setmore Style */
   .policy-overlay {
-    min-height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1000;
     padding: 20px;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   }
   
   .policy-modal {
     background: #fff;
-    border-radius: 20px;
+    border-radius: 12px;
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
+    max-height: 90vh;
     overflow: hidden;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   }
   
   .policy-header {
-    background: linear-gradient(135deg, #d4a574 0%, #c4956a 100%);
-    padding: 32px;
-    text-align: center;
-    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
   }
   
-  .policy-logo {
-    width: 80px;
-    height: 80px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 50%;
+  .policy-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
+  
+  .policy-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #f3f4f6;
+    border-radius: 8px;
+    font-size: 20px;
+    color: #6b7280;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 16px;
-    font-size: 32px;
-    font-weight: 700;
-    color: #fff;
   }
   
-  .policy-title {
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0 0 8px;
-    letter-spacing: 1px;
+  .policy-close:hover {
+    background: #e5e7eb;
   }
-  
-  .policy-rating {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: 14px;
-  }
-  
-  .stars { color: #fbbf24; }
-  .rating-text { opacity: 0.9; }
   
   .policy-content {
-    padding: 32px;
-  }
-  
-  .policy-section-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 24px;
+    padding: 24px;
+    overflow-y: auto;
+    max-height: 60vh;
   }
   
   .policy-item {
@@ -936,45 +925,59 @@ const responsiveStyles = `
     margin-bottom: 24px;
   }
   
+  .policy-item:last-child {
+    margin-bottom: 0;
+  }
+  
   .policy-icon {
-    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    background: #f3f4f6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
     flex-shrink: 0;
   }
   
-  .policy-item strong {
+  .policy-text strong {
     display: block;
-    color: #0f172a;
     font-size: 15px;
+    font-weight: 600;
+    color: #111827;
     margin-bottom: 4px;
   }
   
-  .policy-item p {
-    color: #64748b;
+  .policy-text p {
     font-size: 14px;
+    color: #6b7280;
     margin: 0;
     line-height: 1.5;
   }
   
   .policy-footer {
-    padding: 0 32px 32px;
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
   }
   
   .btn-policy-accept {
     width: 100%;
-    padding: 16px 24px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
+    padding: 14px 24px;
+    background: #fff;
+    color: #111827;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: all 0.15s ease;
   }
   
   .btn-policy-accept:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+    background: #f3f4f6;
+    border-color: #d1d5db;
   }
   
   /* Rest of styles */
@@ -1090,11 +1093,7 @@ const responsiveStyles = `
     .day-off-notice { flex-direction: column; text-align: center; }
     .day-off-icon { margin: 0 auto; }
     
-    .policy-modal { margin: 10px; border-radius: 16px; }
-    .policy-header { padding: 24px; }
-    .policy-logo { width: 60px; height: 60px; font-size: 24px; }
-    .policy-title { font-size: 20px; }
-    .policy-content { padding: 24px; }
-    .policy-footer { padding: 0 24px 24px; }
+    .policy-modal { margin: 10px; max-height: 95vh; }
+    .policy-content { max-height: 50vh; }
   }
 `;
