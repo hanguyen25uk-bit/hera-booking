@@ -30,9 +30,8 @@ type ReservedSlot = {
   endTime: string;
 };
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 0 | 1 | 2 | 3 | 4 | 5; // 0 = policy agreement
 
-// Generate unique session ID
 function generateSessionId() {
   return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
@@ -50,7 +49,8 @@ export default function BookingPage() {
     return generateSessionId();
   });
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(0); // Start with policy
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +68,6 @@ export default function BookingPage() {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [assignedStaffId, setAssignedStaffId] = useState<string>("");
   
-  // Reservation state
   const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
   const [reservationTimer, setReservationTimer] = useState<number>(0);
   const [reserving, setReserving] = useState(false);
@@ -84,6 +83,17 @@ export default function BookingPage() {
   const isAnyStaff = selectedStaffId === "any";
   const currentService = services.find((s) => s.id === selectedServiceId);
   const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
+
+  // Check if policy was already accepted this session
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const accepted = sessionStorage.getItem('policy_accepted');
+      if (accepted === 'true') {
+        setPolicyAccepted(true);
+        setStep(1);
+      }
+    }
+  }, []);
 
   // Load services
   useEffect(() => {
@@ -126,7 +136,7 @@ export default function BookingPage() {
     setSelectedDate(today);
   }, []);
 
-  // Load availability when staff and date selected
+  // Load availability
   useEffect(() => {
     if (!selectedStaffId || !selectedDate) return;
     
@@ -147,7 +157,6 @@ export default function BookingPage() {
           );
           setAllStaffAvailability(availabilityMap);
           
-          // Load reservations for all staff
           let allReserved: ReservedSlot[] = [];
           let allBooked: ReservedSlot[] = [];
           await Promise.all(
@@ -165,7 +174,6 @@ export default function BookingPage() {
           const data = await res.json();
           setStaffAvailability(data);
           
-          // Load reservations
           const resRes = await fetch(`/api/slot-reservation?staffId=${selectedStaffId}&date=${selectedDate}&sessionId=${sessionId}`);
           const resData = await resRes.json();
           setReservedSlots(resData.reservations || []);
@@ -181,7 +189,7 @@ export default function BookingPage() {
     loadAvailability();
   }, [selectedStaffId, selectedDate, staff, sessionId]);
 
-  // Reservation countdown timer
+  // Reservation timer
   useEffect(() => {
     if (!reservationExpiry) {
       setReservationTimer(0);
@@ -202,7 +210,7 @@ export default function BookingPage() {
     return () => clearInterval(interval);
   }, [reservationExpiry]);
 
-  // Release reservation on unmount or when leaving step 3/4
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (sessionId) {
@@ -211,13 +219,14 @@ export default function BookingPage() {
     };
   }, [sessionId]);
 
-  const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
-  const goBack = () => {
-    if (step === 4 && selectedTime) {
-      // Keep reservation when going back from step 4
-    }
-    setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+  const handleAcceptPolicy = () => {
+    setPolicyAccepted(true);
+    sessionStorage.setItem('policy_accepted', 'true');
+    setStep(1);
   };
+
+  const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
+  const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
 
   const isSlotReserved = useCallback((time: string, staffIdToCheck: string) => {
     const slotStart = new Date(`${selectedDate}T${time}:00`);
@@ -358,7 +367,7 @@ export default function BookingPage() {
       
       if (!res.ok) {
         if (data.reserved) {
-          setError("This slot was just reserved by another customer. Please select another time.");
+          setError("This slot was just reserved. Please select another time.");
         } else if (data.booked) {
           setError("This slot was just booked. Please select another time.");
         } else {
@@ -416,7 +425,6 @@ export default function BookingPage() {
       }
       const appointment = await res.json();
       
-      // Release reservation after successful booking
       await fetch(`/api/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {});
       
       setSuccessAppointmentId(appointment.id);
@@ -441,6 +449,61 @@ export default function BookingPage() {
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 0: Policy Agreement
+  if (step === 0) {
+    return (
+      <div className="booking-page">
+        <style>{responsiveStyles}</style>
+        <div className="policy-overlay">
+          <div className="policy-modal">
+            <div className="policy-header">
+              <div className="policy-logo">H</div>
+              <h1 className="policy-title">HERA NAIL SPA</h1>
+              <div className="policy-rating">
+                <span className="stars">★★★★☆</span>
+                <span className="rating-text">4.4 • 150 reviews</span>
+              </div>
+            </div>
+            
+            <div className="policy-content">
+              <h2 className="policy-section-title">Our Booking Policy</h2>
+              
+              <div className="policy-item">
+                <span className="policy-icon">💵</span>
+                <div>
+                  <strong>We accept CASH only.</strong>
+                  <p>By booking an appointment, you confirm that you agree to pay in cash on the day of your service.</p>
+                </div>
+              </div>
+              
+              <div className="policy-item">
+                <span className="policy-icon">⏰</span>
+                <div>
+                  <strong>Cancellation Policy</strong>
+                  <p>Please cancel at least 2 hours before your appointment. No-shows may result in booking restrictions.</p>
+                </div>
+              </div>
+              
+              <div className="policy-item">
+                <span className="policy-icon">📍</span>
+                <div>
+                  <strong>Location</strong>
+                  <p>Please arrive 5 minutes before your appointment time.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="policy-footer">
+              <button className="btn-policy-accept" onClick={handleAcceptPolicy}>
+                I Agree - Continue Booking
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -629,10 +692,8 @@ export default function BookingPage() {
                           disabled={isUnavailable || reserving}
                           onClick={() => !isUnavailable && handleTimeSelect(time)}
                           className={`time-slot ${isSelected ? "selected" : ""} ${isUnavailable ? "unavailable" : ""} ${isReserved ? "reserved" : ""}`}
-                          title={isReserved ? "Reserved by another customer" : isBooked ? "Already booked" : ""}
                         >
                           {time}
-                          {isReserved && <span className="reserved-badge">Reserved</span>}
                         </button>
                       );
                     })}
@@ -649,7 +710,7 @@ export default function BookingPage() {
 
               {reservationTimer > 0 && (
                 <div className="timer-notice">
-                  ⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong>. Please complete your booking.
+                  ⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong>
                 </div>
               )}
 
@@ -754,9 +815,9 @@ export default function BookingPage() {
                 <button
                   className="btn-primary"
                   onClick={() => {
-                    // Generate new session for new booking
                     const newSessionId = generateSessionId();
                     sessionStorage.setItem('booking_session_id', newSessionId);
+                    sessionStorage.removeItem('policy_accepted');
                     window.location.reload();
                   }}
                 >
@@ -800,6 +861,123 @@ const responsiveStyles = `
   
   @keyframes spin { to { transform: rotate(360deg); } }
   
+  /* Policy Modal Styles */
+  .policy-overlay {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  }
+  
+  .policy-modal {
+    background: #fff;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+  
+  .policy-header {
+    background: linear-gradient(135deg, #d4a574 0%, #c4956a 100%);
+    padding: 32px;
+    text-align: center;
+    color: #fff;
+  }
+  
+  .policy-logo {
+    width: 80px;
+    height: 80px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+  }
+  
+  .policy-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    letter-spacing: 1px;
+  }
+  
+  .policy-rating {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  
+  .stars { color: #fbbf24; }
+  .rating-text { opacity: 0.9; }
+  
+  .policy-content {
+    padding: 32px;
+  }
+  
+  .policy-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 24px;
+  }
+  
+  .policy-item {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .policy-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  
+  .policy-item strong {
+    display: block;
+    color: #0f172a;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  
+  .policy-item p {
+    color: #64748b;
+    font-size: 14px;
+    margin: 0;
+    line-height: 1.5;
+  }
+  
+  .policy-footer {
+    padding: 0 32px 32px;
+  }
+  
+  .btn-policy-accept {
+    width: 100%;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  
+  .btn-policy-accept:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+  }
+  
+  /* Rest of styles */
   .mobile-header {
     display: none;
     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -863,11 +1041,10 @@ const responsiveStyles = `
   
   .time-section { margin-bottom: 24px; }
   .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .time-slot { padding: 12px 8px; border-radius: 8px; border: 2px solid #e2e8f0; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.15s ease; background: #fff; color: #1e293b; position: relative; }
+  .time-slot { padding: 12px 8px; border-radius: 8px; border: 2px solid #e2e8f0; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.15s ease; background: #fff; color: #1e293b; }
   .time-slot.selected { border-color: #6366f1; background: #6366f1; color: #fff; }
   .time-slot.unavailable { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
   .time-slot.reserved { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-  .reserved-badge { position: absolute; top: -8px; right: -8px; background: #f59e0b; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; }
   .reserving-text { color: #6366f1; font-size: 14px; margin-top: 12px; }
   
   .no-slots { padding: 24px; background: #fef2f2; border-radius: 10px; color: #dc2626; text-align: center; }
@@ -912,5 +1089,12 @@ const responsiveStyles = `
     .success-title { font-size: 22px; }
     .day-off-notice { flex-direction: column; text-align: center; }
     .day-off-icon { margin: 0 auto; }
+    
+    .policy-modal { margin: 10px; border-radius: 16px; }
+    .policy-header { padding: 24px; }
+    .policy-logo { width: 60px; height: 60px; font-size: 24px; }
+    .policy-title { font-size: 20px; }
+    .policy-content { padding: 24px; }
+    .policy-footer { padding: 0 24px 24px; }
   }
 `;
