@@ -31,7 +31,6 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
   
-  // View/Edit appointment modal
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
   const [editData, setEditData] = useState({ serviceId: "", staffId: "", date: "", time: "" });
@@ -39,7 +38,6 @@ export default function CalendarPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<"cancel" | "noshow" | "delete" | null>(null);
 
-  // Add booking modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [addData, setAddData] = useState({
     serviceId: "",
@@ -54,7 +52,6 @@ export default function CalendarPage() {
   const [addBookedSlots, setAddBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAddAvailability, setLoadingAddAvailability] = useState(false);
 
-  // For edit mode
   const [editAvailability, setEditAvailability] = useState<StaffAvailability | null>(null);
   const [editBookedSlots, setEditBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -152,7 +149,13 @@ export default function CalendarPage() {
     }
   }
 
-  function generateTimeSlots(availability: StaffAvailability | null, bookedSlots: { startTime: string; endTime: string }[], serviceId: string, date: string): string[] {
+  function generateTimeSlots(
+    availability: StaffAvailability | null, 
+    bookedSlots: { startTime: string; endTime: string }[], 
+    serviceId: string, 
+    date: string,
+    checkPastTime: boolean = true
+  ): string[] {
     if (!availability?.available) return [];
     
     const startTime = availability.startTime || "09:00";
@@ -163,6 +166,15 @@ export default function CalendarPage() {
     const selectedService = services.find(function(s) { return s.id === serviceId; });
     const duration = selectedService?.durationMinutes || 60;
     
+    // Calculate end time in minutes from midnight
+    const closingTimeMinutes = endH * 60 + endM;
+    
+    // Get current time for checking past slots
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
     const slots: string[] = [];
     for (let h = startH, m = startM; h < endH || (h === endH && m < endM); ) {
       const timeStr = h.toString().padStart(2, "0") + ":" + m.toString().padStart(2, "0");
@@ -170,13 +182,30 @@ export default function CalendarPage() {
       const slotStart = new Date(date + "T" + timeStr + ":00");
       const slotEnd = new Date(slotStart.getTime() + duration * 60000);
       
+      // Calculate slot end time in minutes from midnight
+      const slotEndHour = slotEnd.getHours();
+      const slotEndMinute = slotEnd.getMinutes();
+      const slotEndMinutes = slotEndHour * 60 + slotEndMinute;
+      
+      // Check 1: Slot end must not exceed closing time
+      const exceedsClosingTime = slotEndMinutes > closingTimeMinutes;
+      
+      // Check 2: For today, slot must be in the future (only if checkPastTime is true)
+      let isPastTime = false;
+      if (checkPastTime && date === today) {
+        const slotMinutes = h * 60 + m;
+        const currentMinutes = currentHour * 60 + currentMinute;
+        isPastTime = slotMinutes <= currentMinutes;
+      }
+      
+      // Check 3: No conflict with existing bookings
       const hasConflict = bookedSlots.some(function(booked) {
         const bookedStart = new Date(booked.startTime);
         const bookedEnd = new Date(booked.endTime);
         return slotStart < bookedEnd && slotEnd > bookedStart;
       });
       
-      if (!hasConflict) {
+      if (!exceedsClosingTime && !isPastTime && !hasConflict) {
         slots.push(timeStr);
       }
       
@@ -187,11 +216,20 @@ export default function CalendarPage() {
     return slots;
   }
 
+  function isPastDate(dateStr: string): boolean {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate < today;
+  }
+
   function openAddModal() {
+    const todayStr = new Date().toISOString().split("T")[0];
     setAddData({
       serviceId: services.length > 0 ? services[0].id : "",
       staffId: staffList.length > 0 ? staffList[0].id : "",
-      date: selectedDate,
+      date: selectedDate >= todayStr ? selectedDate : todayStr,
       time: "",
       customerName: "",
       customerPhone: "",
@@ -214,6 +252,11 @@ export default function CalendarPage() {
   async function handleAddBooking() {
     if (!addData.customerName || !addData.customerPhone || !addData.time) {
       setMessage({ type: "error", text: "Please fill in all required fields" });
+      return;
+    }
+
+    if (isPastDate(addData.date)) {
+      setMessage({ type: "error", text: "Cannot book for past dates" });
       return;
     }
 
@@ -314,6 +357,12 @@ export default function CalendarPage() {
       setMessage({ type: "error", text: "Please select a time" });
       return;
     }
+    
+    if (isPastDate(editData.date)) {
+      setMessage({ type: "error", text: "Cannot reschedule to past dates" });
+      return;
+    }
+    
     setSaving(true);
     setMessage(null);
     try {
@@ -465,8 +514,11 @@ export default function CalendarPage() {
   const activeAppointments = appointments.filter(function(a) { return a.status !== "cancelled"; });
   const confirmedCount = appointments.filter(function(a) { return a.status === "confirmed" || a.status === "booked"; }).length;
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
-  const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date);
-  const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date);
+  
+  // For edit: don't check past time (allow editing existing appointments)
+  const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date, !isPastDate(editData.date));
+  // For add: always check past time
+  const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date, true);
 
   return (
     <div style={{ maxWidth: 1400 }}>
@@ -478,7 +530,6 @@ export default function CalendarPage() {
         </div>
         
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Add Booking Button */}
           <button 
             onClick={openAddModal}
             style={{ 
@@ -745,15 +796,23 @@ export default function CalendarPage() {
                 <input 
                   type="date" 
                   value={addData.date} 
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={function(e) { setAddData({ ...addData, date: e.target.value, time: "" }); }} 
                   style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} 
                 />
+                {isPastDate(addData.date) && (
+                  <p style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>Cannot book for past dates</p>
+                )}
               </div>
 
               {/* Time */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                {loadingAddAvailability ? (
+                {isPastDate(addData.date) ? (
+                  <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
+                    Cannot book for past dates. Please select today or a future date.
+                  </div>
+                ) : loadingAddAvailability ? (
                   <p style={{ color: "#64748b", fontSize: 14 }}>Loading available times...</p>
                 ) : !addAvailability?.available ? (
                   <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
@@ -761,7 +820,7 @@ export default function CalendarPage() {
                   </div>
                 ) : addTimeSlots.length === 0 ? (
                   <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>
-                    No available time slots
+                    No available time slots. All times are booked or have passed.
                   </div>
                 ) : (
                   <>
@@ -800,12 +859,12 @@ export default function CalendarPage() {
                 </button>
                 <button 
                   onClick={handleAddBooking} 
-                  disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone || !addAvailability?.available} 
+                  disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone || !addAvailability?.available || isPastDate(addData.date)} 
                   style={{ 
                     flex: 1, padding: 14, border: "none", borderRadius: 10, 
-                    background: addData.time && addData.customerName && addData.customerPhone && addAvailability?.available ? "linear-gradient(135deg, #10b981, #059669)" : "#e2e8f0", 
-                    color: addData.time && addData.customerName && addData.customerPhone ? "#fff" : "#94a3b8", 
-                    fontSize: 15, fontWeight: 600, cursor: addData.time ? "pointer" : "not-allowed" 
+                    background: addData.time && addData.customerName && addData.customerPhone && addAvailability?.available && !isPastDate(addData.date) ? "linear-gradient(135deg, #10b981, #059669)" : "#e2e8f0", 
+                    color: addData.time && addData.customerName && addData.customerPhone && !isPastDate(addData.date) ? "#fff" : "#94a3b8", 
+                    fontSize: 15, fontWeight: 600, cursor: addData.time && !isPastDate(addData.date) ? "pointer" : "not-allowed" 
                   }}
                 >
                   {saving ? "Creating..." : "Create Booking"}
@@ -912,7 +971,7 @@ export default function CalendarPage() {
                 <>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                    <select value={editData.serviceId} onChange={function(e) { setEditData({ ...editData, serviceId: e.target.value }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
+                    <select value={editData.serviceId} onChange={function(e) { setEditData({ ...editData, serviceId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
                       {services.map(function(s) { return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; })}
                     </select>
                   </div>
@@ -926,12 +985,25 @@ export default function CalendarPage() {
 
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                    <input type="date" value={editData.date} onChange={function(e) { setEditData({ ...editData, date: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} />
+                    <input 
+                      type="date" 
+                      value={editData.date} 
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={function(e) { setEditData({ ...editData, date: e.target.value, time: "" }); }} 
+                      style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} 
+                    />
+                    {isPastDate(editData.date) && (
+                      <p style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>Cannot reschedule to past dates</p>
+                    )}
                   </div>
 
                   <div style={{ marginBottom: 20 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                    {loadingAvailability ? (
+                    {isPastDate(editData.date) ? (
+                      <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
+                        Cannot reschedule to past dates. Please select today or a future date.
+                      </div>
+                    ) : loadingAvailability ? (
                       <p style={{ color: "#64748b", fontSize: 14 }}>Loading...</p>
                     ) : !editAvailability?.available ? (
                       <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
@@ -972,12 +1044,12 @@ export default function CalendarPage() {
                     <button onClick={function() { setModalMode("view"); }} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
                     <button 
                       onClick={handleSaveEdit} 
-                      disabled={saving || !editData.time || !editAvailability?.available} 
+                      disabled={saving || !editData.time || !editAvailability?.available || isPastDate(editData.date)} 
                       style={{ 
                         flex: 1, padding: 14, border: "none", borderRadius: 10, 
-                        background: editData.time && editAvailability?.available ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", 
-                        color: editData.time && editAvailability?.available ? "#fff" : "#94a3b8", 
-                        fontSize: 15, fontWeight: 600, cursor: editData.time ? "pointer" : "not-allowed" 
+                        background: editData.time && editAvailability?.available && !isPastDate(editData.date) ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", 
+                        color: editData.time && editAvailability?.available && !isPastDate(editData.date) ? "#fff" : "#94a3b8", 
+                        fontSize: 15, fontWeight: 600, cursor: editData.time && !isPastDate(editData.date) ? "pointer" : "not-allowed" 
                       }}
                     >
                       {saving ? "Saving..." : "Save"}
