@@ -24,9 +24,9 @@ export default function BookingPage() {
   });
 
   const [step, setStep] = useState<Step>(1);
-  const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policyTitle, setPolicyTitle] = useState("Our Booking Policy");
   const [policyItems, setPolicyItems] = useState<PolicyItem[]>([]);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,8 +127,6 @@ export default function BookingPage() {
 
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
-  const handleContinueToDetails = () => { if (selectedTime) { setError(null); setShowPolicyModal(true); } else setError("Please select a time"); };
-  const handleAcceptPolicy = () => { setShowPolicyModal(false); setStep(4); };
 
   const isSlotReserved = useCallback((time: string) => {
     const slotStart = new Date(`${selectedDate}T${time}:00`);
@@ -218,6 +216,13 @@ export default function BookingPage() {
     finally { setReserving(false); }
   };
 
+  const handleContinueToDetails = () => {
+    if (!selectedTime) { setError("Please select a time"); return; }
+    if (!policyAgreed) { setError("Please agree to the booking policy"); return; }
+    setError(null);
+    goNext();
+  };
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault(); setError(null);
     const finalStaffId = isAnyStaff ? assignedStaffId : selectedStaffId;
@@ -244,54 +249,56 @@ export default function BookingPage() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif" }}>
-      {showPolicyModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "hidden" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{policyTitle}</h2>
-              <button onClick={() => setShowPolicyModal(false)} style={{ width: 32, height: 32, border: "none", background: "#f3f4f6", borderRadius: 8, fontSize: 20, cursor: "pointer" }}>×</button>
-            </div>
-            <div style={{ padding: 24, overflowY: "auto", maxHeight: "60vh" }}>
-              {policyItems.map((item, i) => (
-                <div key={i} style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-                  <div style={{ width: 40, height: 40, background: "#f3f4f6", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{item.icon}</div>
-                  <div><strong style={{ display: "block", marginBottom: 4 }}>{item.title}</strong><p style={{ color: "#6b7280", margin: 0, fontSize: 14, lineHeight: 1.5 }}>{item.description}</p></div>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: "16px 24px", borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
-              <button onClick={handleAcceptPolicy} style={{ width: "100%", padding: 14, background: "#fff", border: "2px solid #e5e7eb", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Okay</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div style={{ display: "flex", minHeight: "100vh" }}>
-        <div style={{ width: 320, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 48 }}>
+        {/* Left Panel - Policy & Progress */}
+        <div style={{ width: 360, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", overflowY: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>H</div>
             <span style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>Hera Booking</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+          {/* Progress Steps */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
             {[{ n: 1, l: "Service" }, { n: 2, l: "Specialist" }, { n: 3, l: "Date & Time" }, { n: 4, l: "Your Info" }, { n: 5, l: "Confirmed" }].map((item) => (
-              <div key={item.n} style={{ display: "flex", alignItems: "center", gap: 16, opacity: step >= item.n ? 1 : 0.4 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: step > item.n ? "#10b981" : step === item.n ? "#6366f1" : "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 600 }}>{step > item.n ? "✓" : item.n}</div>
-                <span style={{ color: "#fff", fontSize: 14, fontWeight: step === item.n ? 600 : 400 }}>{item.l}</span>
+              <div key={item.n} style={{ display: "flex", alignItems: "center", gap: 12, opacity: step >= item.n ? 1 : 0.4 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: step > item.n ? "#10b981" : step === item.n ? "#6366f1" : "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 600 }}>{step > item.n ? "✓" : item.n}</div>
+                <span style={{ color: "#fff", fontSize: 13, fontWeight: step === item.n ? 600 : 400 }}>{item.l}</span>
               </div>
             ))}
           </div>
+
+          {/* Booking Policy - Always Visible */}
+          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 20, marginBottom: 20, border: "1px solid rgba(255,255,255,0.1)" }}>
+            <h3 style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              📋 {policyTitle}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {policyItems.map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 12 }}>
+                  <div style={{ width: 32, height: 32, background: "rgba(255,255,255,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{item.icon}</div>
+                  <div>
+                    <div style={{ color: "#fff", fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
+                    <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.4 }}>{item.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Your Selection */}
           {currentService && (
-            <div style={{ marginTop: "auto", padding: 20, background: "rgba(255,255,255,0.05)", borderRadius: 12 }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 16 }}>Your Selection</div>
-              <div style={{ color: "#fff", fontSize: 14, marginBottom: 12 }}>✨ {currentService.name}</div>
-              {currentStaff && <div style={{ color: "#fff", fontSize: 14, marginBottom: 12 }}>👤 {currentStaff.name}</div>}
-              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 14 }}>📅 {selectedDate} at {selectedTime}</div>}
-              {reservationTimer > 0 && <div style={{ color: "#fbbf24", fontSize: 14, fontWeight: 600, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>⏱️ Reserved for {formatTimer(reservationTimer)}</div>}
+            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.1)" }}>
+              <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 12 }}>Your Selection</div>
+              <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>✨ {currentService.name}</div>
+              {currentStaff && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>👤 {currentStaff.name}</div>}
+              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 13 }}>📅 {selectedDate} at {selectedTime}</div>}
+              {reservationTimer > 0 && <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 600, marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>⏱️ Reserved for {formatTimer(reservationTimer)}</div>}
             </div>
           )}
         </div>
 
-        <div style={{ flex: 1, marginLeft: 320, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: 48, minHeight: "100vh" }}>
+        {/* Right Panel - Main Content */}
+        <div style={{ flex: 1, marginLeft: 360, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: 48, minHeight: "100vh" }}>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>
             {error && <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", fontSize: 14, marginBottom: 24 }}>{error}</div>}
 
@@ -351,7 +358,7 @@ export default function BookingPage() {
                 </div>
                 {loadingAvailability ? <p>Checking availability...</p> : isStaffOnDayOff ? (
                   <div style={{ display: "flex", gap: 16, padding: 24, background: "#fef3c7", borderRadius: 12, marginBottom: 24 }}>
-                    <span style={{ fontSize: 32 }}>��</span>
+                    <span style={{ fontSize: 32 }}>🚫</span>
                     <div><strong style={{ color: "#92400e" }}>{currentStaff?.name} is not available</strong><p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 14 }}>Please select another date or specialist.</p></div>
                   </div>
                 ) : timeSlots.length === 0 ? (
@@ -370,9 +377,25 @@ export default function BookingPage() {
                 )}
                 {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 16, background: "#ecfdf5", borderRadius: 10, color: "#059669", marginBottom: 24 }}>✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
                 {reservationTimer > 0 && <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 24 }}>⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
+                
+                {/* Policy Agreement Checkbox */}
+                <div style={{ padding: 20, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 24 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={policyAgreed} 
+                      onChange={(e) => setPolicyAgreed(e.target.checked)}
+                      style={{ width: 20, height: 20, marginTop: 2, accentColor: "#6366f1" }}
+                    />
+                    <span style={{ fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
+                      I have read and agree to the <strong>Booking Policy</strong> shown on the left. I understand the payment terms and cancellation policy.
+                    </span>
+                  </label>
+                </div>
+
                 <div style={{ display: "flex", gap: 12 }}>
                   <button onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
-                  <button onClick={handleContinueToDetails} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button>
+                  <button onClick={handleContinueToDetails} style={{ flex: 1, padding: 16, background: policyAgreed ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", color: policyAgreed ? "#fff" : "#94a3b8", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed" }}>Continue</button>
                 </div>
               </>
             )}
