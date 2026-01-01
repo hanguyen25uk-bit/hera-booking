@@ -2,34 +2,11 @@
 
 import { useEffect, useState, FormEvent, useCallback } from "react";
 
-type Service = {
-  id: string;
-  name: string;
-  durationMinutes: number;
-  price: number;
-  category?: string | null;
-};
-
-type Staff = {
-  id: string;
-  name: string;
-  role?: string | null;
-};
-
-type StaffAvailability = {
-  available: boolean;
-  reason?: string;
-  startTime?: string;
-  endTime?: string;
-  isCustom?: boolean;
-  note?: string;
-};
-
-type ReservedSlot = {
-  startTime: string;
-  endTime: string;
-};
-
+type Service = { id: string; name: string; durationMinutes: number; price: number; category?: string | null };
+type Staff = { id: string; name: string; role?: string | null };
+type StaffAvailability = { available: boolean; reason?: string; startTime?: string; endTime?: string; isCustom?: boolean; note?: string };
+type ReservedSlot = { startTime: string; endTime: string };
+type PolicyItem = { icon: string; title: string; description: string };
 type Step = 1 | 2 | 3 | 4 | 5;
 
 function generateSessionId() {
@@ -40,10 +17,7 @@ export default function BookingPage() {
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       let id = sessionStorage.getItem('booking_session_id');
-      if (!id) {
-        id = generateSessionId();
-        sessionStorage.setItem('booking_session_id', id);
-      }
+      if (!id) { id = generateSessionId(); sessionStorage.setItem('booking_session_id', id); }
       return id;
     }
     return generateSessionId();
@@ -51,31 +25,30 @@ export default function BookingPage() {
 
   const [step, setStep] = useState<Step>(1);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [policyTitle, setPolicyTitle] = useState("Our Booking Policy");
+  const [policyItems, setPolicyItems] = useState<PolicyItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStaff, setLoadingStaff] = useState(false);
-  const [dataReady, setDataReady] = useState(false);
 
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
   const [staffAvailability, setStaffAvailability] = useState<StaffAvailability | null>(null);
   const [allStaffAvailability, setAllStaffAvailability] = useState<Record<string, StaffAvailability>>({});
   const [reservedSlots, setReservedSlots] = useState<ReservedSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<ReservedSlot[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
-  const [assignedStaffId, setAssignedStaffId] = useState<string>("");
-  
+  const [assignedStaffId, setAssignedStaffId] = useState("");
   const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
-  const [reservationTimer, setReservationTimer] = useState<number>(0);
+  const [reservationTimer, setReservationTimer] = useState(0);
   const [reserving, setReserving] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
@@ -84,1016 +57,361 @@ export default function BookingPage() {
   const currentService = services.find((s) => s.id === selectedServiceId);
   const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
 
-  // Load services
   useEffect(() => {
-    async function loadServices() {
+    async function loadData() {
       try {
-        const res = await fetch("/api/services");
-        const data = await res.json();
-        setServices(data);
-        setDataReady(true);
-      } catch (err) {
-        setError("Failed to load services. Please refresh.");
-      } finally {
-        setLoading(false);
-      }
+        const [servicesRes, policyRes] = await Promise.all([
+          fetch("/api/services"),
+          fetch("/api/booking-policy"),
+        ]);
+        setServices(await servicesRes.json());
+        const policyData = await policyRes.json();
+        setPolicyTitle(policyData.title || "Our Booking Policy");
+        setPolicyItems(policyData.policies || []);
+      } catch (err) { setError("Failed to load. Please refresh."); }
+      finally { setLoading(false); }
     }
-    loadServices();
+    loadData();
   }, []);
 
-  // Load staff when service selected
   useEffect(() => {
     if (!selectedServiceId) return;
     async function loadStaff() {
       setLoadingStaff(true);
-      try {
-        const res = await fetch(`/api/staff?serviceId=${selectedServiceId}`);
-        const data = await res.json();
-        setStaff(data);
-      } catch (err) {
-        console.error("Failed to load staff:", err);
-      } finally {
-        setLoadingStaff(false);
-      }
+      try { const res = await fetch(`/api/staff?serviceId=${selectedServiceId}`); setStaff(await res.json()); }
+      catch (err) { console.error(err); }
+      finally { setLoadingStaff(false); }
     }
     loadStaff();
   }, [selectedServiceId]);
 
-  // Set default date
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    setSelectedDate(today);
-  }, []);
+  useEffect(() => { setSelectedDate(new Date().toISOString().split("T")[0]); }, []);
 
-  // Load availability
   useEffect(() => {
     if (!selectedStaffId || !selectedDate) return;
-    
     async function loadAvailability() {
       setLoadingAvailability(true);
-      setSelectedTime("");
-      setAssignedStaffId("");
-      setReservationExpiry(null);
-      
+      setSelectedTime(""); setAssignedStaffId(""); setReservationExpiry(null);
       try {
         if (selectedStaffId === "any") {
           const availabilityMap: Record<string, StaffAvailability> = {};
-          await Promise.all(
-            staff.map(async (s) => {
-              const res = await fetch(`/api/staff-availability?staffId=${s.id}&date=${selectedDate}`);
-              availabilityMap[s.id] = await res.json();
-            })
-          );
+          await Promise.all(staff.map(async (s) => { const res = await fetch(`/api/staff-availability?staffId=${s.id}&date=${selectedDate}`); availabilityMap[s.id] = await res.json(); }));
           setAllStaffAvailability(availabilityMap);
-          
-          let allReserved: ReservedSlot[] = [];
-          let allBooked: ReservedSlot[] = [];
-          await Promise.all(
-            staff.map(async (s) => {
-              const res = await fetch(`/api/slot-reservation?staffId=${s.id}&date=${selectedDate}&sessionId=${sessionId}`);
-              const data = await res.json();
-              if (data.reservations) allReserved = [...allReserved, ...data.reservations];
-              if (data.appointments) allBooked = [...allBooked, ...data.appointments];
-            })
-          );
-          setReservedSlots(allReserved);
-          setBookedSlots(allBooked);
+          let allReserved: ReservedSlot[] = [], allBooked: ReservedSlot[] = [];
+          await Promise.all(staff.map(async (s) => { const res = await fetch(`/api/slot-reservation?staffId=${s.id}&date=${selectedDate}&sessionId=${sessionId}`); const data = await res.json(); if (data.reservations) allReserved = [...allReserved, ...data.reservations]; if (data.appointments) allBooked = [...allBooked, ...data.appointments]; }));
+          setReservedSlots(allReserved); setBookedSlots(allBooked);
         } else {
           const res = await fetch(`/api/staff-availability?staffId=${selectedStaffId}&date=${selectedDate}`);
-          const data = await res.json();
-          setStaffAvailability(data);
-          
+          setStaffAvailability(await res.json());
           const resRes = await fetch(`/api/slot-reservation?staffId=${selectedStaffId}&date=${selectedDate}&sessionId=${sessionId}`);
           const resData = await resRes.json();
-          setReservedSlots(resData.reservations || []);
-          setBookedSlots(resData.appointments || []);
+          setReservedSlots(resData.reservations || []); setBookedSlots(resData.appointments || []);
         }
-      } catch (err) {
-        console.error("Failed to load availability:", err);
-      } finally {
-        setLoadingAvailability(false);
-      }
+      } catch (err) { console.error(err); }
+      finally { setLoadingAvailability(false); }
     }
-    
     loadAvailability();
   }, [selectedStaffId, selectedDate, staff, sessionId]);
 
-  // Reservation timer
   useEffect(() => {
-    if (!reservationExpiry) {
-      setReservationTimer(0);
-      return;
-    }
-    
+    if (!reservationExpiry) { setReservationTimer(0); return; }
     const interval = setInterval(() => {
       const remaining = Math.max(0, Math.floor((reservationExpiry.getTime() - Date.now()) / 1000));
       setReservationTimer(remaining);
-      
-      if (remaining === 0) {
-        setReservationExpiry(null);
-        setSelectedTime("");
-        setError("Your reservation has expired. Please select a time again.");
-      }
+      if (remaining === 0) { setReservationExpiry(null); setSelectedTime(""); setError("Reservation expired. Please select a time again."); }
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [reservationExpiry]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (sessionId) {
-        fetch(`/api/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {});
-      }
-    };
-  }, [sessionId]);
+  useEffect(() => { return () => { if (sessionId) fetch(`/api/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {}); }; }, [sessionId]);
 
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+  const handleContinueToDetails = () => { if (selectedTime) { setError(null); setShowPolicyModal(true); } else setError("Please select a time"); };
+  const handleAcceptPolicy = () => { setShowPolicyModal(false); setStep(4); };
 
-  // Show policy modal before going to step 4 (Your Info)
-  const handleContinueToDetails = () => {
-    if (selectedTime) {
-      setError(null);
-      setShowPolicyModal(true);
-    } else {
-      setError("Please select a time");
-    }
-  };
-
-  const handleAcceptPolicy = () => {
-    setShowPolicyModal(false);
-    setStep(4);
-  };
-
-  const isSlotReserved = useCallback((time: string, staffIdToCheck: string) => {
+  const isSlotReserved = useCallback((time: string) => {
     const slotStart = new Date(`${selectedDate}T${time}:00`);
-    const serviceDuration = currentService?.durationMinutes || 60;
-    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
-    
-    return reservedSlots.some(r => {
-      const resStart = new Date(r.startTime);
-      const resEnd = new Date(r.endTime);
-      return slotStart < resEnd && slotEnd > resStart;
-    });
+    const slotEnd = new Date(slotStart.getTime() + (currentService?.durationMinutes || 60) * 60000);
+    return reservedSlots.some(r => slotStart < new Date(r.endTime) && slotEnd > new Date(r.startTime));
   }, [selectedDate, currentService, reservedSlots]);
 
-  const isSlotBooked = useCallback((time: string, staffIdToCheck: string) => {
+  const isSlotBooked = useCallback((time: string) => {
     const slotStart = new Date(`${selectedDate}T${time}:00`);
-    const serviceDuration = currentService?.durationMinutes || 60;
-    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
-    
-    return bookedSlots.some(a => {
-      const aptStart = new Date(a.startTime);
-      const aptEnd = new Date(a.endTime);
-      return slotStart < aptEnd && slotEnd > aptStart;
-    });
+    const slotEnd = new Date(slotStart.getTime() + (currentService?.durationMinutes || 60) * 60000);
+    return bookedSlots.some(a => slotStart < new Date(a.endTime) && slotEnd > new Date(a.startTime));
   }, [selectedDate, currentService, bookedSlots]);
 
   const findAvailableStaff = (time: string): string | null => {
     for (const member of staff) {
       const availability = allStaffAvailability[member.id];
-      if (!availability || !availability.available) continue;
-      
+      if (!availability?.available) continue;
       const [timeH, timeM] = time.split(":").map(Number);
       const [startH, startM] = (availability.startTime || "09:00").split(":").map(Number);
       const [endH, endM] = (availability.endTime || "17:00").split(":").map(Number);
-      const timeMinutes = timeH * 60 + timeM;
-      const startMinutes = startH * 60 + startM;
-      const endMinutes = endH * 60 + endM;
-      
-      if (timeMinutes < startMinutes || timeMinutes >= endMinutes) continue;
-      if (!isSlotBooked(time, member.id) && !isSlotReserved(time, member.id)) {
-        return member.id;
-      }
+      if (timeH * 60 + timeM < startH * 60 + startM || timeH * 60 + timeM >= endH * 60 + endM) continue;
+      if (!isSlotBooked(time) && !isSlotReserved(time)) return member.id;
     }
     return null;
   };
 
   const generateTimeSlots = () => {
-    let startTime = "09:00";
-    let endTime = "17:00";
-    
     if (isAnyStaff) {
-      let earliestStart = 24 * 60;
-      let latestEnd = 0;
-      let hasAvailableStaff = false;
-      
+      let earliestStart = 24 * 60, latestEnd = 0, hasAvailable = false;
       for (const member of staff) {
         const availability = allStaffAvailability[member.id];
-        if (!availability || !availability.available) continue;
-        
-        hasAvailableStaff = true;
+        if (!availability?.available) continue;
+        hasAvailable = true;
         const [startH, startM] = (availability.startTime || "09:00").split(":").map(Number);
         const [endH, endM] = (availability.endTime || "17:00").split(":").map(Number);
         earliestStart = Math.min(earliestStart, startH * 60 + startM);
         latestEnd = Math.max(latestEnd, endH * 60 + endM);
       }
-      
-      if (!hasAvailableStaff) return [];
-      
+      if (!hasAvailable) return [];
       const slots: string[] = [];
-      for (let minutes = earliestStart; minutes < latestEnd; minutes += 30) {
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        const time = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-        if (findAvailableStaff(time)) {
-          slots.push(time);
-        }
+      for (let m = earliestStart; m < latestEnd; m += 30) {
+        const time = `${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`;
+        if (findAvailableStaff(time)) slots.push(time);
       }
       return slots;
     } else {
-      if (!staffAvailability || !staffAvailability.available) return [];
-      
-      startTime = staffAvailability.startTime || "09:00";
-      endTime = staffAvailability.endTime || "17:00";
+      if (!staffAvailability?.available) return [];
+      const [startH, startM] = (staffAvailability.startTime || "09:00").split(":").map(Number);
+      const [endH, endM] = (staffAvailability.endTime || "17:00").split(":").map(Number);
+      const slots: string[] = [];
+      for (let h = startH, m = startM; h < endH || (h === endH && m < endM); m += 30) {
+        if (m >= 60) { m = 0; h++; }
+        slots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+      }
+      return slots;
     }
-    
-    const slots: string[] = [];
-    const [startH, startM] = startTime.split(":").map(Number);
-    const [endH, endM] = endTime.split(":").map(Number);
-    let currentH = startH;
-    let currentM = startM;
-    
-    while (currentH < endH || (currentH === endH && currentM < endM)) {
-      slots.push(`${currentH.toString().padStart(2, "0")}:${currentM.toString().padStart(2, "0")}`);
-      currentM += 30;
-      if (currentM >= 60) { currentM = 0; currentH += 1; }
-    }
-    
-    return slots;
   };
 
   const timeSlots = generateTimeSlots();
   const isStaffOnDayOff = !isAnyStaff && staffAvailability && !staffAvailability.available;
-
   const isTimeSlotPast = (time: string) => {
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
+    const now = new Date(), today = now.toISOString().split("T")[0];
     if (selectedDate > today) return false;
     if (selectedDate < today) return true;
-    const [hours, minutes] = time.split(":").map(Number);
-    const slotTime = new Date();
-    slotTime.setHours(hours, minutes, 0, 0);
-    return slotTime <= now;
+    const [h, m] = time.split(":").map(Number);
+    const slot = new Date(); slot.setHours(h, m, 0, 0);
+    return slot <= now;
   };
 
   const handleTimeSelect = async (time: string) => {
     const finalStaffId = isAnyStaff ? findAvailableStaff(time) : selectedStaffId;
     if (!finalStaffId) return;
-    
-    setReserving(true);
-    setError(null);
-    
+    setReserving(true); setError(null);
     try {
-      const serviceDuration = currentService?.durationMinutes || 60;
-      const startDateTime = new Date(`${selectedDate}T${time}:00`);
-      const endDateTime = new Date(startDateTime.getTime() + serviceDuration * 60000);
-      
+      const start = new Date(`${selectedDate}T${time}:00`);
+      const end = new Date(start.getTime() + (currentService?.durationMinutes || 60) * 60000);
       const res = await fetch("/api/slot-reservation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          staffId: finalStaffId,
-          startTime: startDateTime.toISOString(),
-          endTime: endDateTime.toISOString(),
-          sessionId,
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId: finalStaffId, startTime: start.toISOString(), endTime: end.toISOString(), sessionId }),
       });
-      
       const data = await res.json();
-      
-      if (!res.ok) {
-        if (data.reserved) {
-          setError("This slot was just reserved. Please select another time.");
-        } else if (data.booked) {
-          setError("This slot was just booked. Please select another time.");
-        } else {
-          setError(data.error || "Failed to reserve slot");
-        }
-        return;
-      }
-      
+      if (!res.ok) { setError(data.error || "Failed to reserve"); return; }
       setSelectedTime(time);
       setAssignedStaffId(isAnyStaff ? finalStaffId : "");
       setReservationExpiry(new Date(data.expiresAt));
-    } catch (err) {
-      setError("Failed to reserve slot. Please try again.");
-    } finally {
-      setReserving(false);
-    }
+    } catch { setError("Failed to reserve slot."); }
+    finally { setReserving(false); }
   };
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault(); setError(null);
     const finalStaffId = isAnyStaff ? assignedStaffId : selectedStaffId;
-    if (!selectedServiceId || !finalStaffId || !selectedDate || !selectedTime) {
-      setError("Please complete all selections.");
-      return;
-    }
-    if (!customerName || !customerPhone || !customerEmail) {
-      setError("Please fill in your details.");
-      return;
-    }
-    
-    if (!reservationExpiry || reservationExpiry < new Date()) {
-      setError("Your reservation has expired. Please go back and select a time again.");
-      return;
-    }
-    
+    if (!selectedServiceId || !finalStaffId || !selectedDate || !selectedTime) { setError("Please complete all selections."); return; }
+    if (!customerName || !customerPhone || !customerEmail) { setError("Please fill in your details."); return; }
+    if (!reservationExpiry || reservationExpiry < new Date()) { setError("Reservation expired. Go back and select a time."); return; }
     setSubmitting(true);
     try {
-      const startTimeIso = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
       const res = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: selectedServiceId,
-          staffId: finalStaffId,
-          customerName,
-          customerPhone,
-          customerEmail,
-          startTime: startTimeIso,
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceId: selectedServiceId, staffId: finalStaffId, customerName, customerPhone, customerEmail, startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString() }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to create appointment");
-      }
-      const appointment = await res.json();
-      
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      const apt = await res.json();
       await fetch(`/api/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {});
-      
-      setSuccessAppointmentId(appointment.id);
-      setStep(5);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setSubmitting(false);
-    }
+      setSuccessAppointmentId(apt.id); setStep(5);
+    } catch (err: any) { setError(err.message); }
+    finally { setSubmitting(false); }
   }
 
-  const formatTimer = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  if (loading || !dataReady) {
-    return (
-      <div className="booking-page">
-        <style>{responsiveStyles}</style>
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#94a3b8" }}><p>Loading...</p></div>;
 
   return (
-    <div className="booking-page">
-      <style>{responsiveStyles}</style>
-      
-      {/* Policy Modal - Shows before step 4 */}
+    <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif" }}>
       {showPolicyModal && (
-        <div className="policy-overlay">
-          <div className="policy-modal">
-            <div className="policy-header">
-              <h2>Our Booking Policy</h2>
-              <button className="policy-close" onClick={() => setShowPolicyModal(false)}>×</button>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "hidden" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb" }}>
+              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{policyTitle}</h2>
+              <button onClick={() => setShowPolicyModal(false)} style={{ width: 32, height: 32, border: "none", background: "#f3f4f6", borderRadius: 8, fontSize: 20, cursor: "pointer" }}>×</button>
             </div>
-            
-            <div className="policy-content">
-              <div className="policy-item">
-                <div className="policy-icon">💵</div>
-                <div className="policy-text">
-                  <strong>We accept CASH only.</strong>
-                  <p>By booking an appointment, you confirm that you agree to pay in cash on the day of your service.</p>
+            <div style={{ padding: 24, overflowY: "auto", maxHeight: "60vh" }}>
+              {policyItems.map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+                  <div style={{ width: 40, height: 40, background: "#f3f4f6", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{item.icon}</div>
+                  <div><strong style={{ display: "block", marginBottom: 4 }}>{item.title}</strong><p style={{ color: "#6b7280", margin: 0, fontSize: 14, lineHeight: 1.5 }}>{item.description}</p></div>
                 </div>
-              </div>
-              
-              <div className="policy-item">
-                <div className="policy-icon">🚫</div>
-                <div className="policy-text">
-                  <strong>No Deposit Required</strong>
-                  <p>We do not take a deposit for this booking. During peak hours, we always prioritise booking customers first, but if you can't wait and have plans afterwards, please do not book and leave the slot for someone who needs it.</p>
-                </div>
-              </div>
-              
-              <div className="policy-item">
-                <div className="policy-icon">⏰</div>
-                <div className="policy-text">
-                  <strong>Cancellation Policy</strong>
-                  <p>Please cancel at least 2 hours before your appointment. No-shows may result in booking restrictions.</p>
-                </div>
-              </div>
-              
-              <div className="policy-item">
-                <div className="policy-icon">📍</div>
-                <div className="policy-text">
-                  <strong>Arrival Time</strong>
-                  <p>Please arrive 5 minutes before your appointment time.</p>
-                </div>
-              </div>
+              ))}
             </div>
-            
-            <div className="policy-footer">
-              <button className="btn-policy-accept" onClick={handleAcceptPolicy}>
-                Okay
-              </button>
+            <div style={{ padding: "16px 24px", borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
+              <button onClick={handleAcceptPolicy} style={{ width: "100%", padding: 14, background: "#fff", border: "2px solid #e5e7eb", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Okay</button>
             </div>
           </div>
         </div>
       )}
-      
-      <div className="mobile-header">
-        <div className="mobile-logo">
-          <span className="logo-icon">H</span>
-          <span className="logo-text">Hera Booking</span>
-        </div>
-        <div className="mobile-steps">Step {step} of 5</div>
-      </div>
 
-      <div className="container">
-        <div className="left-panel">
-          <div className="brand">
-            <div className="logo">H</div>
-            <span className="brand-name">Hera Booking</span>
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <div style={{ width: 320, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 48 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>H</div>
+            <span style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>Hera Booking</span>
           </div>
-          
-          <div className="progress-list">
-            {[
-              { num: 1, label: "Service", desc: "Choose your treatment" },
-              { num: 2, label: "Specialist", desc: "Pick your technician" },
-              { num: 3, label: "Date & Time", desc: "Select available slot" },
-              { num: 4, label: "Your Info", desc: "Contact details" },
-              { num: 5, label: "Confirmed", desc: "Booking complete" },
-            ].map((item) => (
-              <div key={item.num} className={`progress-item ${step >= item.num ? "active" : ""}`}>
-                <div className={`progress-num ${step > item.num ? "done" : step === item.num ? "current" : ""}`}>
-                  {step > item.num ? "✓" : item.num}
-                </div>
-                <div>
-                  <div className="progress-label">{item.label}</div>
-                  <div className="progress-desc">{item.desc}</div>
-                </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {[{ n: 1, l: "Service" }, { n: 2, l: "Specialist" }, { n: 3, l: "Date & Time" }, { n: 4, l: "Your Info" }, { n: 5, l: "Confirmed" }].map((item) => (
+              <div key={item.n} style={{ display: "flex", alignItems: "center", gap: 16, opacity: step >= item.n ? 1 : 0.4 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: step > item.n ? "#10b981" : step === item.n ? "#6366f1" : "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 600 }}>{step > item.n ? "✓" : item.n}</div>
+                <span style={{ color: "#fff", fontSize: 14, fontWeight: step === item.n ? 600 : 400 }}>{item.l}</span>
               </div>
             ))}
           </div>
-
           {currentService && (
-            <div className="summary">
-              <div className="summary-title">Your Selection</div>
-              <div className="summary-item">✨ {currentService.name}</div>
-              {currentStaff && <div className="summary-item">👤 {currentStaff.name}</div>}
-              {selectedDate && selectedTime && (
-                <div className="summary-item">
-                  📅 {new Date(`${selectedDate}T${selectedTime}`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {selectedTime}
-                </div>
-              )}
-              {reservationTimer > 0 && (
-                <div className="reservation-timer">
-                  ⏱️ Reserved for {formatTimer(reservationTimer)}
-                </div>
-              )}
+            <div style={{ marginTop: "auto", padding: 20, background: "rgba(255,255,255,0.05)", borderRadius: 12 }}>
+              <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 16 }}>Your Selection</div>
+              <div style={{ color: "#fff", fontSize: 14, marginBottom: 12 }}>✨ {currentService.name}</div>
+              {currentStaff && <div style={{ color: "#fff", fontSize: 14, marginBottom: 12 }}>👤 {currentStaff.name}</div>}
+              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 14 }}>📅 {selectedDate} at {selectedTime}</div>}
+              {reservationTimer > 0 && <div style={{ color: "#fbbf24", fontSize: 14, fontWeight: 600, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>⏱️ Reserved for {formatTimer(reservationTimer)}</div>}
             </div>
           )}
         </div>
 
-        <div className="right-panel">
-          {error && <div className="error">{error}</div>}
+        <div style={{ flex: 1, marginLeft: 320, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: 48, minHeight: "100vh" }}>
+          <div style={{ maxWidth: 560, margin: "0 auto" }}>
+            {error && <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", fontSize: 14, marginBottom: 24 }}>{error}</div>}
 
-          {/* Step 1: Service */}
-          {step === 1 && (
-            <div className="step-content">
-              <h1 className="step-title">Select a Service</h1>
-              <p className="step-subtitle">Choose the treatment you'd like to book</p>
-              <div className="service-grid">
-                {services.map((service) => (
-                  <div
-                    key={service.id}
-                    onClick={() => setSelectedServiceId(service.id)}
-                    className={`service-card ${selectedServiceId === service.id ? "selected" : ""}`}
-                  >
-                    <div className="service-header">
-                      <h3 className="service-name">{service.name}</h3>
-                      {selectedServiceId === service.id && <span className="checkmark">✓</span>}
-                    </div>
-                    <div className="service-meta">
-                      <span className="duration">{service.durationMinutes} min</span>
-                      <span className="price">£{service.price}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="actions">
-                <button className="btn-primary" onClick={() => { if (selectedServiceId) { setError(null); goNext(); } else setError("Please select a service"); }}>
-                  Continue
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Staff */}
-          {step === 2 && (
-            <div className="step-content">
-              <h1 className="step-title">Choose a Specialist</h1>
-              <p className="step-subtitle">Select your preferred technician</p>
-              {loadingStaff ? (
-                <p>Loading specialists...</p>
-              ) : (
-                <div className="staff-grid">
-                  <div
-                    onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); setStaffAvailability(null); }}
-                    className={`staff-card ${selectedStaffId === "any" ? "selected" : ""}`}
-                  >
-                    <div className="staff-avatar">⭐</div>
-                    <div className="staff-info">
-                      <div className="staff-name">Any Available</div>
-                      <div className="staff-role">First available specialist</div>
-                    </div>
-                    {selectedStaffId === "any" && <span className="checkmark">✓</span>}
-                  </div>
-                  {staff.map((member) => (
-                    <div
-                      key={member.id}
-                      onClick={() => { setSelectedStaffId(member.id); setAssignedStaffId(""); setSelectedTime(""); setStaffAvailability(null); }}
-                      className={`staff-card ${selectedStaffId === member.id ? "selected" : ""}`}
-                    >
-                      <div className="staff-avatar">{member.name.charAt(0)}</div>
-                      <div className="staff-info">
-                        <div className="staff-name">{member.name}</div>
-                        <div className="staff-role">{member.role || "Nail Technician"}</div>
+            {step === 1 && (
+              <>
+                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Select a Service</h1>
+                <p style={{ color: "#64748b", marginBottom: 32 }}>Choose the treatment you'd like to book</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {services.map((s) => (
+                    <div key={s.id} onClick={() => setSelectedServiceId(s.id)} style={{ padding: 20, borderRadius: 12, border: `2px solid ${selectedServiceId === s.id ? "#6366f1" : "#e2e8f0"}`, background: selectedServiceId === s.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>{s.name}</h3>
+                        {selectedServiceId === s.id && <span style={{ width: 24, height: 24, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
                       </div>
-                      {selectedStaffId === member.id && <span className="checkmark">✓</span>}
+                      <div style={{ display: "flex", gap: 16 }}><span style={{ color: "#64748b" }}>{s.durationMinutes} min</span><span style={{ fontWeight: 700, color: "#059669" }}>£{s.price}</span></div>
                     </div>
                   ))}
                 </div>
-              )}
-              <div className="actions">
-                <button className="btn-secondary" onClick={goBack}>Back</button>
-                <button className="btn-primary" onClick={() => { if (selectedStaffId) { setError(null); goNext(); } else setError("Please select a specialist"); }}>
-                  Continue
-                </button>
-              </div>
-            </div>
-          )}
+                <div style={{ marginTop: 32 }}><button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button></div>
+              </>
+            )}
 
-          {/* Step 3: Date & Time */}
-          {step === 3 && (
-            <div className="step-content">
-              <h1 className="step-title">Pick Date & Time</h1>
-              <p className="step-subtitle">Choose when you'd like to visit</p>
-              
-              <div className="date-section">
-                <label className="label">Date</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setAssignedStaffId(""); setReservationExpiry(null); }}
-                  min={new Date().toISOString().split("T")[0]}
-                  className="date-input"
-                />
-              </div>
-
-              {loadingAvailability ? (
-                <p>Checking availability...</p>
-              ) : isStaffOnDayOff ? (
-                <div className="day-off-notice">
-                  <span className="day-off-icon">🚫</span>
-                  <div>
-                    <strong>{currentStaff?.name} is not available on this date</strong>
-                    <p>Please select another date or choose a different specialist.</p>
+            {step === 2 && (
+              <>
+                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Choose a Specialist</h1>
+                <p style={{ color: "#64748b", marginBottom: 32 }}>Select your preferred technician</p>
+                {loadingStaff ? <p>Loading...</p> : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 16, padding: 16, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>⭐</div>
+                      <div><div style={{ fontWeight: 600 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 14 }}>First available specialist</div></div>
+                      {selectedStaffId === "any" && <span style={{ marginLeft: "auto", width: 24, height: 24, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
+                    </div>
+                    {staff.map((m) => (
+                      <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 16, padding: 16, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{m.name.charAt(0)}</div>
+                        <div><div style={{ fontWeight: 600 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 14 }}>{m.role || "Nail Technician"}</div></div>
+                        {selectedStaffId === m.id && <span style={{ marginLeft: "auto", width: 24, height: 24, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
+                      </div>
+                    ))}
                   </div>
+                )}
+                <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+                  <button onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
+                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button>
                 </div>
-              ) : timeSlots.length === 0 ? (
-                <div className="no-slots">No available times on this date. Please select another date.</div>
-              ) : (
-                <div className="time-section">
-                  <label className="label">Available Times</label>
-                  <div className="time-grid">
-                    {timeSlots.map((time) => {
-                      const isPast = isTimeSlotPast(time);
-                      const isReserved = !isAnyStaff && isSlotReserved(time, selectedStaffId);
-                      const isBooked = !isAnyStaff && isSlotBooked(time, selectedStaffId);
-                      const isUnavailable = isPast || isReserved || isBooked;
-                      const isSelected = selectedTime === time;
-                      
-                      return (
-                        <button
-                          key={time}
-                          disabled={isUnavailable || reserving}
-                          onClick={() => !isUnavailable && handleTimeSelect(time)}
-                          className={`time-slot ${isSelected ? "selected" : ""} ${isUnavailable ? "unavailable" : ""} ${isReserved ? "reserved" : ""}`}
-                        >
-                          {time}
-                        </button>
-                      );
-                    })}
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Pick Date & Time</h1>
+                <p style={{ color: "#64748b", marginBottom: 32 }}>Choose when you'd like to visit</p>
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
+                  <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} />
+                </div>
+                {loadingAvailability ? <p>Checking availability...</p> : isStaffOnDayOff ? (
+                  <div style={{ display: "flex", gap: 16, padding: 24, background: "#fef3c7", borderRadius: 12, marginBottom: 24 }}>
+                    <span style={{ fontSize: 32 }}>��</span>
+                    <div><strong style={{ color: "#92400e" }}>{currentStaff?.name} is not available</strong><p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 14 }}>Please select another date or specialist.</p></div>
                   </div>
-                  {reserving && <p className="reserving-text">Reserving slot...</p>}
-                </div>
-              )}
-
-              {isAnyStaff && assignedStaffId && selectedTime && (
-                <div className="assigned-note">
-                  ✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist
-                </div>
-              )}
-
-              {reservationTimer > 0 && (
-                <div className="timer-notice">
-                  ⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong>
-                </div>
-              )}
-
-              <div className="actions">
-                <button className="btn-secondary" onClick={goBack}>Back</button>
-                <button className="btn-primary" onClick={handleContinueToDetails}>
-                  Continue
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Details */}
-          {step === 4 && (
-            <div className="step-content">
-              <h1 className="step-title">Your Details</h1>
-              <p className="step-subtitle">We'll send your confirmation here</p>
-              
-              {reservationTimer > 0 && (
-                <div className="timer-notice">
-                  ⏱️ Complete booking within <strong>{formatTimer(reservationTimer)}</strong>
-                </div>
-              )}
-              
-              <form onSubmit={handleSubmit} className="form">
-                <div className="form-group">
-                  <label className="label">Full Name</label>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="input"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label">Phone Number</label>
-                  <input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="07xxx xxxxxx"
-                    className="input"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label">Email Address</label>
-                  <input
-                    type="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="input"
-                    required
-                  />
-                </div>
-                <div className="actions">
-                  <button type="button" className="btn-secondary" onClick={goBack}>Back</button>
-                  <button type="submit" className="btn-primary" disabled={submitting || reservationTimer === 0}>
-                    {submitting ? "Booking..." : "Confirm Booking"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Step 5: Success */}
-          {step === 5 && (
-            <div className="step-content">
-              <div className="success-box">
-                <div className="success-icon">✓</div>
-                <h1 className="success-title">You're all set!</h1>
-                <p className="success-text">Your appointment has been confirmed</p>
-                
-                <div className="confirm-card">
-                  <div className="confirm-row">
-                    <span className="confirm-label">Service</span>
-                    <span className="confirm-value">{currentService?.name}</span>
-                  </div>
-                  <div className="confirm-row">
-                    <span className="confirm-label">Specialist</span>
-                    <span className="confirm-value">{currentStaff?.name}</span>
-                  </div>
-                  <div className="confirm-row">
-                    <span className="confirm-label">Date & Time</span>
-                    <span className="confirm-value">
-                      {selectedDate && selectedTime && new Date(`${selectedDate}T${selectedTime}`).toLocaleString("en-GB", {
-                        weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                ) : timeSlots.length === 0 ? (
+                  <div style={{ padding: 24, background: "#fef2f2", borderRadius: 10, color: "#dc2626", textAlign: "center" }}>No available times. Please select another date.</div>
+                ) : (
+                  <div style={{ marginBottom: 24 }}>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Available Times</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                      {timeSlots.map((time) => {
+                        const past = isTimeSlotPast(time), reserved = !isAnyStaff && isSlotReserved(time), booked = !isAnyStaff && isSlotBooked(time), unavailable = past || reserved || booked;
+                        return <button key={time} disabled={unavailable || reserving} onClick={() => handleTimeSelect(time)} style={{ padding: 12, borderRadius: 8, border: `2px solid ${selectedTime === time ? "#6366f1" : "#e2e8f0"}`, background: selectedTime === time ? "#6366f1" : unavailable ? "#f1f5f9" : "#fff", color: selectedTime === time ? "#fff" : unavailable ? "#94a3b8" : "#1e293b", fontSize: 14, fontWeight: 600, cursor: unavailable ? "not-allowed" : "pointer" }}>{time}</button>;
                       })}
-                    </span>
+                    </div>
+                    {reserving && <p style={{ color: "#6366f1", marginTop: 12 }}>Reserving...</p>}
                   </div>
-                  <div className="confirm-row">
-                    <span className="confirm-label">Booking ID</span>
-                    <span className="confirm-value">{successAppointmentId?.slice(0, 8).toUpperCase()}</span>
-                  </div>
+                )}
+                {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 16, background: "#ecfdf5", borderRadius: 10, color: "#059669", marginBottom: 24 }}>✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
+                {reservationTimer > 0 && <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 24 }}>⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
+                  <button onClick={handleContinueToDetails} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button>
                 </div>
+              </>
+            )}
 
-                <p className="email-note">📧 Confirmation sent to {customerEmail}</p>
+            {step === 4 && (
+              <>
+                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Your Details</h1>
+                <p style={{ color: "#64748b", marginBottom: 32 }}>We'll send your confirmation here</p>
+                {reservationTimer > 0 && <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 24 }}>⏱️ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Full Name</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
+                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Phone</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
+                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Email</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="you@example.com" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                    <button type="button" onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
+                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1 }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
+                  </div>
+                </form>
+              </>
+            )}
 
-                <button
-                  className="btn-primary"
-                  onClick={() => {
-                    const newSessionId = generateSessionId();
-                    sessionStorage.setItem('booking_session_id', newSessionId);
-                    window.location.reload();
-                  }}
-                >
-                  Book Another
-                </button>
+            {step === 5 && (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 40, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>✓</div>
+                <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8 }}>You're all set!</h1>
+                <p style={{ color: "#64748b", marginBottom: 32 }}>Your appointment has been confirmed</p>
+                <div style={{ background: "#f8fafc", borderRadius: 12, padding: 20, textAlign: "left", marginBottom: 24 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #e2e8f0" }}><span style={{ color: "#64748b" }}>Service</span><span style={{ fontWeight: 600 }}>{currentService?.name}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #e2e8f0" }}><span style={{ color: "#64748b" }}>Specialist</span><span style={{ fontWeight: 600 }}>{currentStaff?.name}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #e2e8f0" }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}><span style={{ color: "#64748b" }}>Booking ID</span><span style={{ fontWeight: 600 }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
+                </div>
+                <p style={{ color: "#64748b", marginBottom: 24 }}>📧 Confirmation sent to {customerEmail}</p>
+                <button onClick={() => { sessionStorage.setItem('booking_session_id', generateSessionId()); window.location.reload(); }} style={{ padding: "16px 24px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Book Another</button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-const responsiveStyles = `
-  * { box-sizing: border-box; }
-  
-  .booking-page {
-    min-height: 100vh;
-    background-color: #0f172a;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-  
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    color: #94a3b8;
-  }
-  
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid rgba(255,255,255,0.2);
-    border-top: 4px solid #6366f1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin { to { transform: rotate(360deg); } }
-  
-  /* Policy Modal - Setmore Style */
-  .policy-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-  
-  .policy-modal {
-    background: #fff;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 520px;
-    max-height: 90vh;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  }
-  
-  .policy-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  
-  .policy-header h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #111827;
-    margin: 0;
-  }
-  
-  .policy-close {
-    width: 32px;
-    height: 32px;
-    border: none;
-    background: #f3f4f6;
-    border-radius: 8px;
-    font-size: 20px;
-    color: #6b7280;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .policy-close:hover {
-    background: #e5e7eb;
-  }
-  
-  .policy-content {
-    padding: 24px;
-    overflow-y: auto;
-    max-height: 60vh;
-  }
-  
-  .policy-item {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  
-  .policy-item:last-child {
-    margin-bottom: 0;
-  }
-  
-  .policy-icon {
-    width: 40px;
-    height: 40px;
-    background: #f3f4f6;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    flex-shrink: 0;
-  }
-  
-  .policy-text strong {
-    display: block;
-    font-size: 15px;
-    font-weight: 600;
-    color: #111827;
-    margin-bottom: 4px;
-  }
-  
-  .policy-text p {
-    font-size: 14px;
-    color: #6b7280;
-    margin: 0;
-    line-height: 1.5;
-  }
-  
-  .policy-footer {
-    padding: 16px 24px;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
-  }
-  
-  .btn-policy-accept {
-    width: 100%;
-    padding: 14px 24px;
-    background: #fff;
-    color: #111827;
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  
-  .btn-policy-accept:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-  }
-  
-  /* Rest of styles */
-  .mobile-header {
-    display: none;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    padding: 16px 20px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  
-  .mobile-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-  .mobile-logo .logo-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 16px; }
-  .mobile-logo .logo-text { color: #fff; font-size: 18px; font-weight: 600; }
-  .mobile-steps { color: rgba(255,255,255,0.8); font-size: 13px; }
-  
-  .container { display: flex; min-height: 100vh; }
-  
-  .left-panel { width: 320px; background-color: #1e293b; padding: 32px; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; }
-  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
-  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; }
-  .brand-name { color: #fff; font-size: 18px; font-weight: 600; }
-  
-  .progress-list { display: flex; flex-direction: column; gap: 24px; }
-  .progress-item { display: flex; align-items: flex-start; gap: 16px; opacity: 0.4; transition: opacity 0.3s ease; }
-  .progress-item.active { opacity: 1; }
-  .progress-num { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 600; flex-shrink: 0; }
-  .progress-num.done { background: #10b981; }
-  .progress-num.current { background: #6366f1; }
-  .progress-label { color: #fff; font-size: 14px; font-weight: 600; }
-  .progress-desc { color: #94a3b8; font-size: 12px; margin-top: 2px; }
-  
-  .summary { margin-top: auto; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
-  .summary-title { color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
-  .summary-item { color: #fff; font-size: 14px; margin-bottom: 12px; }
-  .reservation-timer { color: #fbbf24; font-size: 14px; font-weight: 600; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
-  
-  .right-panel { flex: 1; margin-left: 320px; background-color: #fff; border-radius: 24px 0 0 24px; padding: 48px; min-height: 100vh; }
-  .step-content { max-width: 560px; margin: 0 auto; }
-  .step-title { font-size: 28px; font-weight: 700; color: #0f172a; margin: 0 0 8px; letter-spacing: -0.5px; }
-  .step-subtitle { font-size: 15px; color: #64748b; margin: 0 0 32px; }
-  
-  .service-grid, .staff-grid { display: flex; flex-direction: column; gap: 12px; }
-  .service-card, .staff-card { padding: 20px; border-radius: 12px; border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.15s ease; background: #fff; }
-  .service-card.selected, .staff-card.selected { border-color: #6366f1; background: #f5f3ff; }
-  .service-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .service-name { font-size: 17px; font-weight: 600; color: #0f172a; margin: 0; }
-  .checkmark { width: 24px; height: 24px; border-radius: 6px; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-  .service-meta { display: flex; gap: 16px; }
-  .duration { font-size: 14px; color: #64748b; }
-  .price { font-size: 16px; font-weight: 700; color: #059669; }
-  
-  .staff-card { display: flex; align-items: center; gap: 16px; padding: 16px; }
-  .staff-avatar { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; flex-shrink: 0; }
-  .staff-info { flex: 1; }
-  .staff-name { font-size: 16px; font-weight: 600; color: #0f172a; }
-  .staff-role { font-size: 14px; color: #64748b; }
-  
-  .date-section { margin-bottom: 24px; }
-  .label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px; }
-  .date-input, .input { width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px; outline: none; transition: border-color 0.15s ease; }
-  .date-input:focus, .input:focus { border-color: #6366f1; }
-  
-  .time-section { margin-bottom: 24px; }
-  .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .time-slot { padding: 12px 8px; border-radius: 8px; border: 2px solid #e2e8f0; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.15s ease; background: #fff; color: #1e293b; }
-  .time-slot.selected { border-color: #6366f1; background: #6366f1; color: #fff; }
-  .time-slot.unavailable { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
-  .time-slot.reserved { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-  .reserving-text { color: #6366f1; font-size: 14px; margin-top: 12px; }
-  
-  .no-slots { padding: 24px; background: #fef2f2; border-radius: 10px; color: #dc2626; text-align: center; }
-  .day-off-notice { display: flex; gap: 16px; padding: 24px; background: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 24px; }
-  .day-off-icon { font-size: 32px; }
-  .day-off-notice strong { color: #92400e; display: block; margin-bottom: 8px; }
-  .day-off-notice p { color: #a16207; margin: 4px 0 0; font-size: 14px; }
-  .assigned-note { padding: 16px; background: #ecfdf5; border-radius: 10px; color: #059669; font-size: 14px; font-weight: 500; margin-bottom: 24px; }
-  .timer-notice { padding: 16px; background: #fef3c7; border-radius: 10px; color: #92400e; font-size: 14px; margin-bottom: 24px; text-align: center; }
-  
-  .form { display: flex; flex-direction: column; gap: 20px; }
-  .actions { display: flex; gap: 12px; margin-top: 32px; }
-  .btn-primary { flex: 1; padding: 16px 24px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-secondary { padding: 16px 24px; background: #fff; color: #475569; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px; font-weight: 500; cursor: pointer; }
-  
-  .error { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #dc2626; font-size: 14px; margin-bottom: 24px; }
-  
-  .success-box { text-align: center; padding: 20px 0; }
-  .success-icon { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; font-size: 40px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
-  .success-title { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
-  .success-text { font-size: 15px; color: #64748b; margin: 0 0 32px; }
-  .confirm-card { background: #f8fafc; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 24px; }
-  .confirm-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
-  .confirm-row:last-child { border-bottom: none; }
-  .confirm-label { font-size: 14px; color: #64748b; }
-  .confirm-value { font-size: 14px; font-weight: 600; color: #0f172a; }
-  .email-note { font-size: 14px; color: #64748b; margin-bottom: 24px; }
-  
-  @media (max-width: 768px) {
-    .mobile-header { display: block; }
-    .left-panel { display: none; }
-    .right-panel { margin-left: 0; border-radius: 0; padding: 24px 20px; min-height: calc(100vh - 80px); }
-    .step-title { font-size: 24px; }
-    .step-subtitle { font-size: 14px; margin-bottom: 24px; }
-    .time-grid { grid-template-columns: repeat(3, 1fr); }
-    .actions { flex-direction: column-reverse; }
-    .btn-secondary { width: 100%; }
-    .service-name { font-size: 16px; }
-    .staff-avatar { width: 40px; height: 40px; font-size: 16px; }
-    .success-icon { width: 64px; height: 64px; font-size: 32px; }
-    .success-title { font-size: 22px; }
-    .day-off-notice { flex-direction: column; text-align: center; }
-    .day-off-icon { margin: 0 auto; }
-    
-    .policy-modal { margin: 10px; max-height: 95vh; }
-    .policy-content { max-height: 50vh; }
-  }
-`;
