@@ -16,12 +16,20 @@ type Appointment = {
 
 type Staff = { id: string; name: string; role?: string };
 type Service = { id: string; name: string; durationMinutes: number; price: number };
-type StaffAvailability = { available: boolean; reason?: string; startTime?: string; endTime?: string };
+type StaffAvailability = { 
+  available: boolean; 
+  reason?: string; 
+  startTime?: string; 
+  endTime?: string;
+  isCustom?: boolean;
+  note?: string;
+};
 
 export default function CalendarPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [staffAvailability, setStaffAvailability] = useState<Record<string, StaffAvailability>>({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
   
@@ -32,7 +40,7 @@ export default function CalendarPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<"cancel" | "noshow" | "delete" | null>(null);
 
-  // For edit mode - available times
+  // For edit mode
   const [editAvailability, setEditAvailability] = useState<StaffAvailability | null>(null);
   const [editBookedSlots, setEditBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -40,7 +48,6 @@ export default function CalendarPage() {
   useEffect(() => { loadData(); }, [selectedDate]);
   useEffect(() => { loadStaffAndServices(); }, []);
 
-  // Load availability when staff or date changes in edit mode
   useEffect(() => {
     if (modalMode === "edit" && editData.staffId && editData.date) {
       loadEditAvailability();
@@ -58,8 +65,28 @@ export default function CalendarPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/appointments?date=${selectedDate}`);
-      setAppointments(await res.json());
+      const [aptsRes, staffRes] = await Promise.all([
+        fetch("/api/appointments?date=" + selectedDate),
+        fetch("/api/staff"),
+      ]);
+      const apts = await aptsRes.json();
+      const staffData = await staffRes.json();
+      setAppointments(apts);
+      setStaffList(staffData);
+
+      // Load availability for each staff
+      const availabilityMap: Record<string, StaffAvailability> = {};
+      await Promise.all(
+        staffData.map(async (staff: Staff) => {
+          try {
+            const res = await fetch("/api/staff-availability?staffId=" + staff.id + "&date=" + selectedDate);
+            availabilityMap[staff.id] = await res.json();
+          } catch (err) {
+            availabilityMap[staff.id] = { available: true, startTime: "09:00", endTime: "18:00" };
+          }
+        })
+      );
+      setStaffAvailability(availabilityMap);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }
@@ -67,13 +94,11 @@ export default function CalendarPage() {
   async function loadEditAvailability() {
     setLoadingAvailability(true);
     try {
-      // Get staff availability (working hours, day off)
-      const availRes = await fetch(`/api/staff-availability?staffId=${editData.staffId}&date=${editData.date}`);
+      const availRes = await fetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date);
       const avail = await availRes.json();
       setEditAvailability(avail);
 
-      // Get booked appointments for that staff on that date
-      const aptsRes = await fetch(`/api/appointments?date=${editData.date}`);
+      const aptsRes = await fetch("/api/appointments?date=" + editData.date);
       const apts: Appointment[] = await aptsRes.json();
       const booked = apts
         .filter(a => a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id)
@@ -86,7 +111,6 @@ export default function CalendarPage() {
     }
   }
 
-  // Generate available time slots for edit
   function generateEditTimeSlots(): string[] {
     if (!editAvailability?.available) return [];
     
@@ -97,12 +121,11 @@ export default function CalendarPage() {
     
     const slots: string[] = [];
     for (let h = startH, m = startM; h < endH || (h === endH && m < endM); ) {
-      const timeStr = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+      const timeStr = h.toString().padStart(2, "0") + ":" + m.toString().padStart(2, "0");
       
-      // Check if this slot conflicts with booked appointments
       const selectedService = services.find(s => s.id === editData.serviceId);
       const duration = selectedService?.durationMinutes || 60;
-      const slotStart = new Date(`${editData.date}T${timeStr}:00`);
+      const slotStart = new Date(editData.date + "T" + timeStr + ":00");
       const slotEnd = new Date(slotStart.getTime() + duration * 60000);
       
       const hasConflict = editBookedSlots.some(booked => {
@@ -122,7 +145,6 @@ export default function CalendarPage() {
     return slots;
   }
 
-  // Date navigation
   function goToPreviousDay() {
     const date = new Date(selectedDate);
     date.setDate(date.getDate() - 1);
@@ -189,8 +211,8 @@ export default function CalendarPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const startTime = new Date(`${editData.date}T${editData.time}:00`).toISOString();
-      const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
+      const startTime = new Date(editData.date + "T" + editData.time + ":00").toISOString();
+      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serviceId: editData.serviceId, staffId: editData.staffId, startTime }),
@@ -201,7 +223,7 @@ export default function CalendarPage() {
       }
       setMessage({ type: "success", text: "Appointment updated!" });
       loadData();
-      setTimeout(() => closeModal(), 1500);
+      setTimeout(function() { closeModal(); }, 1500);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -213,7 +235,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
+      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled" }),
@@ -221,7 +243,7 @@ export default function CalendarPage() {
       if (!res.ok) throw new Error("Failed to cancel");
       setMessage({ type: "success", text: "Appointment cancelled." });
       loadData();
-      setTimeout(() => closeModal(), 1500);
+      setTimeout(function() { closeModal(); }, 1500);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -234,7 +256,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
+      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "no-show" }),
@@ -243,13 +265,13 @@ export default function CalendarPage() {
       const data = await res.json();
       let msg = "Marked as no-show.";
       if (data.customerBlocked) {
-        msg += ` Customer BLOCKED (${data.customerNoShowCount} no-shows).`;
+        msg += " Customer BLOCKED (" + data.customerNoShowCount + " no-shows).";
       } else if (data.customerNoShowCount) {
-        msg += ` (${data.customerNoShowCount}/3 no-shows)`;
+        msg += " (" + data.customerNoShowCount + "/3 no-shows)";
       }
       setMessage({ type: "success", text: msg });
       loadData();
-      setTimeout(() => closeModal(), 2500);
+      setTimeout(function() { closeModal(); }, 2500);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -262,11 +284,11 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/appointments/${selectedAppointment.id}`, { method: "DELETE" });
+      const res = await fetch("/api/appointments/" + selectedAppointment.id, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       setMessage({ type: "success", text: "Deleted." });
       loadData();
-      setTimeout(() => closeModal(), 1500);
+      setTimeout(function() { closeModal(); }, 1500);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -279,7 +301,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/appointments/${selectedAppointment.id}`, {
+      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "confirmed" }),
@@ -287,7 +309,7 @@ export default function CalendarPage() {
       if (!res.ok) throw new Error("Failed to restore");
       setMessage({ type: "success", text: "Restored!" });
       loadData();
-      setTimeout(() => closeModal(), 1500);
+      setTimeout(function() { closeModal(); }, 1500);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -295,7 +317,7 @@ export default function CalendarPage() {
     }
   }
 
-  const hours = Array.from({ length: 13 }, (_, i) => i + 8);
+  const hours = Array.from({ length: 13 }, function(_, i) { return i + 8; });
 
   function getAppointmentStyle(apt: Appointment) {
     const start = new Date(apt.startTime);
@@ -305,12 +327,25 @@ export default function CalendarPage() {
     const top = (startHour - 8) * 60;
     const height = Math.max(duration * 60, 30);
     
-    let bgColor = "#6366f1", borderColor = "#4f46e5";
+    let bgColor = "#6366f1";
+    let borderColor = "#4f46e5";
     if (apt.status === "cancelled") { bgColor = "#94a3b8"; borderColor = "#64748b"; }
     if (apt.status === "no-show") { bgColor = "#ef4444"; borderColor = "#dc2626"; }
     if (apt.status === "completed") { bgColor = "#10b981"; borderColor = "#059669"; }
     
-    return { top, height, bgColor, borderColor };
+    return { top: top, height: height, bgColor: bgColor, borderColor: borderColor };
+  }
+
+  function isHourInWorkingTime(hour: number, staffId: string): boolean {
+    const avail = staffAvailability[staffId];
+    if (!avail || !avail.available) return false;
+    
+    const startTime = avail.startTime || "09:00";
+    const endTime = avail.endTime || "18:00";
+    const [startH] = startTime.split(":").map(Number);
+    const [endH] = endTime.split(":").map(Number);
+    
+    return hour >= startH && hour < endH;
   }
 
   function formatTime(dateStr: string) {
@@ -321,8 +356,8 @@ export default function CalendarPage() {
     return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   }
 
-  const activeAppointments = appointments.filter(a => a.status !== "cancelled");
-  const confirmedCount = appointments.filter(a => a.status === "confirmed" || a.status === "booked").length;
+  const activeAppointments = appointments.filter(function(a) { return a.status !== "cancelled"; });
+  const confirmedCount = appointments.filter(function(a) { return a.status === "confirmed" || a.status === "booked"; }).length;
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
   const editTimeSlots = generateEditTimeSlots();
 
@@ -335,7 +370,6 @@ export default function CalendarPage() {
           <p style={{ color: "#64748b", margin: "4px 0 0" }}>Manage appointments</p>
         </div>
         
-        {/* Date Navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={goToPreviousDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
           
@@ -349,7 +383,7 @@ export default function CalendarPage() {
             <button onClick={goToToday} style={{ padding: "8px 16px", border: "1px solid #6366f1", borderRadius: 8, background: "#fff", color: "#6366f1", fontSize: 14, fontWeight: 500, cursor: "pointer", marginLeft: 8 }}>Today</button>
           )}
           
-          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, marginLeft: 8 }} />
+          <input type="date" value={selectedDate} onChange={function(e) { setSelectedDate(e.target.value); }} style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, marginLeft: 8 }} />
         </div>
       </div>
 
@@ -370,64 +404,131 @@ export default function CalendarPage() {
           <div style={{ width: 70, padding: 16, borderRight: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontSize: 12, color: "#64748b" }}>Time</span>
           </div>
-          {staffList.filter(s => s.name).map((staff) => (
-            <div key={staff.id} style={{ flex: 1, padding: 16, textAlign: "center", borderRight: "1px solid #e2e8f0" }}>
-              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontWeight: 600, fontSize: 18 }}>
-                {staff.name.charAt(0)}
+          {staffList.filter(function(s) { return s.name; }).map(function(staff) {
+            const avail = staffAvailability[staff.id];
+            const isOff = avail && !avail.available;
+            return (
+              <div key={staff.id} style={{ flex: 1, padding: 16, textAlign: "center", borderRight: "1px solid #e2e8f0", background: isOff ? "#fef2f2" : "transparent" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: isOff ? "#fca5a5" : "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontWeight: 600, fontSize: 18 }}>
+                  {staff.name.charAt(0)}
+                </div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: isOff ? "#dc2626" : "#0f172a" }}>{staff.name}</div>
+                <div style={{ color: "#64748b", fontSize: 12 }}>{staff.role || "Staff"}</div>
+                {isOff && (
+                  <div style={{ marginTop: 4, padding: "2px 8px", background: "#dc2626", color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 600, display: "inline-block" }}>
+                    {avail.reason === "day-off" ? "DAY OFF" : avail.reason === "holiday" ? "HOLIDAY" : "OFF"}
+                  </div>
+                )}
+                {!isOff && avail && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>
+                    {avail.startTime} - {avail.endTime}
+                  </div>
+                )}
               </div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{staff.name}</div>
-              <div style={{ color: "#64748b", fontSize: 12 }}>{staff.role || "Staff"}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Time Grid */}
         <div style={{ display: "flex", position: "relative" }}>
           <div style={{ width: 70, borderRight: "1px solid #e2e8f0", background: "#fafafa" }}>
-            {hours.map((hour) => (
-              <div key={hour} style={{ height: 60, padding: "4px 12px", fontSize: 13, color: "#64748b", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", fontWeight: 500 }}>
-                {hour}:00
-              </div>
-            ))}
+            {hours.map(function(hour) {
+              return (
+                <div key={hour} style={{ height: 60, padding: "4px 12px", fontSize: 13, color: "#64748b", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", fontWeight: 500 }}>
+                  {hour}:00
+                </div>
+              );
+            })}
           </div>
 
-          {staffList.filter(s => s.name).map((staff) => (
-            <div key={staff.id} style={{ flex: 1, position: "relative", borderRight: "1px solid #e2e8f0", background: "#fff" }}>
-              {hours.map((hour) => (
-                <div key={hour} style={{ height: 60, borderBottom: "1px solid #f1f5f9", background: hour % 2 === 0 ? "#fff" : "#fafafa" }}></div>
-              ))}
-              
-              {activeAppointments.filter((apt) => apt.staff.id === staff.id).map((apt) => {
-                const style = getAppointmentStyle(apt);
-                return (
-                  <div
-                    key={apt.id}
-                    onClick={() => openAppointment(apt)}
-                    style={{
-                      position: "absolute", top: style.top, left: 4, right: 4, height: style.height - 4,
-                      backgroundColor: style.bgColor, borderLeft: `4px solid ${style.borderColor}`,
-                      borderRadius: 8, padding: "8px 10px", cursor: "pointer", overflow: "hidden",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "transform 0.1s",
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.02)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-                  >
-                    <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{formatTime(apt.startTime)}</div>
-                    <div style={{ color: "#fff", fontSize: 12, opacity: 0.95, fontWeight: 500, marginTop: 2 }}>{apt.service.name}</div>
-                    <div style={{ color: "#fff", fontSize: 11, opacity: 0.85, marginTop: 2 }}>{apt.customerName}</div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+          {staffList.filter(function(s) { return s.name; }).map(function(staff) {
+            const avail = staffAvailability[staff.id];
+            const isOff = avail && !avail.available;
+            
+            return (
+              <div key={staff.id} style={{ flex: 1, position: "relative", borderRight: "1px solid #e2e8f0" }}>
+                {hours.map(function(hour) {
+                  const inWorkingHours = isHourInWorkingTime(hour, staff.id);
+                  let bgColor = "#fff";
+                  
+                  if (isOff) {
+                    bgColor = "#fef2f2"; // Light red for day off
+                  } else if (!inWorkingHours) {
+                    bgColor = "#f1f5f9"; // Gray for outside working hours
+                  } else if (hour % 2 !== 0) {
+                    bgColor = "#fafafa"; // Alternating for working hours
+                  }
+                  
+                  return (
+                    <div 
+                      key={hour} 
+                      style={{ 
+                        height: 60, 
+                        borderBottom: "1px solid #f1f5f9", 
+                        background: bgColor,
+                        position: "relative"
+                      }}
+                    >
+                      {isOff && hour === 12 && (
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 600 }}>OFF</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {/* Working hours indicator */}
+                {!isOff && avail && avail.startTime && avail.endTime && (
+                  <div style={{
+                    position: "absolute",
+                    top: (parseInt(avail.startTime.split(":")[0]) - 8) * 60,
+                    left: 0,
+                    right: 0,
+                    height: (parseInt(avail.endTime.split(":")[0]) - parseInt(avail.startTime.split(":")[0])) * 60,
+                    border: "2px solid #10b981",
+                    borderRadius: 4,
+                    pointerEvents: "none",
+                    opacity: 0.3
+                  }} />
+                )}
+                
+                {/* Appointments */}
+                {activeAppointments.filter(function(apt) { return apt.staff.id === staff.id; }).map(function(apt) {
+                  const style = getAppointmentStyle(apt);
+                  return (
+                    <div
+                      key={apt.id}
+                      onClick={function() { openAppointment(apt); }}
+                      style={{
+                        position: "absolute", top: style.top, left: 4, right: 4, height: style.height - 4,
+                        backgroundColor: style.bgColor, borderLeft: "4px solid " + style.borderColor,
+                        borderRadius: 8, padding: "8px 10px", cursor: "pointer", overflow: "hidden",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "transform 0.1s", zIndex: 10
+                      }}
+                      onMouseEnter={function(e) { e.currentTarget.style.transform = "scale(1.02)"; }}
+                      onMouseLeave={function(e) { e.currentTarget.style.transform = "scale(1)"; }}
+                    >
+                      <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{formatTime(apt.startTime)}</div>
+                      <div style={{ color: "#fff", fontSize: 12, opacity: 0.95, fontWeight: 500, marginTop: 2 }}>{apt.service.name}</div>
+                      <div style={{ color: "#fff", fontSize: 11, opacity: 0.85, marginTop: 2 }}>{apt.customerName}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Legend */}
-      <div style={{ marginTop: 16, display: "flex", gap: 20, fontSize: 13, color: "#64748b" }}>
+      <div style={{ marginTop: 16, display: "flex", gap: 20, fontSize: 13, color: "#64748b", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#6366f1" }}></div> Confirmed</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#ef4444" }}></div> No-Show</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#94a3b8" }}></div> Cancelled</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#fef2f2", border: "1px solid #fca5a5" }}></div> Day Off</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#f1f5f9", border: "1px solid #e2e8f0" }}></div> Outside Hours</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#fff", border: "2px solid #10b981" }}></div> Working Hours</div>
       </div>
 
       {/* Modal */}
@@ -448,18 +549,14 @@ export default function CalendarPage() {
             {confirmAction && (
               <div style={{ margin: "16px 24px", padding: 16, backgroundColor: "#fef3c7", borderRadius: 12, border: "1px solid #fcd34d" }}>
                 <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#92400e" }}>
-                  {confirmAction === "cancel" && "Cancel this appointment?"}
-                  {confirmAction === "noshow" && "Mark as No-Show?"}
-                  {confirmAction === "delete" && "Permanently delete?"}
+                  {confirmAction === "cancel" ? "Cancel this appointment?" : confirmAction === "noshow" ? "Mark as No-Show?" : "Permanently delete?"}
                 </p>
                 <p style={{ margin: "0 0 16px", fontSize: 13, color: "#a16207" }}>
-                  {confirmAction === "cancel" && "The time slot will become available."}
-                  {confirmAction === "noshow" && "This counts toward no-show record. 3 = blocked."}
-                  {confirmAction === "delete" && "This cannot be undone."}
+                  {confirmAction === "cancel" ? "The time slot will become available." : confirmAction === "noshow" ? "This counts toward no-show record. 3 = blocked." : "This cannot be undone."}
                 </p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", cursor: "pointer" }}>Back</button>
-                  <button onClick={() => { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }} disabled={saving} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#dc2626" : "#f59e0b", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={function() { setConfirmAction(null); }} style={{ flex: 1, padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", cursor: "pointer" }}>Back</button>
+                  <button onClick={function() { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }} disabled={saving} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#dc2626" : "#f59e0b", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
                     {saving ? "..." : "Confirm"}
                   </button>
                 </div>
@@ -482,7 +579,7 @@ export default function CalendarPage() {
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Service</div>
                     <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.service.name}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.service.durationMinutes} mins • £{selectedAppointment.service.price}</div>
+                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.service.durationMinutes} mins - £{selectedAppointment.service.price}</div>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
@@ -507,18 +604,18 @@ export default function CalendarPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {(selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked") && (
                         <>
-                          <button onClick={startEdit} style={{ padding: 14, border: "none", borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>✏️ Edit Appointment</button>
+                          <button onClick={startEdit} style={{ padding: 14, border: "none", borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Edit Appointment</button>
                           <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={() => setConfirmAction("cancel")} style={{ flex: 1, padding: 12, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Cancel</button>
-                            <button onClick={() => setConfirmAction("noshow")} style={{ flex: 1, padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fef2f2", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>No-Show</button>
+                            <button onClick={function() { setConfirmAction("cancel"); }} style={{ flex: 1, padding: 12, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Cancel</button>
+                            <button onClick={function() { setConfirmAction("noshow"); }} style={{ flex: 1, padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fef2f2", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>No-Show</button>
                           </div>
                         </>
                       )}
                       
                       {(selectedAppointment.status === "cancelled" || selectedAppointment.status === "no-show") && (
                         <>
-                          <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 10, background: "#10b981", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>↩️ Restore</button>
-                          <button onClick={() => setConfirmAction("delete")} style={{ padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fff", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>🗑 Delete</button>
+                          <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 10, background: "#10b981", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Restore</button>
+                          <button onClick={function() { setConfirmAction("delete"); }} style={{ padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fff", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Delete</button>
                         </>
                       )}
 
@@ -527,67 +624,67 @@ export default function CalendarPage() {
                   )}
                 </>
               ) : (
-                /* Edit Mode */
                 <>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                    <select value={editData.serviceId} onChange={(e) => setEditData({ ...editData, serviceId: e.target.value })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                      {services.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>)}
+                    <select value={editData.serviceId} onChange={function(e) { setEditData({ ...editData, serviceId: e.target.value }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
+                      {services.map(function(s) { return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; })}
                     </select>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
-                    <select value={editData.staffId} onChange={(e) => setEditData({ ...editData, staffId: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                      {staffList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    <select value={editData.staffId} onChange={function(e) { setEditData({ ...editData, staffId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
+                      {staffList.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
                     </select>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                    <input type="date" value={editData.date} onChange={(e) => setEditData({ ...editData, date: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} />
+                    <input type="date" value={editData.date} onChange={function(e) { setEditData({ ...editData, date: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} />
                   </div>
 
                   <div style={{ marginBottom: 20 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
                     {loadingAvailability ? (
-                      <p style={{ color: "#64748b", fontSize: 14 }}>Loading available times...</p>
+                      <p style={{ color: "#64748b", fontSize: 14 }}>Loading...</p>
                     ) : !editAvailability?.available ? (
                       <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
-                        ⚠️ {staffList.find(s => s.id === editData.staffId)?.name} is not available on this date
-                        {editAvailability?.reason && ` (${editAvailability.reason})`}
+                        Staff is not available on this date {editAvailability?.reason ? "(" + editAvailability.reason + ")" : ""}
                       </div>
                     ) : editTimeSlots.length === 0 ? (
                       <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>
-                        No available time slots. All times are booked.
+                        No available time slots
                       </div>
                     ) : (
                       <>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                          {editTimeSlots.map((t) => (
-                            <button
-                              key={t}
-                              onClick={() => setEditData({ ...editData, time: t })}
-                              style={{
-                                padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer",
-                                border: editData.time === t ? "2px solid #6366f1" : "1px solid #e2e8f0",
-                                background: editData.time === t ? "#6366f1" : "#fff",
-                                color: editData.time === t ? "#fff" : "#374151",
-                              }}
-                            >
-                              {t}
-                            </button>
-                          ))}
+                          {editTimeSlots.map(function(t) {
+                            return (
+                              <button
+                                key={t}
+                                onClick={function() { setEditData({ ...editData, time: t }); }}
+                                style={{
+                                  padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer",
+                                  border: editData.time === t ? "2px solid #6366f1" : "1px solid #e2e8f0",
+                                  background: editData.time === t ? "#6366f1" : "#fff",
+                                  color: editData.time === t ? "#fff" : "#374151",
+                                }}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
                         </div>
                         <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
-                          Working hours: {editAvailability.startTime} - {editAvailability.endTime}
+                          Working: {editAvailability.startTime} - {editAvailability.endTime}
                         </p>
                       </>
                     )}
                   </div>
 
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setModalMode("view")} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
+                    <button onClick={function() { setModalMode("view"); }} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
                     <button 
                       onClick={handleSaveEdit} 
                       disabled={saving || !editData.time || !editAvailability?.available} 
