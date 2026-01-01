@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const RESERVATION_MINUTES = 5; // Giữ chỗ 10 phút
+const RESERVATION_MINUTES = 8; // Giữ chỗ 10 phút
 
 // POST - Reserve a slot
 export async function POST(req: NextRequest) {
