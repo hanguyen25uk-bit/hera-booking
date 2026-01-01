@@ -1,30 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "hera2025";
-
-function generateSessionToken(): string {
-  return crypto.randomBytes(32).toString("hex");
-}
 
 export async function POST(req: NextRequest) {
   try {
     const { password } = await req.json();
 
-    if (!password || typeof password !== "string") {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
+    console.log("Login attempt:", { password, expected: ADMIN_PASSWORD });
 
     if (password === ADMIN_PASSWORD) {
-      const sessionToken = generateSessionToken();
-
       const response = NextResponse.json({ success: true });
-
-      response.cookies.set("admin_session", sessionToken, {
+      
+      response.cookies.set("admin_auth", "authenticated", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
 
@@ -38,8 +29,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE() {
   const response = NextResponse.json({ success: true });
-  response.cookies.delete("admin_session");
+  response.cookies.set("admin_auth", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+    path: "/",
+  });
   return response;
 }
