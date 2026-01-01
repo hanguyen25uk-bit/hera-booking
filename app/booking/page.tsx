@@ -27,6 +27,7 @@ export default function BookingPage() {
   const [policyTitle, setPolicyTitle] = useState("Our Booking Policy");
   const [policyItems, setPolicyItems] = useState<PolicyItem[]>([]);
   const [policyAgreed, setPolicyAgreed] = useState(false);
+  const [showMobilePolicy, setShowMobilePolicy] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +61,7 @@ export default function BookingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, policyRes] = await Promise.all([
-          fetch("/api/services"),
-          fetch("/api/booking-policy"),
-        ]);
+        const [servicesRes, policyRes] = await Promise.all([fetch("/api/services"), fetch("/api/booking-policy")]);
         setServices(await servicesRes.json());
         const policyData = await policyRes.json();
         setPolicyTitle(policyData.title || "Our Booking Policy");
@@ -245,13 +243,69 @@ export default function BookingPage() {
 
   const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
+  // Policy Component - reusable for both desktop and mobile
+  const PolicySection = ({ compact = false }: { compact?: boolean }) => (
+    <div style={{ background: compact ? "#f8fafc" : "rgba(255,255,255,0.05)", borderRadius: 12, padding: compact ? 16 : 20, border: compact ? "1px solid #e2e8f0" : "1px solid rgba(255,255,255,0.1)" }}>
+      <h3 style={{ color: compact ? "#0f172a" : "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+        📋 {policyTitle}
+      </h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: compact ? 12 : 16 }}>
+        {policyItems.map((item, i) => (
+          <div key={i} style={{ display: "flex", gap: 12 }}>
+            <div style={{ width: compact ? 28 : 32, height: compact ? 28 : 32, background: compact ? "#e2e8f0" : "rgba(255,255,255,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 14 : 16, flexShrink: 0 }}>{item.icon}</div>
+            <div>
+              <div style={{ color: compact ? "#0f172a" : "#fff", fontSize: compact ? 12 : 13, fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
+              <div style={{ color: compact ? "#64748b" : "#94a3b8", fontSize: compact ? 11 : 12, lineHeight: 1.4 }}>{item.description}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#94a3b8" }}><p>Loading...</p></div>;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif" }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-sidebar { display: none !important; }
+          .main-content { margin-left: 0 !important; border-radius: 0 !important; }
+          .mobile-header { display: flex !important; }
+          .mobile-policy { display: block !important; }
+          .time-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-header { display: none !important; }
+          .mobile-policy { display: none !important; }
+        }
+      `}</style>
+
+      {/* Mobile Header */}
+      <div className="mobile-header" style={{ display: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", padding: "16px 20px", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>H</div>
+          <span style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>Hera Booking</span>
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13 }}>Step {step} of 5</div>
+      </div>
+
+      {/* Mobile Policy Modal */}
+      {showMobilePolicy && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: "80vh", overflow: "auto", padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{policyTitle}</h3>
+              <button onClick={() => setShowMobilePolicy(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#f1f5f9", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            <PolicySection compact />
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", minHeight: "100vh" }}>
-        {/* Left Panel - Policy & Progress */}
-        <div style={{ width: 360, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", overflowY: "auto" }}>
+        {/* Desktop Sidebar */}
+        <div className="desktop-sidebar" style={{ width: 360, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", overflowY: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>H</div>
             <span style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>Hera Booking</span>
@@ -267,27 +321,12 @@ export default function BookingPage() {
             ))}
           </div>
 
-          {/* Booking Policy - Always Visible */}
-          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 20, marginBottom: 20, border: "1px solid rgba(255,255,255,0.1)" }}>
-            <h3 style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-              📋 {policyTitle}
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {policyItems.map((item, i) => (
-                <div key={i} style={{ display: "flex", gap: 12 }}>
-                  <div style={{ width: 32, height: 32, background: "rgba(255,255,255,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{item.icon}</div>
-                  <div>
-                    <div style={{ color: "#fff", fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
-                    <div style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.4 }}>{item.description}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Desktop Policy */}
+          <PolicySection />
 
           {/* Your Selection */}
           {currentService && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div style={{ marginTop: 20, background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.1)" }}>
               <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 12 }}>Your Selection</div>
               <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>✨ {currentService.name}</div>
               {currentStaff && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>👤 {currentStaff.name}</div>}
@@ -297,121 +336,128 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* Right Panel - Main Content */}
-        <div style={{ flex: 1, marginLeft: 360, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: 48, minHeight: "100vh" }}>
+        {/* Main Content */}
+        <div className="main-content" style={{ flex: 1, marginLeft: 360, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: "32px 24px", minHeight: "100vh" }}>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>
             {error && <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", fontSize: 14, marginBottom: 24 }}>{error}</div>}
 
             {step === 1 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Select a Service</h1>
-                <p style={{ color: "#64748b", marginBottom: 32 }}>Choose the treatment you'd like to book</p>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Select a Service</h1>
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Choose the treatment you'd like to book</p>
+                
+                {/* Mobile Policy Button */}
+                <button className="mobile-policy" onClick={() => setShowMobilePolicy(true)} style={{ display: "none", width: "100%", padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 20, fontSize: 14, color: "#6366f1", fontWeight: 500, cursor: "pointer" }}>
+                  📋 View Booking Policy
+                </button>
+
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {services.map((s) => (
-                    <div key={s.id} onClick={() => setSelectedServiceId(s.id)} style={{ padding: 20, borderRadius: 12, border: `2px solid ${selectedServiceId === s.id ? "#6366f1" : "#e2e8f0"}`, background: selectedServiceId === s.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0 }}>{s.name}</h3>
-                        {selectedServiceId === s.id && <span style={{ width: 24, height: 24, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
+                    <div key={s.id} onClick={() => setSelectedServiceId(s.id)} style={{ padding: 16, borderRadius: 12, border: `2px solid ${selectedServiceId === s.id ? "#6366f1" : "#e2e8f0"}`, background: selectedServiceId === s.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{s.name}</h3>
+                        {selectedServiceId === s.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
                       </div>
-                      <div style={{ display: "flex", gap: 16 }}><span style={{ color: "#64748b" }}>{s.durationMinutes} min</span><span style={{ fontWeight: 700, color: "#059669" }}>£{s.price}</span></div>
+                      <div style={{ display: "flex", gap: 16, fontSize: 14 }}><span style={{ color: "#64748b" }}>{s.durationMinutes} min</span><span style={{ fontWeight: 700, color: "#059669" }}>£{s.price}</span></div>
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: 32 }}><button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button></div>
+                <div style={{ marginTop: 24 }}><button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button></div>
               </>
             )}
 
             {step === 2 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Choose a Specialist</h1>
-                <p style={{ color: "#64748b", marginBottom: 32 }}>Select your preferred technician</p>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Specialist</h1>
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select your preferred technician</p>
                 {loadingStaff ? <p>Loading...</p> : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 16, padding: 16, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>⭐</div>
-                      <div><div style={{ fontWeight: 600 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 14 }}>First available specialist</div></div>
-                      {selectedStaffId === "any" && <span style={{ marginLeft: "auto", width: 24, height: 24, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
+                    <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⭐</div>
+                      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 13 }}>First available specialist</div></div>
+                      {selectedStaffId === "any" && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
                     </div>
                     {staff.map((m) => (
-                      <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 16, padding: 16, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{m.name.charAt(0)}</div>
-                        <div><div style={{ fontWeight: 600 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 14 }}>{m.role || "Nail Technician"}</div></div>
-                        {selectedStaffId === m.id && <span style={{ marginLeft: "auto", width: 24, height: 24, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
+                      <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{m.name.charAt(0)}</div>
+                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 13 }}>{m.role || "Nail Technician"}</div></div>
+                        {selectedStaffId === m.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
                       </div>
                     ))}
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
-                  <button onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
-                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button>
+                <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+                  <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
+                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Continue</button>
                 </div>
               </>
             )}
 
             {step === 3 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Pick Date & Time</h1>
-                <p style={{ color: "#64748b", marginBottom: 32 }}>Choose when you'd like to visit</p>
-                <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Pick Date & Time</h1>
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Choose when you'd like to visit</p>
+                
+                <div style={{ marginBottom: 20 }}>
                   <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
                   <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} />
                 </div>
+
                 {loadingAvailability ? <p>Checking availability...</p> : isStaffOnDayOff ? (
-                  <div style={{ display: "flex", gap: 16, padding: 24, background: "#fef3c7", borderRadius: 12, marginBottom: 24 }}>
-                    <span style={{ fontSize: 32 }}>🚫</span>
-                    <div><strong style={{ color: "#92400e" }}>{currentStaff?.name} is not available</strong><p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 14 }}>Please select another date or specialist.</p></div>
+                  <div style={{ display: "flex", gap: 12, padding: 16, background: "#fef3c7", borderRadius: 12, marginBottom: 20 }}>
+                    <span style={{ fontSize: 24 }}>🚫</span>
+                    <div><strong style={{ color: "#92400e", fontSize: 14 }}>{currentStaff?.name} is not available</strong><p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 13 }}>Please select another date.</p></div>
                   </div>
                 ) : timeSlots.length === 0 ? (
-                  <div style={{ padding: 24, background: "#fef2f2", borderRadius: 10, color: "#dc2626", textAlign: "center" }}>No available times. Please select another date.</div>
+                  <div style={{ padding: 20, background: "#fef2f2", borderRadius: 10, color: "#dc2626", textAlign: "center", fontSize: 14 }}>No available times. Please select another date.</div>
                 ) : (
-                  <div style={{ marginBottom: 24 }}>
+                  <div style={{ marginBottom: 20 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Available Times</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                    <div className="time-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                       {timeSlots.map((time) => {
                         const past = isTimeSlotPast(time), reserved = !isAnyStaff && isSlotReserved(time), booked = !isAnyStaff && isSlotBooked(time), unavailable = past || reserved || booked;
                         return <button key={time} disabled={unavailable || reserving} onClick={() => handleTimeSelect(time)} style={{ padding: 12, borderRadius: 8, border: `2px solid ${selectedTime === time ? "#6366f1" : "#e2e8f0"}`, background: selectedTime === time ? "#6366f1" : unavailable ? "#f1f5f9" : "#fff", color: selectedTime === time ? "#fff" : unavailable ? "#94a3b8" : "#1e293b", fontSize: 14, fontWeight: 600, cursor: unavailable ? "not-allowed" : "pointer" }}>{time}</button>;
                       })}
                     </div>
-                    {reserving && <p style={{ color: "#6366f1", marginTop: 12 }}>Reserving...</p>}
+                    {reserving && <p style={{ color: "#6366f1", marginTop: 12, fontSize: 14 }}>Reserving...</p>}
                   </div>
                 )}
-                {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 16, background: "#ecfdf5", borderRadius: 10, color: "#059669", marginBottom: 24 }}>✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
-                {reservationTimer > 0 && <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 24 }}>⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
+
+                {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 14, background: "#ecfdf5", borderRadius: 10, color: "#059669", marginBottom: 20, fontSize: 14 }}>✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
+                {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
                 
-                {/* Policy Agreement Checkbox */}
-                <div style={{ padding: 20, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 24 }}>
+                {/* Mobile Policy Section */}
+                <div className="mobile-policy" style={{ display: "none", marginBottom: 20 }}>
+                  <PolicySection compact />
+                </div>
+
+                {/* Policy Agreement */}
+                <div style={{ padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
                   <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-                    <input 
-                      type="checkbox" 
-                      checked={policyAgreed} 
-                      onChange={(e) => setPolicyAgreed(e.target.checked)}
-                      style={{ width: 20, height: 20, marginTop: 2, accentColor: "#6366f1" }}
-                    />
-                    <span style={{ fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-                      I have read and agree to the <strong>Booking Policy</strong> shown on the left. I understand the payment terms and cancellation policy.
-                    </span>
+                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 2, accentColor: "#6366f1" }} />
+                    <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>I have read and agree to the <strong>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
                   </label>
                 </div>
 
                 <div style={{ display: "flex", gap: 12 }}>
-                  <button onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
-                  <button onClick={handleContinueToDetails} style={{ flex: 1, padding: 16, background: policyAgreed ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", color: policyAgreed ? "#fff" : "#94a3b8", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed" }}>Continue</button>
+                  <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
+                  <button onClick={handleContinueToDetails} style={{ flex: 1, padding: 14, background: policyAgreed ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", color: policyAgreed ? "#fff" : "#94a3b8", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed" }}>Continue</button>
                 </div>
               </>
             )}
 
             {step === 4 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Your Details</h1>
-                <p style={{ color: "#64748b", marginBottom: 32 }}>We'll send your confirmation here</p>
-                {reservationTimer > 0 && <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 24 }}>⏱️ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Your Details</h1>
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>We'll send your confirmation here</p>
+                {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Full Name</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
                   <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Phone</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
                   <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Email</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="you@example.com" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-                    <button type="button" onClick={goBack} style={{ padding: 16, background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16, cursor: "pointer" }}>Back</button>
-                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1 }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
+                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                    <button type="button" onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
+                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1 }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
                   </div>
                 </form>
               </>
@@ -419,17 +465,17 @@ export default function BookingPage() {
 
             {step === 5 && (
               <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 40, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>✓</div>
-                <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 8 }}>You're all set!</h1>
-                <p style={{ color: "#64748b", marginBottom: 32 }}>Your appointment has been confirmed</p>
-                <div style={{ background: "#f8fafc", borderRadius: 12, padding: 20, textAlign: "left", marginBottom: 24 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #e2e8f0" }}><span style={{ color: "#64748b" }}>Service</span><span style={{ fontWeight: 600 }}>{currentService?.name}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #e2e8f0" }}><span style={{ color: "#64748b" }}>Specialist</span><span style={{ fontWeight: 600 }}>{currentStaff?.name}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #e2e8f0" }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}><span style={{ color: "#64748b" }}>Booking ID</span><span style={{ fontWeight: 600 }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
+                <div style={{ width: 70, height: 70, borderRadius: 16, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 32, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>✓</div>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>You're all set!</h1>
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Your appointment has been confirmed</p>
+                <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, textAlign: "left", marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Service</span><span style={{ fontWeight: 600 }}>{currentService?.name}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Specialist</span><span style={{ fontWeight: 600 }}>{currentStaff?.name}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Booking ID</span><span style={{ fontWeight: 600 }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
                 </div>
-                <p style={{ color: "#64748b", marginBottom: 24 }}>📧 Confirmation sent to {customerEmail}</p>
-                <button onClick={() => { sessionStorage.setItem('booking_session_id', generateSessionId()); window.location.reload(); }} style={{ padding: "16px 24px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Book Another</button>
+                <p style={{ color: "#64748b", marginBottom: 20, fontSize: 14 }}>📧 Confirmation sent to {customerEmail}</p>
+                <button onClick={() => { sessionStorage.setItem('booking_session_id', generateSessionId()); window.location.reload(); }} style={{ padding: "14px 24px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Book Another</button>
               </div>
             )}
           </div>
