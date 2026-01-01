@@ -2,24 +2,20 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
+  const authCookie = request.cookies.get("admin_auth");
+  const isAuthenticated = authCookie?.value === "authenticated";
 
-  // Protect admin routes
-  if (path.startsWith("/admin")) {
-    const sessionToken = request.cookies.get("admin_session")?.value;
-
-    if (!sessionToken) {
-      const loginUrl = new URL("/login", request.url);
-      return NextResponse.redirect(loginUrl);
+  if (pathname === "/login") {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL("/admin", request.url));
     }
+    return NextResponse.next();
   }
 
-  // Protect admin API routes
-  if (path.startsWith("/api/admin")) {
-    const sessionToken = request.cookies.get("admin_session")?.value;
-
-    if (!sessionToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (pathname.startsWith("/admin")) {
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
@@ -27,5 +23,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/login"],
 };

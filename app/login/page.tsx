@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-function LoginForm() {
+export default function LoginPage() {
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -24,6 +24,7 @@ function LoginForm() {
 
       if (res.ok) {
         router.push("/admin");
+        router.refresh();
       } else {
         setError("Invalid password");
       }
@@ -35,146 +36,45 @@ function LoginForm() {
   }
 
   return (
-    <div style={styles.card}>
-      <div style={styles.logoSection}>
+    <div style={styles.container}>
+      <div style={styles.card}>
         <div style={styles.logo}>H</div>
         <h1 style={styles.title}>Hera Admin</h1>
-      </div>
-      
-      <p style={styles.subtitle}>Enter password to continue</p>
-
-      <form onSubmit={handleSubmit}>
-        {error && <div style={styles.error}>{error}</div>}
-        
-        <div style={styles.inputWrapper}>
-          <input
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            style={styles.input}
-            autoFocus
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            style={styles.eyeButton}
-          >
-            {showPassword ? "🙈" : "👁️"}
+        <p style={styles.subtitle}>Enter password to continue</p>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {error && <div style={styles.error}>{error}</div>}
+          <div style={styles.inputWrapper}>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              style={styles.input}
+              autoFocus
+            />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+              {showPassword ? "🙈" : "👁"}
+            </button>
+          </div>
+          <button type="submit" style={styles.button} disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
           </button>
-        </div>
-        
-        <button type="submit" style={styles.button} disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <div style={styles.page}>
-      <Suspense fallback={<div style={styles.loading}>Loading...</div>}>
-        <LoginForm />
-      </Suspense>
+        </form>
+      </div>
     </div>
   );
 }
 
 const styles: { [key: string]: React.CSSProperties } = {
-  page: {
-    minHeight: "100vh",
-    backgroundColor: "#0f172a",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  },
-  loading: {
-    color: "#94a3b8",
-    fontSize: 16,
-  },
-  card: {
-    backgroundColor: "#1e293b",
-    borderRadius: 16,
-    padding: 40,
-    width: "100%",
-    maxWidth: 400,
-    textAlign: "center",
-  },
-  logoSection: {
-    marginBottom: 24,
-  },
-  logo: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: 700,
-    margin: "0 auto 16px",
-  },
-  title: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: 700,
-    margin: 0,
-  },
-  subtitle: {
-    color: "#94a3b8",
-    fontSize: 14,
-    marginBottom: 24,
-  },
-  error: {
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    border: "1px solid rgba(239, 68, 68, 0.3)",
-    color: "#ef4444",
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  inputWrapper: {
-    position: "relative",
-    marginBottom: 16,
-  },
-  input: {
-    width: "100%",
-    padding: "14px 50px 14px 16px",
-    backgroundColor: "#0f172a",
-    border: "2px solid #334155",
-    borderRadius: 10,
-    color: "#fff",
-    fontSize: 16,
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  eyeButton: {
-    position: "absolute",
-    right: 12,
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    fontSize: 20,
-    cursor: "pointer",
-    padding: 4,
-  },
-  button: {
-    width: "100%",
-    padding: "14px 24px",
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
+  container: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", padding: 20 },
+  card: { backgroundColor: "#1e293b", borderRadius: 20, padding: 40, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", width: "100%", maxWidth: 400, textAlign: "center" },
+  logo: { width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 28, fontWeight: 700, color: "#fff" },
+  title: { fontSize: 24, fontWeight: 700, color: "#fff", margin: "0 0 8px 0" },
+  subtitle: { fontSize: 14, color: "#94a3b8", margin: "0 0 32px 0" },
+  form: { display: "flex", flexDirection: "column", gap: 16 },
+  inputWrapper: { position: "relative" },
+  input: { width: "100%", padding: "16px 50px 16px 16px", border: "2px solid #334155", borderRadius: 12, fontSize: 16, outline: "none", backgroundColor: "#f8fafc", color: "#0f172a", boxSizing: "border-box" },
+  eyeButton: { position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18 },
+  button: { padding: "16px 24px", background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", color: "#fff", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: "pointer" },
+  error: { backgroundColor: "#fef2f2", color: "#991b1b", padding: 12, borderRadius: 8, fontSize: 14 },
 };
