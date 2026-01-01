@@ -1,31 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { sendBookingConfirmation } from "@/lib/email";
 import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date");
+  const token = req.nextUrl.searchParams.get("token");
   
   try {
-    const where: any = {};
-    
-    if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+    if (token) {
+      const appointment = await prisma.appointment.findFirst({
+        where: { manageToken: token },
+        include: { service: true, staff: true },
+      });
       
-      where.startTime = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+      if (!appointment) {
+        return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      }
+      
+      return NextResponse.json(appointment);
+    }
+
+    const where: any = {};
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+      where.startTime = { gte: start, lte: end };
     }
 
     const appointments = await prisma.appointment.findMany({
       where,
-      include: {
-        service: true,
-        staff: true,
-      },
+      include: { service: true, staff: true },
       orderBy: { startTime: "asc" },
     });
 
@@ -41,84 +48,75 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = body;
 
-    // Check if customer is blocked
-    const customer = await prisma.customer.findUnique({
-      where: { email: customerEmail },
+    const emailLower = customerEmail.toLowerCase();
+
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { email: emailLower },
     });
 
-    if (customer?.isBlocked) {
+    if (existingCustomer?.isBlocked) {
       return NextResponse.json(
-        { error: "This email address has been blocked due to multiple no-shows. Please contact the salon directly." },
+        { error: "You cannot book the appointment as you have been no show 3 times." },
         { status: 403 }
       );
     }
 
-    // Get service to calculate end time
-    const service = await prisma.service.findUnique({
-      where: { id: serviceId },
-    });
-
+    const service = await prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
-    const start = new Date(startTime);
-    const end = new Date(start.getTime() + service.durationMinutes * 60000);
-
-    // Check for conflicts
-    const conflict = await prisma.appointment.findFirst({
-      where: {
-        staffId,
-        status: { notIn: ["cancelled", "no-show"] },
-        OR: [
-          { startTime: { lt: end }, endTime: { gt: start } },
-        ],
-      },
-    });
-
-    if (conflict) {
-      return NextResponse.json({ error: "This time slot is no longer available" }, { status: 409 });
+    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
+    if (!staff) {
+      return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
-    // Generate manage token
+    const start = new Date(startTime);
+    const end = new Date(start.getTime() + service.durationMinutes * 60000);
     const manageToken = crypto.randomBytes(32).toString("hex");
 
-    // Create or update customer record
-    let customerId: string | null = null;
-    if (customer) {
-      customerId = customer.id;
-    } else {
-      const newCustomer = await prisma.customer.create({
+    let customer = existingCustomer;
+    if (!customer) {
+      customer = await prisma.customer.create({
         data: {
-          email: customerEmail,
+          email: emailLower,
           name: customerName,
           phone: customerPhone,
         },
       });
-      customerId = newCustomer.id;
     }
 
-    // Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         serviceId,
         staffId,
-        customerId,
+        customerId: customer.id,
         customerName,
         customerPhone,
-        customerEmail,
+        customerEmail: emailLower,
         startTime: start,
         endTime: end,
-        status: "confirmed",
         manageToken,
+        status: "confirmed",
       },
-      include: {
-        service: true,
-        staff: true,
-      },
+      include: { service: true, staff: true },
     });
 
-    // TODO: Send confirmation email
+    try {
+      const emailResult = await sendBookingConfirmation({
+        customerEmail: emailLower,
+        customerName,
+        serviceName: service.name,
+        staffName: staff.name,
+        startTime: start,
+        endTime: end,
+        bookingId: appointment.id,
+        manageToken,
+      });
+      console.log("Email result:", emailResult);
+    } catch (emailError) {
+      console.error("Failed to send confirmation email:", emailError);
+    }
 
     return NextResponse.json(appointment);
   } catch (error) {
