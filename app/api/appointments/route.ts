@@ -1,44 +1,31 @@
-import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { sendBookingConfirmation } from "@/lib/email";
+import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date");
-  const token = req.nextUrl.searchParams.get("token");
-  const staffId = req.nextUrl.searchParams.get("staffId");
   
   try {
-    if (token) {
-      const appointment = await prisma.appointment.findFirst({
-        where: { manageToken: token },
-        include: { service: true, staff: true },
-      });
-      
-      if (!appointment) {
-        return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-      }
-      
-      return NextResponse.json(appointment);
-    }
-
     const where: any = {};
     
     if (date) {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
-      where.startTime = { gte: start, lte: end };
-    }
-    
-    if (staffId) {
-      where.staffId = staffId;
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      where.startTime = {
+        gte: startOfDay,
+        lte: endOfDay,
+      };
     }
 
     const appointments = await prisma.appointment.findMany({
       where,
-      include: { service: true, staff: true },
+      include: {
+        service: true,
+        staff: true,
+      },
       orderBy: { startTime: "asc" },
     });
 
@@ -54,110 +41,84 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = body;
 
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { email: customerEmail.toLowerCase() },
+    // Check if customer is blocked
+    const customer = await prisma.customer.findUnique({
+      where: { email: customerEmail },
     });
 
-    if (existingCustomer?.isBlocked) {
+    if (customer?.isBlocked) {
       return NextResponse.json(
-        { error: "Sorry, you are unable to book online. Please contact us directly." },
+        { error: "This email address has been blocked due to multiple no-shows. Please contact the salon directly." },
         { status: 403 }
       );
     }
 
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
+    // Get service to calculate end time
+    const service = await prisma.service.findUnique({
+      where: { id: serviceId },
+    });
+
     if (!service) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
-    }
-
-    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
-    if (!staff) {
-      return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
     const start = new Date(startTime);
     const end = new Date(start.getTime() + service.durationMinutes * 60000);
 
-    const conflictingAppointment = await prisma.appointment.findFirst({
+    // Check for conflicts
+    const conflict = await prisma.appointment.findFirst({
       where: {
         staffId,
-        status: { not: "cancelled" },
+        status: { notIn: ["cancelled", "no-show"] },
         OR: [
-          {
-            AND: [
-              { startTime: { lte: start } },
-              { endTime: { gt: start } },
-            ],
-          },
-          {
-            AND: [
-              { startTime: { lt: end } },
-              { endTime: { gte: end } },
-            ],
-          },
-          {
-            AND: [
-              { startTime: { gte: start } },
-              { endTime: { lte: end } },
-            ],
-          },
+          { startTime: { lt: end }, endTime: { gt: start } },
         ],
       },
     });
 
-    if (conflictingAppointment) {
-      return NextResponse.json(
-        { error: "This time slot is no longer available. Please select another time." },
-        { status: 409 }
-      );
+    if (conflict) {
+      return NextResponse.json({ error: "This time slot is no longer available" }, { status: 409 });
     }
 
+    // Generate manage token
     const manageToken = crypto.randomBytes(32).toString("hex");
 
-    let customer = existingCustomer;
-    if (!customer) {
-      customer = await prisma.customer.create({
+    // Create or update customer record
+    let customerId: string | null = null;
+    if (customer) {
+      customerId = customer.id;
+    } else {
+      const newCustomer = await prisma.customer.create({
         data: {
-          email: customerEmail.toLowerCase(),
+          email: customerEmail,
           name: customerName,
           phone: customerPhone,
         },
       });
+      customerId = newCustomer.id;
     }
 
+    // Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         serviceId,
         staffId,
-        customerId: customer.id,
+        customerId,
         customerName,
         customerPhone,
-        customerEmail: customerEmail.toLowerCase(),
+        customerEmail,
         startTime: start,
         endTime: end,
+        status: "confirmed",
         manageToken,
       },
-      include: { service: true, staff: true },
+      include: {
+        service: true,
+        staff: true,
+      },
     });
 
-    // Send confirmation email with correct params
-    try {
-      const manageUrl = `https://hera-booking.vercel.app/manage-booking?token=${manageToken}`;
-      
-      await sendBookingConfirmation({
-        customerEmail: customerEmail.toLowerCase(),
-        customerName,
-        serviceName: service.name,
-        staffName: staff.name,
-        appointmentDate: start.toISOString().split("T")[0],
-        appointmentTime: start.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        duration: service.durationMinutes,
-        bookingRef: appointment.id.slice(0, 8).toUpperCase(),
-        manageUrl,
-      });
-    } catch (emailError) {
-      console.error("Failed to send email:", emailError);
-    }
+    // TODO: Send confirmation email
 
     return NextResponse.json(appointment);
   } catch (error) {
