@@ -126,3 +126,11 @@ model SlotReservation {
   @@unique([staffId, startTime])
   @@index([expiresAt])
 }
+
+model BookingPolicy {
+  id        String   @id @default("default")
+  title     String   @default("Our Booking Policy")
+  policies  String   @db.Text // JSON array of policies
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+}

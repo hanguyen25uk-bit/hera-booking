@@ -1,12 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const isAuth = document.cookie.includes("admin_auth=authenticated");
+    if (!isAuth && pathname !== "/login") {
+      router.push("/login");
+    } else {
+      setLoading(false);
+    }
+  }, [pathname, router]);
+
+  const handleLogout = () => {
+    document.cookie = "admin_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    router.push("/login");
+  };
+
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+  }
 
   const menuItems = [
     { href: "/admin", label: "Dashboard", icon: "📊" },
@@ -15,168 +35,114 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/staff", label: "Staff", icon: "👤" },
     { href: "/admin/schedule", label: "Schedule", icon: "🗓" },
     { href: "/admin/working-hours", label: "Hours", icon: "🕐" },
+    { href: "/admin/policy", label: "Policy", icon: "📋" },
     { href: "/admin/settings", label: "Settings", icon: "⚙️" },
   ];
 
-  const isActive = (href: string) => {
-    if (href === "/admin") return pathname === "/admin";
-    return pathname.startsWith(href);
-  };
-
   return (
-    <div style={styles.container}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f8fafc" }}>
+      {/* Sidebar */}
       <aside style={{
-        ...styles.sidebar,
-        width: collapsed ? 72 : 240,
+        width: 220,
+        backgroundColor: "#1e293b",
+        color: "#fff",
+        padding: "24px 0",
+        display: "flex",
+        flexDirection: "column",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        height: "100vh",
       }}>
-        <div style={styles.logoSection}>
-          <div style={styles.logoIcon}>H</div>
-          {!collapsed && <span style={styles.logoText}>Hera</span>}
+        <div style={{ padding: "0 20px", marginBottom: 32 }}>
+          <Link href="/admin" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: 16,
+              color: "#fff",
+            }}>
+              H
+            </div>
+            <span style={{ fontSize: 18, fontWeight: 600, color: "#fff" }}>Hera</span>
+          </Link>
         </div>
 
-        <nav style={styles.nav}>
-          {menuItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                ...styles.navItem,
-                ...(isActive(item.href) ? styles.navItemActive : {}),
-              }}
-            >
-              <span style={styles.navIcon}>{item.icon}</span>
-              {!collapsed && <span style={styles.navLabel}>{item.label}</span>}
-            </Link>
-          ))}
+        <nav style={{ flex: 1 }}>
+          {menuItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 20px",
+                  color: isActive ? "#fff" : "#94a3b8",
+                  backgroundColor: isActive ? "rgba(99, 102, 241, 0.2)" : "transparent",
+                  borderLeft: isActive ? "3px solid #6366f1" : "3px solid transparent",
+                  textDecoration: "none",
+                  fontSize: 14,
+                  fontWeight: isActive ? 600 : 400,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{item.icon}</span>
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <button
-          style={styles.collapseBtn}
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          {collapsed ? "→" : "←"}
-        </button>
-
-        <div style={styles.sidebarFooter}>
-          <Link href="/booking" target="_blank" style={styles.bookingLink}>
-            {collapsed ? "🔗" : "Open Booking Page →"}
+        <div style={{ padding: "0 20px" }}>
+          <Link
+            href="/booking"
+            target="_blank"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              backgroundColor: "rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              color: "#fff",
+              textDecoration: "none",
+              fontSize: 13,
+              marginBottom: 12,
+            }}
+          >
+            🔗 View Booking Page
           </Link>
+          <button
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              padding: "10px 16px",
+              backgroundColor: "transparent",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 8,
+              color: "#94a3b8",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            Logout
+          </button>
         </div>
       </aside>
 
-      <main style={{
-        ...styles.main,
-        marginLeft: collapsed ? 72 : 240,
-      }}>
+      {/* Main Content */}
+      <main style={{ flex: 1, marginLeft: 220, padding: 32 }}>
         {children}
       </main>
     </div>
   );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    display: "flex",
-    minHeight: "100vh",
-    backgroundColor: "#f8fafc",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  sidebar: {
-    backgroundColor: "#0f172a",
-    display: "flex",
-    flexDirection: "column",
-    transition: "width 0.2s ease",
-    position: "fixed",
-    top: 0,
-    left: 0,
-    height: "100vh",
-    zIndex: 100,
-  },
-  logoSection: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "24px 20px",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
-  },
-  logoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#fff",
-    fontWeight: 700,
-    fontSize: 18,
-  },
-  logoText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: 600,
-    letterSpacing: "-0.5px",
-  },
-  nav: {
-    flex: 1,
-    padding: "16px 12px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  },
-  navItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "12px 14px",
-    borderRadius: 8,
-    color: "#94a3b8",
-    textDecoration: "none",
-    fontSize: 14,
-    fontWeight: 500,
-    transition: "all 0.15s ease",
-  },
-  navItemActive: {
-    backgroundColor: "rgba(99, 102, 241, 0.15)",
-    color: "#fff",
-  },
-  navIcon: {
-    fontSize: 18,
-    width: 24,
-    textAlign: "center",
-  },
-  navLabel: {
-    whiteSpace: "nowrap",
-  },
-  collapseBtn: {
-    margin: "0 12px 12px",
-    padding: "8px",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    border: "none",
-    borderRadius: 6,
-    color: "#64748b",
-    cursor: "pointer",
-    fontSize: 14,
-  },
-  sidebarFooter: {
-    padding: "16px 12px",
-    borderTop: "1px solid rgba(255,255,255,0.1)",
-  },
-  bookingLink: {
-    display: "block",
-    padding: "12px 14px",
-    backgroundColor: "rgba(99, 102, 241, 0.2)",
-    borderRadius: 8,
-    color: "#a5b4fc",
-    textDecoration: "none",
-    fontSize: 13,
-    fontWeight: 500,
-    textAlign: "center",
-    transition: "all 0.15s ease",
-  },
-  main: {
-    flex: 1,
-    padding: "32px 40px",
-    transition: "margin-left 0.2s ease",
-  },
-};
