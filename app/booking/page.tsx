@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, useCallback } from "react";
 
 type Service = {
   id: string;
@@ -16,14 +16,6 @@ type Staff = {
   role?: string | null;
 };
 
-type Appointment = {
-  id: string;
-  staffId: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-};
-
 type StaffAvailability = {
   available: boolean;
   reason?: string;
@@ -33,9 +25,31 @@ type StaffAvailability = {
   note?: string;
 };
 
+type ReservedSlot = {
+  startTime: string;
+  endTime: string;
+};
+
 type Step = 1 | 2 | 3 | 4 | 5;
 
+// Generate unique session ID
+function generateSessionId() {
+  return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
 export default function BookingPage() {
+  const [sessionId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      let id = sessionStorage.getItem('booking_session_id');
+      if (!id) {
+        id = generateSessionId();
+        sessionStorage.setItem('booking_session_id', id);
+      }
+      return id;
+    }
+    return generateSessionId();
+  });
+
   const [step, setStep] = useState<Step>(1);
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -49,9 +63,15 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [staffAvailability, setStaffAvailability] = useState<StaffAvailability | null>(null);
   const [allStaffAvailability, setAllStaffAvailability] = useState<Record<string, StaffAvailability>>({});
-  const [existingAppointments, setExistingAppointments] = useState<Appointment[]>([]);
+  const [reservedSlots, setReservedSlots] = useState<ReservedSlot[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<ReservedSlot[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [assignedStaffId, setAssignedStaffId] = useState<string>("");
+  
+  // Reservation state
+  const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
+  const [reservationTimer, setReservationTimer] = useState<number>(0);
+  const [reserving, setReserving] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -62,7 +82,10 @@ export default function BookingPage() {
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
 
   const isAnyStaff = selectedStaffId === "any";
+  const currentService = services.find((s) => s.id === selectedServiceId);
+  const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
 
+  // Load services
   useEffect(() => {
     async function loadServices() {
       try {
@@ -79,6 +102,7 @@ export default function BookingPage() {
     loadServices();
   }, []);
 
+  // Load staff when service selected
   useEffect(() => {
     if (!selectedServiceId) return;
     async function loadStaff() {
@@ -96,12 +120,13 @@ export default function BookingPage() {
     loadStaff();
   }, [selectedServiceId]);
 
+  // Set default date
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     setSelectedDate(today);
   }, []);
 
-  // Load availability when staff and date are selected
+  // Load availability when staff and date selected
   useEffect(() => {
     if (!selectedStaffId || !selectedDate) return;
     
@@ -109,10 +134,10 @@ export default function BookingPage() {
       setLoadingAvailability(true);
       setSelectedTime("");
       setAssignedStaffId("");
+      setReservationExpiry(null);
       
       try {
         if (selectedStaffId === "any") {
-          // Load availability for all staff
           const availabilityMap: Record<string, StaffAvailability> = {};
           await Promise.all(
             staff.map(async (s) => {
@@ -122,15 +147,29 @@ export default function BookingPage() {
           );
           setAllStaffAvailability(availabilityMap);
           
-          // Also load appointments for the date
-          const aptRes = await fetch(`/api/appointments?date=${selectedDate}`);
-          const aptData = await aptRes.json();
-          if (Array.isArray(aptData)) setExistingAppointments(aptData);
+          // Load reservations for all staff
+          let allReserved: ReservedSlot[] = [];
+          let allBooked: ReservedSlot[] = [];
+          await Promise.all(
+            staff.map(async (s) => {
+              const res = await fetch(`/api/slot-reservation?staffId=${s.id}&date=${selectedDate}&sessionId=${sessionId}`);
+              const data = await res.json();
+              if (data.reservations) allReserved = [...allReserved, ...data.reservations];
+              if (data.appointments) allBooked = [...allBooked, ...data.appointments];
+            })
+          );
+          setReservedSlots(allReserved);
+          setBookedSlots(allBooked);
         } else {
-          // Load availability for specific staff
           const res = await fetch(`/api/staff-availability?staffId=${selectedStaffId}&date=${selectedDate}`);
           const data = await res.json();
           setStaffAvailability(data);
+          
+          // Load reservations
+          const resRes = await fetch(`/api/slot-reservation?staffId=${selectedStaffId}&date=${selectedDate}&sessionId=${sessionId}`);
+          const resData = await resRes.json();
+          setReservedSlots(resData.reservations || []);
+          setBookedSlots(resData.appointments || []);
         }
       } catch (err) {
         console.error("Failed to load availability:", err);
@@ -140,33 +179,75 @@ export default function BookingPage() {
     }
     
     loadAvailability();
-  }, [selectedStaffId, selectedDate, staff]);
+  }, [selectedStaffId, selectedDate, staff, sessionId]);
 
-  const currentService = services.find((s) => s.id === selectedServiceId);
-  const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
+  // Reservation countdown timer
+  useEffect(() => {
+    if (!reservationExpiry) {
+      setReservationTimer(0);
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((reservationExpiry.getTime() - Date.now()) / 1000));
+      setReservationTimer(remaining);
+      
+      if (remaining === 0) {
+        setReservationExpiry(null);
+        setSelectedTime("");
+        setError("Your reservation has expired. Please select a time again.");
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [reservationExpiry]);
+
+  // Release reservation on unmount or when leaving step 3/4
+  useEffect(() => {
+    return () => {
+      if (sessionId) {
+        fetch(`/api/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {});
+      }
+    };
+  }, [sessionId]);
 
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
-  const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+  const goBack = () => {
+    if (step === 4 && selectedTime) {
+      // Keep reservation when going back from step 4
+    }
+    setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+  };
 
-  const isStaffAvailable = (staffId: string, time: string): boolean => {
-    const serviceDuration = currentService?.durationMinutes || 60;
+  const isSlotReserved = useCallback((time: string, staffIdToCheck: string) => {
     const slotStart = new Date(`${selectedDate}T${time}:00`);
+    const serviceDuration = currentService?.durationMinutes || 60;
     const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
-    const hasConflict = existingAppointments.some((apt) => {
-      if (apt.staffId !== staffId || apt.status === "cancelled") return false;
-      const aptStart = new Date(apt.startTime);
-      const aptEnd = new Date(apt.endTime);
+    
+    return reservedSlots.some(r => {
+      const resStart = new Date(r.startTime);
+      const resEnd = new Date(r.endTime);
+      return slotStart < resEnd && slotEnd > resStart;
+    });
+  }, [selectedDate, currentService, reservedSlots]);
+
+  const isSlotBooked = useCallback((time: string, staffIdToCheck: string) => {
+    const slotStart = new Date(`${selectedDate}T${time}:00`);
+    const serviceDuration = currentService?.durationMinutes || 60;
+    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+    
+    return bookedSlots.some(a => {
+      const aptStart = new Date(a.startTime);
+      const aptEnd = new Date(a.endTime);
       return slotStart < aptEnd && slotEnd > aptStart;
     });
-    return !hasConflict;
-  };
+  }, [selectedDate, currentService, bookedSlots]);
 
   const findAvailableStaff = (time: string): string | null => {
     for (const member of staff) {
       const availability = allStaffAvailability[member.id];
       if (!availability || !availability.available) continue;
       
-      // Check if time is within working hours
       const [timeH, timeM] = time.split(":").map(Number);
       const [startH, startM] = (availability.startTime || "09:00").split(":").map(Number);
       const [endH, endM] = (availability.endTime || "17:00").split(":").map(Number);
@@ -175,7 +256,9 @@ export default function BookingPage() {
       const endMinutes = endH * 60 + endM;
       
       if (timeMinutes < startMinutes || timeMinutes >= endMinutes) continue;
-      if (isStaffAvailable(member.id, time)) return member.id;
+      if (!isSlotBooked(time, member.id) && !isSlotReserved(time, member.id)) {
+        return member.id;
+      }
     }
     return null;
   };
@@ -185,7 +268,6 @@ export default function BookingPage() {
     let endTime = "17:00";
     
     if (isAnyStaff) {
-      // Find earliest start and latest end from available staff
       let earliestStart = 24 * 60;
       let latestEnd = 0;
       let hasAvailableStaff = false;
@@ -214,7 +296,6 @@ export default function BookingPage() {
       }
       return slots;
     } else {
-      // Specific staff selected
       if (!staffAvailability || !staffAvailability.available) return [];
       
       startTime = staffAvailability.startTime || "09:00";
@@ -237,6 +318,7 @@ export default function BookingPage() {
   };
 
   const timeSlots = generateTimeSlots();
+  const isStaffOnDayOff = !isAnyStaff && staffAvailability && !staffAvailability.available;
 
   const isTimeSlotPast = (time: string) => {
     const now = new Date();
@@ -249,11 +331,49 @@ export default function BookingPage() {
     return slotTime <= now;
   };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-    if (isAnyStaff) {
-      const availableStaffId = findAvailableStaff(time);
-      setAssignedStaffId(availableStaffId || "");
+  const handleTimeSelect = async (time: string) => {
+    const finalStaffId = isAnyStaff ? findAvailableStaff(time) : selectedStaffId;
+    if (!finalStaffId) return;
+    
+    setReserving(true);
+    setError(null);
+    
+    try {
+      const serviceDuration = currentService?.durationMinutes || 60;
+      const startDateTime = new Date(`${selectedDate}T${time}:00`);
+      const endDateTime = new Date(startDateTime.getTime() + serviceDuration * 60000);
+      
+      const res = await fetch("/api/slot-reservation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: finalStaffId,
+          startTime: startDateTime.toISOString(),
+          endTime: endDateTime.toISOString(),
+          sessionId,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (data.reserved) {
+          setError("This slot was just reserved by another customer. Please select another time.");
+        } else if (data.booked) {
+          setError("This slot was just booked. Please select another time.");
+        } else {
+          setError(data.error || "Failed to reserve slot");
+        }
+        return;
+      }
+      
+      setSelectedTime(time);
+      setAssignedStaffId(isAnyStaff ? finalStaffId : "");
+      setReservationExpiry(new Date(data.expiresAt));
+    } catch (err) {
+      setError("Failed to reserve slot. Please try again.");
+    } finally {
+      setReserving(false);
     }
   };
 
@@ -269,6 +389,12 @@ export default function BookingPage() {
       setError("Please fill in your details.");
       return;
     }
+    
+    if (!reservationExpiry || reservationExpiry < new Date()) {
+      setError("Your reservation has expired. Please go back and select a time again.");
+      return;
+    }
+    
     setSubmitting(true);
     try {
       const startTimeIso = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
@@ -289,6 +415,10 @@ export default function BookingPage() {
         throw new Error(data.error || "Failed to create appointment");
       }
       const appointment = await res.json();
+      
+      // Release reservation after successful booking
+      await fetch(`/api/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {});
+      
       setSuccessAppointmentId(appointment.id);
       setStep(5);
     } catch (err: any) {
@@ -298,9 +428,11 @@ export default function BookingPage() {
     }
   }
 
-  // Check if staff is on day off
-  const isStaffOnDayOff = !isAnyStaff && staffAvailability && !staffAvailability.available;
-  const dayOffNote = staffAvailability?.note;
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   if (loading || !dataReady) {
     return (
@@ -318,19 +450,15 @@ export default function BookingPage() {
     <div className="booking-page">
       <style>{responsiveStyles}</style>
       
-      {/* Mobile Header */}
       <div className="mobile-header">
         <div className="mobile-logo">
           <span className="logo-icon">H</span>
           <span className="logo-text">Hera Booking</span>
         </div>
-        <div className="mobile-steps">
-          Step {step} of 5
-        </div>
+        <div className="mobile-steps">Step {step} of 5</div>
       </div>
 
       <div className="container">
-        {/* Left Panel - Hidden on Mobile */}
         <div className="left-panel">
           <div className="brand">
             <div className="logo">H</div>
@@ -361,17 +489,21 @@ export default function BookingPage() {
             <div className="summary">
               <div className="summary-title">Your Selection</div>
               <div className="summary-item">✨ {currentService.name}</div>
-              {currentStaff && <div className="summary-item">�� {currentStaff.name}</div>}
+              {currentStaff && <div className="summary-item">👤 {currentStaff.name}</div>}
               {selectedDate && selectedTime && (
                 <div className="summary-item">
                   📅 {new Date(`${selectedDate}T${selectedTime}`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at {selectedTime}
+                </div>
+              )}
+              {reservationTimer > 0 && (
+                <div className="reservation-timer">
+                  ⏱️ Reserved for {formatTimer(reservationTimer)}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Right Panel */}
         <div className="right-panel">
           {error && <div className="error">{error}</div>}
 
@@ -462,7 +594,7 @@ export default function BookingPage() {
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setAssignedStaffId(""); }}
+                  onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setAssignedStaffId(""); setReservationExpiry(null); }}
                   min={new Date().toISOString().split("T")[0]}
                   className="date-input"
                 />
@@ -475,7 +607,6 @@ export default function BookingPage() {
                   <span className="day-off-icon">🚫</span>
                   <div>
                     <strong>{currentStaff?.name} is not available on this date</strong>
-                    {dayOffNote && <p>{dayOffNote}</p>}
                     <p>Please select another date or choose a different specialist.</p>
                   </div>
                 </div>
@@ -487,24 +618,38 @@ export default function BookingPage() {
                   <div className="time-grid">
                     {timeSlots.map((time) => {
                       const isPast = isTimeSlotPast(time);
+                      const isReserved = !isAnyStaff && isSlotReserved(time, selectedStaffId);
+                      const isBooked = !isAnyStaff && isSlotBooked(time, selectedStaffId);
+                      const isUnavailable = isPast || isReserved || isBooked;
+                      const isSelected = selectedTime === time;
+                      
                       return (
                         <button
                           key={time}
-                          disabled={isPast}
-                          onClick={() => !isPast && handleTimeSelect(time)}
-                          className={`time-slot ${selectedTime === time ? "selected" : ""} ${isPast ? "past" : ""}`}
+                          disabled={isUnavailable || reserving}
+                          onClick={() => !isUnavailable && handleTimeSelect(time)}
+                          className={`time-slot ${isSelected ? "selected" : ""} ${isUnavailable ? "unavailable" : ""} ${isReserved ? "reserved" : ""}`}
+                          title={isReserved ? "Reserved by another customer" : isBooked ? "Already booked" : ""}
                         >
                           {time}
+                          {isReserved && <span className="reserved-badge">Reserved</span>}
                         </button>
                       );
                     })}
                   </div>
+                  {reserving && <p className="reserving-text">Reserving slot...</p>}
                 </div>
               )}
 
               {isAnyStaff && assignedStaffId && selectedTime && (
                 <div className="assigned-note">
                   ✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist
+                </div>
+              )}
+
+              {reservationTimer > 0 && (
+                <div className="timer-notice">
+                  ⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong>. Please complete your booking.
                 </div>
               )}
 
@@ -522,6 +667,12 @@ export default function BookingPage() {
             <div className="step-content">
               <h1 className="step-title">Your Details</h1>
               <p className="step-subtitle">We'll send your confirmation here</p>
+              
+              {reservationTimer > 0 && (
+                <div className="timer-notice">
+                  ⏱️ Complete booking within <strong>{formatTimer(reservationTimer)}</strong>
+                </div>
+              )}
               
               <form onSubmit={handleSubmit} className="form">
                 <div className="form-group">
@@ -559,7 +710,7 @@ export default function BookingPage() {
                 </div>
                 <div className="actions">
                   <button type="button" className="btn-secondary" onClick={goBack}>Back</button>
-                  <button type="submit" className="btn-primary" disabled={submitting}>
+                  <button type="submit" className="btn-primary" disabled={submitting || reservationTimer === 0}>
                     {submitting ? "Booking..." : "Confirm Booking"}
                   </button>
                 </div>
@@ -603,17 +754,10 @@ export default function BookingPage() {
                 <button
                   className="btn-primary"
                   onClick={() => {
-                    setStep(1);
-                    setSelectedServiceId("");
-                    setSelectedStaffId("");
-                    setSelectedDate(new Date().toISOString().split("T")[0]);
-                    setSelectedTime("");
-                    setAssignedStaffId("");
-                    setCustomerName("");
-                    setCustomerPhone("");
-                    setCustomerEmail("");
-                    setSuccessAppointmentId(null);
-                    setStaffAvailability(null);
+                    // Generate new session for new booking
+                    const newSessionId = generateSessionId();
+                    sessionStorage.setItem('booking_session_id', newSessionId);
+                    window.location.reload();
                   }}
                 >
                   Book Another
@@ -654,9 +798,7 @@ const responsiveStyles = `
     animation: spin 1s linear infinite;
   }
   
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   
   .mobile-header {
     display: none;
@@ -667,518 +809,108 @@ const responsiveStyles = `
     z-index: 100;
   }
   
-  .mobile-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 4px;
-  }
+  .mobile-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .mobile-logo .logo-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 16px; }
+  .mobile-logo .logo-text { color: #fff; font-size: 18px; font-weight: 600; }
+  .mobile-steps { color: rgba(255,255,255,0.8); font-size: 13px; }
   
-  .mobile-logo .logo-icon {
-    width: 32px;
-    height: 32px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-weight: 700;
-    font-size: 16px;
-  }
+  .container { display: flex; min-height: 100vh; }
   
-  .mobile-logo .logo-text {
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-  }
+  .left-panel { width: 320px; background-color: #1e293b; padding: 32px; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; }
+  .brand-name { color: #fff; font-size: 18px; font-weight: 600; }
   
-  .mobile-steps {
-    color: rgba(255,255,255,0.8);
-    font-size: 13px;
-  }
-  
-  .container {
-    display: flex;
-    min-height: 100vh;
-  }
-  
-  .left-panel {
-    width: 320px;
-    background-color: #1e293b;
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    overflow-y: auto;
-  }
-  
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 48px;
-  }
-  
-  .logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-weight: 700;
-    font-size: 18px;
-  }
-  
-  .brand-name {
-    color: #fff;
-    font-size: 18px;
-    font-weight: 600;
-  }
-  
-  .progress-list {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-  
-  .progress-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    opacity: 0.4;
-    transition: opacity 0.3s ease;
-  }
-  
+  .progress-list { display: flex; flex-direction: column; gap: 24px; }
+  .progress-item { display: flex; align-items: flex-start; gap: 16px; opacity: 0.4; transition: opacity 0.3s ease; }
   .progress-item.active { opacity: 1; }
-  
-  .progress-num {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  
+  .progress-num { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 600; flex-shrink: 0; }
   .progress-num.done { background: #10b981; }
   .progress-num.current { background: #6366f1; }
+  .progress-label { color: #fff; font-size: 14px; font-weight: 600; }
+  .progress-desc { color: #94a3b8; font-size: 12px; margin-top: 2px; }
   
-  .progress-label {
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-  }
+  .summary { margin-top: auto; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+  .summary-title { color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+  .summary-item { color: #fff; font-size: 14px; margin-bottom: 12px; }
+  .reservation-timer { color: #fbbf24; font-size: 14px; font-weight: 600; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
   
-  .progress-desc {
-    color: #94a3b8;
-    font-size: 12px;
-    margin-top: 2px;
-  }
+  .right-panel { flex: 1; margin-left: 320px; background-color: #fff; border-radius: 24px 0 0 24px; padding: 48px; min-height: 100vh; }
+  .step-content { max-width: 560px; margin: 0 auto; }
+  .step-title { font-size: 28px; font-weight: 700; color: #0f172a; margin: 0 0 8px; letter-spacing: -0.5px; }
+  .step-subtitle { font-size: 15px; color: #64748b; margin: 0 0 32px; }
   
-  .summary {
-    margin-top: auto;
-    padding: 20px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  
-  .summary-title {
-    color: #94a3b8;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 16px;
-  }
-  
-  .summary-item {
-    color: #fff;
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-  
-  .right-panel {
-    flex: 1;
-    margin-left: 320px;
-    background-color: #fff;
-    border-radius: 24px 0 0 24px;
-    padding: 48px;
-    min-height: 100vh;
-  }
-  
-  .step-content {
-    max-width: 560px;
-    margin: 0 auto;
-  }
-  
-  .step-title {
-    font-size: 28px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 8px;
-    letter-spacing: -0.5px;
-  }
-  
-  .step-subtitle {
-    font-size: 15px;
-    color: #64748b;
-    margin: 0 0 32px;
-  }
-  
-  .service-grid, .staff-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .service-card, .staff-card {
-    padding: 20px;
-    border-radius: 12px;
-    border: 2px solid #e2e8f0;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    background: #fff;
-  }
-  
-  .service-card.selected, .staff-card.selected {
-    border-color: #6366f1;
-    background: #f5f3ff;
-  }
-  
-  .service-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-  
-  .service-name {
-    font-size: 17px;
-    font-weight: 600;
-    color: #0f172a;
-    margin: 0;
-  }
-  
-  .checkmark {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    background: #6366f1;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-  }
-  
-  .service-meta {
-    display: flex;
-    gap: 16px;
-  }
-  
+  .service-grid, .staff-grid { display: flex; flex-direction: column; gap: 12px; }
+  .service-card, .staff-card { padding: 20px; border-radius: 12px; border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.15s ease; background: #fff; }
+  .service-card.selected, .staff-card.selected { border-color: #6366f1; background: #f5f3ff; }
+  .service-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .service-name { font-size: 17px; font-weight: 600; color: #0f172a; margin: 0; }
+  .checkmark { width: 24px; height: 24px; border-radius: 6px; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .service-meta { display: flex; gap: 16px; }
   .duration { font-size: 14px; color: #64748b; }
   .price { font-size: 16px; font-weight: 700; color: #059669; }
   
-  .staff-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-  }
-  
-  .staff-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  
+  .staff-card { display: flex; align-items: center; gap: 16px; padding: 16px; }
+  .staff-avatar { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; flex-shrink: 0; }
   .staff-info { flex: 1; }
   .staff-name { font-size: 16px; font-weight: 600; color: #0f172a; }
   .staff-role { font-size: 14px; color: #64748b; }
   
   .date-section { margin-bottom: 24px; }
-  
-  .label {
-    display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 8px;
-  }
-  
-  .date-input, .input {
-    width: 100%;
-    padding: 14px 16px;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.15s ease;
-  }
-  
-  .date-input:focus, .input:focus {
-    border-color: #6366f1;
-  }
+  .label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+  .date-input, .input { width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px; outline: none; transition: border-color 0.15s ease; }
+  .date-input:focus, .input:focus { border-color: #6366f1; }
   
   .time-section { margin-bottom: 24px; }
+  .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .time-slot { padding: 12px 8px; border-radius: 8px; border: 2px solid #e2e8f0; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.15s ease; background: #fff; color: #1e293b; position: relative; }
+  .time-slot.selected { border-color: #6366f1; background: #6366f1; color: #fff; }
+  .time-slot.unavailable { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
+  .time-slot.reserved { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+  .reserved-badge { position: absolute; top: -8px; right: -8px; background: #f59e0b; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; }
+  .reserving-text { color: #6366f1; font-size: 14px; margin-top: 12px; }
   
-  .time-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-  }
-  
-  .time-slot {
-    padding: 12px 8px;
-    border-radius: 8px;
-    border: 2px solid #e2e8f0;
-    font-size: 14px;
-    font-weight: 600;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    background: #fff;
-    color: #1e293b;
-  }
-  
-  .time-slot.selected {
-    border-color: #6366f1;
-    background: #6366f1;
-    color: #fff;
-  }
-  
-  .time-slot.past {
-    background: #f1f5f9;
-    color: #94a3b8;
-    cursor: not-allowed;
-  }
-  
-  .no-slots {
-    padding: 24px;
-    background: #fef2f2;
-    border-radius: 10px;
-    color: #dc2626;
-    text-align: center;
-  }
-  
-  .day-off-notice {
-    display: flex;
-    gap: 16px;
-    padding: 24px;
-    background: #fef3c7;
-    border-radius: 12px;
-    border: 1px solid #fcd34d;
-    margin-bottom: 24px;
-  }
-  
-  .day-off-icon {
-    font-size: 32px;
-  }
-  
-  .day-off-notice strong {
-    color: #92400e;
-    display: block;
-    margin-bottom: 8px;
-  }
-  
-  .day-off-notice p {
-    color: #a16207;
-    margin: 4px 0 0;
-    font-size: 14px;
-  }
-  
-  .assigned-note {
-    padding: 16px;
-    background: #ecfdf5;
-    border-radius: 10px;
-    color: #059669;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 24px;
-  }
+  .no-slots { padding: 24px; background: #fef2f2; border-radius: 10px; color: #dc2626; text-align: center; }
+  .day-off-notice { display: flex; gap: 16px; padding: 24px; background: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 24px; }
+  .day-off-icon { font-size: 32px; }
+  .day-off-notice strong { color: #92400e; display: block; margin-bottom: 8px; }
+  .day-off-notice p { color: #a16207; margin: 4px 0 0; font-size: 14px; }
+  .assigned-note { padding: 16px; background: #ecfdf5; border-radius: 10px; color: #059669; font-size: 14px; font-weight: 500; margin-bottom: 24px; }
+  .timer-notice { padding: 16px; background: #fef3c7; border-radius: 10px; color: #92400e; font-size: 14px; margin-bottom: 24px; text-align: center; }
   
   .form { display: flex; flex-direction: column; gap: 20px; }
-  .form-group { }
+  .actions { display: flex; gap: 12px; margin-top: 32px; }
+  .btn-primary { flex: 1; padding: 16px 24px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { padding: 16px 24px; background: #fff; color: #475569; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px; font-weight: 500; cursor: pointer; }
   
-  .actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 32px;
-  }
-  
-  .btn-primary {
-    flex: 1;
-    padding: 16px 24px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  
-  .btn-secondary {
-    padding: 16px 24px;
-    background: #fff;
-    color: #475569;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  
-  .error {
-    padding: 16px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 10px;
-    color: #dc2626;
-    font-size: 14px;
-    margin-bottom: 24px;
-  }
+  .error { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #dc2626; font-size: 14px; margin-bottom: 24px; }
   
   .success-box { text-align: center; padding: 20px 0; }
-  
-  .success-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: #fff;
-    font-size: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 24px;
-  }
-  
-  .success-title {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 8px;
-  }
-  
-  .success-text {
-    font-size: 15px;
-    color: #64748b;
-    margin: 0 0 32px;
-  }
-  
-  .confirm-card {
-    background: #f8fafc;
-    border-radius: 12px;
-    padding: 20px;
-    text-align: left;
-    margin-bottom: 24px;
-  }
-  
-  .confirm-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 12px 0;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  
+  .success-icon { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; font-size: 40px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
+  .success-title { font-size: 26px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
+  .success-text { font-size: 15px; color: #64748b; margin: 0 0 32px; }
+  .confirm-card { background: #f8fafc; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 24px; }
+  .confirm-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
   .confirm-row:last-child { border-bottom: none; }
-  
   .confirm-label { font-size: 14px; color: #64748b; }
   .confirm-value { font-size: 14px; font-weight: 600; color: #0f172a; }
+  .email-note { font-size: 14px; color: #64748b; margin-bottom: 24px; }
   
-  .email-note {
-    font-size: 14px;
-    color: #64748b;
-    margin-bottom: 24px;
-  }
-  
-  /* MOBILE RESPONSIVE */
   @media (max-width: 768px) {
-    .mobile-header {
-      display: block;
-    }
-    
-    .left-panel {
-      display: none;
-    }
-    
-    .right-panel {
-      margin-left: 0;
-      border-radius: 0;
-      padding: 24px 20px;
-      min-height: calc(100vh - 80px);
-    }
-    
-    .step-title {
-      font-size: 24px;
-    }
-    
-    .step-subtitle {
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
-    
-    .time-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-    
-    .actions {
-      flex-direction: column-reverse;
-    }
-    
-    .btn-secondary {
-      width: 100%;
-    }
-    
-    .service-name {
-      font-size: 16px;
-    }
-    
-    .staff-avatar {
-      width: 40px;
-      height: 40px;
-      font-size: 16px;
-    }
-    
-    .success-icon {
-      width: 64px;
-      height: 64px;
-      font-size: 32px;
-    }
-    
-    .success-title {
-      font-size: 22px;
-    }
-    
-    .day-off-notice {
-      flex-direction: column;
-      text-align: center;
-    }
-    
-    .day-off-icon {
-      margin: 0 auto;
-    }
+    .mobile-header { display: block; }
+    .left-panel { display: none; }
+    .right-panel { margin-left: 0; border-radius: 0; padding: 24px 20px; min-height: calc(100vh - 80px); }
+    .step-title { font-size: 24px; }
+    .step-subtitle { font-size: 14px; margin-bottom: 24px; }
+    .time-grid { grid-template-columns: repeat(3, 1fr); }
+    .actions { flex-direction: column-reverse; }
+    .btn-secondary { width: 100%; }
+    .service-name { font-size: 16px; }
+    .staff-avatar { width: 40px; height: 40px; font-size: 16px; }
+    .success-icon { width: 64px; height: 64px; font-size: 32px; }
+    .success-title { font-size: 22px; }
+    .day-off-notice { flex-direction: column; text-align: center; }
+    .day-off-icon { margin: 0 auto; }
   }
 `;
