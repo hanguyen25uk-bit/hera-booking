@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function Error({
   error,
@@ -22,10 +23,7 @@ export default function Error({
       backgroundColor: "#f8fafc",
       padding: 20,
     }}>
-      <div style={{
-        textAlign: "center",
-        maxWidth: 400,
-      }}>
+      <div style={{ textAlign: "center", maxWidth: 400 }}>
         <div style={{
           width: 80,
           height: 80,
@@ -53,40 +51,41 @@ export default function Error({
           marginBottom: 24,
           lineHeight: 1.6,
         }}>
-          We're sorry, an unexpected error occurred. Please try again.
+          We are sorry, an unexpected error occurred. Please try again.
         </p>
-        <button
-          onClick={reset}
-          style={{
-            padding: "12px 24px",
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 10,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            marginRight: 12,
-          }}
-        >
-          Try Again
-        </button>
-        
-          href="/"
-          style={{
-            padding: "12px 24px",
-            background: "#fff",
-            color: "#475569",
-            border: "1px solid #e2e8f0",
-            borderRadius: 10,
-            fontSize: 14,
-            fontWeight: 500,
-            textDecoration: "none",
-            display: "inline-block",
-          }}
-        >
-          Go Home
-        </a>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+          <button
+            onClick={reset}
+            style={{
+              padding: "12px 24px",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Try Again
+          </button>
+          <Link
+            href="/"
+            style={{
+              padding: "12px 24px",
+              background: "#fff",
+              color: "#475569",
+              border: "1px solid #e2e8f0",
+              borderRadius: 10,
+              fontSize: 14,
+              fontWeight: 500,
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            Go Home
+          </Link>
+        </div>
       </div>
     </div>
   );
