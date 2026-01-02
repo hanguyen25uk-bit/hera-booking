@@ -1,26 +1,7 @@
 import { Resend } from "resend";
-import { prisma } from "@/lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-const BASE_URL = "https://hera-booking.vercel.app";
-
-async function getSettings() {
-  try {
-    const settings = await prisma.settings.findUnique({ where: { id: "default" } });
-    return settings || {
-      salonName: "Hera Nail Spa",
-      salonPhone: "020 1234 5678",
-      salonAddress: "123 Example Street, London, SW11 1AA",
-    };
-  } catch (error) {
-    return {
-      salonName: "Hera Nail Spa",
-      salonPhone: "020 1234 5678",
-      salonAddress: "123 Example Street, London, SW11 1AA",
-    };
-  }
-}
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://hera-booking.vercel.app";
 
 type BookingEmailData = {
   customerEmail: string;
@@ -31,6 +12,10 @@ type BookingEmailData = {
   endTime: Date;
   bookingId: string;
   manageToken: string;
+  salonName?: string;
+  salonPhone?: string;
+  salonAddress?: string;
+  salonSlug?: string;
 };
 
 export async function sendBookingConfirmation(data: BookingEmailData) {
@@ -43,174 +28,138 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     endTime,
     bookingId,
     manageToken,
+    salonName = "Hera Booking",
+    salonPhone = "",
+    salonAddress = "",
+    salonSlug = "",
   } = data;
-
-  const settings = await getSettings();
 
   const formattedDate = startTime.toLocaleDateString("en-GB", {
     weekday: "long",
-    day: "numeric",
-    month: "long",
     year: "numeric",
+    month: "long",
+    day: "numeric",
   });
-  
-  const formattedTime = startTime.toLocaleTimeString("en-GB", {
+
+  const formattedStartTime = startTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-  const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-  const manageUrl = BASE_URL + "/manage-booking?token=" + manageToken;
+  const formattedEndTime = endTime.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  const emailHtml = [
-    '<!DOCTYPE html><html><head><meta charset="utf-8"></head>',
-    '<body style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">',
-    '<div style="background:#EC4899;padding:20px;text-align:center;border-radius:8px 8px 0 0;">',
-    '<h1 style="color:white;margin:0;font-size:22px;">Booking Confirmed</h1></div>',
-    '<div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">',
-    '<p style="font-size:15px;margin:0 0 20px 0;">Hi <strong>' + customerName + '</strong>, your appointment is confirmed!</p>',
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">',
-    '<tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#666;width:100px;">Service</td>',
-    '<td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600;">' + serviceName + '</td></tr>',
-    '<tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#666;">Staff</td>',
-    '<td style="padding:8px 0;border-bottom:1px solid #eee;">' + staffName + '</td></tr>',
-    '<tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#666;">Date</td>',
-    '<td style="padding:8px 0;border-bottom:1px solid #eee;">' + formattedDate + '</td></tr>',
-    '<tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#666;">Time</td>',
-    '<td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600;color:#EC4899;">' + formattedTime + ' (' + duration + ' min)</td></tr>',
-    '<tr><td style="padding:8px 0;border-bottom:1px solid #eee;color:#666;">Location</td>',
-    '<td style="padding:8px 0;border-bottom:1px solid #eee;">' + settings.salonAddress + '</td></tr>',
-    '<tr><td style="padding:8px 0;color:#666;">Ref</td>',
-    '<td style="padding:8px 0;font-family:monospace;">' + bookingId.slice(0, 8).toUpperCase() + '</td></tr>',
-    '</table>',
-    '<div style="text-align:center;margin:24px 0;">',
-    '<a href="' + manageUrl + '" style="display:inline-block;background:#10B981;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">Cancel or Manage Booking</a>',
-    '</div>',
-    '<p style="font-size:13px;color:#666;margin:20px 0 0 0;padding-top:16px;border-top:1px solid #eee;">',
-    settings.salonName + '<br>' + settings.salonAddress + '<br>' + settings.salonPhone,
-    '</p></div></body></html>'
-  ].join('');
+  const manageUrl = `${BASE_URL}/manage-booking?token=${manageToken}`;
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Confirmation</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">${salonName}</h1>
+            </td>
+          </tr>
+          
+          <!-- Success Icon -->
+          <tr>
+            <td style="padding: 32px 24px 16px; text-align: center;">
+              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: #ffffff; font-size: 32px; line-height: 64px;">✓</span>
+              </div>
+              <h2 style="color: #1e293b; margin: 0 0 8px; font-size: 22px; font-weight: 600;">Booking Confirmed!</h2>
+              <p style="color: #64748b; margin: 0; font-size: 14px;">Hi ${customerName}, your appointment is confirmed</p>
+            </td>
+          </tr>
+          
+          <!-- Booking Details -->
+          <tr>
+            <td style="padding: 16px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; padding: 20px;">
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">Service</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${serviceName}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">Specialist</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${staffName}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">Date</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${formattedDate}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px;">
+                    <span style="color: #64748b; font-size: 13px;">Time</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${formattedStartTime} - ${formattedEndTime}</strong>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Manage Button -->
+          <tr>
+            <td style="padding: 16px 24px; text-align: center;">
+              <a href="${manageUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 14px;">Manage Booking</a>
+            </td>
+          </tr>
+          
+          <!-- Booking ID -->
+          <tr>
+            <td style="padding: 8px 24px 24px; text-align: center;">
+              <p style="color: #94a3b8; font-size: 12px; margin: 0;">Booking Reference: <strong>${bookingId.slice(0, 8).toUpperCase()}</strong></p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 13px; margin: 0 0 8px;"><strong>${salonName}</strong></p>
+              ${salonPhone ? `<p style="color: #94a3b8; font-size: 12px; margin: 0 0 4px;">${salonPhone}</p>` : ''}
+              ${salonAddress ? `<p style="color: #94a3b8; font-size: 12px; margin: 0;">${salonAddress}</p>` : ''}
+            </td>
+          </tr>
+          
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
 
   try {
-    const { data: emailData, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || "onboarding@resend.dev",
+    const result = await resend.emails.send({
+      from: `${salonName} <booking@herabooking.com>`,
       to: customerEmail,
-      subject: "Booking Confirmed - " + serviceName,
+      subject: `Booking Confirmed - ${serviceName} on ${formattedDate}`,
       html: emailHtml,
     });
 
-    if (error) {
-      console.error("Resend error:", error);
-      return { success: false, error };
-    }
-
-    console.log("Email sent successfully:", emailData);
-    return { success: true, data: emailData };
+    console.log("Email sent successfully:", result);
+    return { success: true, data: result };
   } catch (error) {
     console.error("Failed to send email:", error);
-    return { success: false, error };
-  }
-}
-
-export async function sendRescheduleConfirmation(data: {
-  customerEmail: string;
-  customerName: string;
-  serviceName: string;
-  staffName: string;
-  oldTime: Date;
-  newTime: Date;
-  manageToken: string;
-}) {
-  const { customerEmail, customerName, serviceName, staffName, oldTime, newTime, manageToken } = data;
-  const settings = await getSettings();
-
-  const formatDate = (date: Date) => date.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const manageUrl = BASE_URL + "/manage-booking?token=" + manageToken;
-
-  const emailHtml = [
-    '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">',
-    '<div style="background:#10B981;padding:20px;text-align:center;border-radius:8px 8px 0 0;">',
-    '<h1 style="color:white;margin:0;font-size:22px;">Appointment Rescheduled</h1></div>',
-    '<div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">',
-    '<p>Hi <strong>' + customerName + '</strong>, your appointment has been rescheduled.</p>',
-    '<p style="color:#DC2626;text-decoration:line-through;">Old: ' + formatDate(oldTime) + '</p>',
-    '<p style="color:#10B981;font-weight:600;font-size:16px;">New: ' + formatDate(newTime) + '</p>',
-    '<p><strong>' + serviceName + '</strong> with ' + staffName + '</p>',
-    '<p style="color:#666;font-size:14px;">' + settings.salonAddress + '</p>',
-    '<div style="text-align:center;margin:24px 0;">',
-    '<a href="' + manageUrl + '" style="display:inline-block;background:#10B981;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">Cancel or Manage Booking</a>',
-    '</div>',
-    '<p style="font-size:13px;color:#666;">' + settings.salonName + '<br>' + settings.salonAddress + '<br>' + settings.salonPhone + '</p>',
-    '</div></body></html>'
-  ].join('');
-
-  try {
-    const { data: emailData, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || "onboarding@resend.dev",
-      to: customerEmail,
-      subject: "Rescheduled - " + serviceName,
-      html: emailHtml,
-    });
-
-    if (error) return { success: false, error };
-    return { success: true, data: emailData };
-  } catch (error) {
-    return { success: false, error };
-  }
-}
-
-export async function sendCancellationConfirmation(data: {
-  customerEmail: string;
-  customerName: string;
-  serviceName: string;
-  staffName: string;
-  appointmentTime: Date;
-}) {
-  const { customerEmail, customerName, serviceName, staffName, appointmentTime } = data;
-  const settings = await getSettings();
-
-  const formatDate = (date: Date) => date.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const bookingUrl = BASE_URL + "/booking";
-
-  const emailHtml = [
-    '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">',
-    '<div style="background:#DC2626;padding:20px;text-align:center;border-radius:8px 8px 0 0;">',
-    '<h1 style="color:white;margin:0;font-size:22px;">Booking Cancelled</h1></div>',
-    '<div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">',
-    '<p>Hi <strong>' + customerName + '</strong>, your appointment has been cancelled.</p>',
-    '<p style="color:#666;text-decoration:line-through;">' + serviceName + ' with ' + staffName + '<br>' + formatDate(appointmentTime) + '</p>',
-    '<div style="text-align:center;margin:24px 0;">',
-    '<a href="' + bookingUrl + '" style="display:inline-block;background:#EC4899;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">Book Again</a>',
-    '</div>',
-    '<p style="font-size:13px;color:#666;">' + settings.salonName + '<br>' + settings.salonAddress + '<br>' + settings.salonPhone + '</p>',
-    '</div></body></html>'
-  ].join('');
-
-  try {
-    const { data: emailData, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || "onboarding@resend.dev",
-      to: customerEmail,
-      subject: "Cancelled - " + serviceName,
-      html: emailHtml,
-    });
-
-    if (error) return { success: false, error };
-    return { success: true, data: emailData };
-  } catch (error) {
     return { success: false, error };
   }
 }

@@ -47,22 +47,29 @@ export function validateName(name: string): ValidationResult {
   if (sanitized.length > 100) {
     return { isValid: false, error: 'Name is too long' };
   }
-  const nameRegex = /^[a-zA-ZÀ-ỹ\s\-']+$/;
+  // Allow letters, spaces, hyphens, apostrophes, and Vietnamese characters
+  const nameRegex = /^[a-zA-ZÀ-ỹ\s\-'0-9]+$/;
   if (!nameRegex.test(sanitized)) {
     return { isValid: false, error: 'Name contains invalid characters' };
   }
   return { isValid: true, sanitized };
 }
 
-export function validateUUID(id: string): ValidationResult {
+export function validateId(id: string): ValidationResult {
   if (!id || typeof id !== 'string') {
     return { isValid: false, error: 'ID is required' };
   }
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
+  // Accept both UUID and CUID formats
+  const trimmed = id.trim();
+  if (trimmed.length < 10 || trimmed.length > 50) {
     return { isValid: false, error: 'Invalid ID format' };
   }
-  return { isValid: true, sanitized: id.toLowerCase() };
+  // Basic alphanumeric check (cuid uses alphanumeric)
+  const idRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!idRegex.test(trimmed)) {
+    return { isValid: false, error: 'Invalid ID format' };
+  }
+  return { isValid: true, sanitized: trimmed };
 }
 
 export function validateDateTime(dateTime: string): ValidationResult {
@@ -103,21 +110,29 @@ export interface BookingValidationResult {
 
 export function validateBookingInput(input: Partial<BookingInput>): BookingValidationResult {
   const errors: Record<string, string> = {};
-  const serviceValidation = validateUUID(input.serviceId || '');
+  
+  const serviceValidation = validateId(input.serviceId || '');
   if (!serviceValidation.isValid) errors.serviceId = serviceValidation.error!;
-  const staffValidation = validateUUID(input.staffId || '');
+  
+  const staffValidation = validateId(input.staffId || '');
   if (!staffValidation.isValid) errors.staffId = staffValidation.error!;
+  
   const nameValidation = validateName(input.customerName || '');
   if (!nameValidation.isValid) errors.customerName = nameValidation.error!;
+  
   const phoneValidation = validatePhone(input.customerPhone || '');
   if (!phoneValidation.isValid) errors.customerPhone = phoneValidation.error!;
+  
   const emailValidation = validateEmail(input.customerEmail || '');
   if (!emailValidation.isValid) errors.customerEmail = emailValidation.error!;
+  
   const dateTimeValidation = validateDateTime(input.startTime || '');
   if (!dateTimeValidation.isValid) errors.startTime = dateTimeValidation.error!;
+  
   if (Object.keys(errors).length > 0) {
     return { isValid: false, errors };
   }
+  
   return {
     isValid: true,
     errors: {},
