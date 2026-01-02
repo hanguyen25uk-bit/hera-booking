@@ -163,3 +163,84 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     return { success: false, error };
   }
 }
+
+export async function sendCancellationConfirmation(data: {
+  customerEmail: string;
+  customerName: string;
+  serviceName: string;
+  staffName: string;
+  startTime: Date;
+  salonName?: string;
+}) {
+  const {
+    customerEmail,
+    customerName,
+    serviceName,
+    staffName,
+    startTime,
+    salonName = "Hera Booking",
+  } = data;
+
+  const formattedDate = startTime.toLocaleDateString("en-GB", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const formattedTime = startTime.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Booking Cancelled</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${salonName}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 24px; text-align: center;">
+              <h2 style="color: #1e293b; margin: 0 0 16px;">Booking Cancelled</h2>
+              <p style="color: #64748b; margin: 0 0 24px;">Hi ${customerName}, your appointment has been cancelled.</p>
+              <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; text-align: left;">
+                <p style="margin: 8px 0; color: #64748b;"><strong>Service:</strong> ${serviceName}</p>
+                <p style="margin: 8px 0; color: #64748b;"><strong>With:</strong> ${staffName}</p>
+                <p style="margin: 8px 0; color: #64748b;"><strong>Was scheduled:</strong> ${formattedDate} at ${formattedTime}</p>
+              </div>
+              <p style="color: #64748b; margin: 24px 0 0;">We hope to see you again soon!</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: `${salonName} <booking@herabooking.com>`,
+      to: customerEmail,
+      subject: `Booking Cancelled - ${serviceName}`,
+      html: emailHtml,
+    });
+    console.log("Cancellation email sent:", result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Failed to send cancellation email:", error);
+    return { success: false, error };
+  }
+}
