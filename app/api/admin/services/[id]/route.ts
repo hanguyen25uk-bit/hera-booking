@@ -1,37 +1,38 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const body = await req.json();
+    const { name, description, durationMinutes, price, categoryId } = body;
+
     const service = await prisma.service.update({
       where: { id },
       data: {
-        name: body.name,
-        durationMinutes: body.durationMinutes,
-        price: body.price,
-        category: body.category,
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(durationMinutes !== undefined && { durationMinutes: parseInt(durationMinutes) }),
+        ...(price !== undefined && { price: parseFloat(price) }),
+        ...(categoryId !== undefined && { categoryId: categoryId || null }),
       },
+      include: { serviceCategory: true },
     });
+
     return NextResponse.json(service);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update service" }, { status: 500 });
+    console.error("Update service error:", error);
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     await prisma.service.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete service" }, { status: 500 });
+    console.error("Delete service error:", error);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }

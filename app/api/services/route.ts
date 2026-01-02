@@ -1,27 +1,16 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
-// GET all services
 export async function GET() {
-  const services = await prisma.service.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json(services);
-}
-
-// CREATE a new service
-export async function POST(req: Request) {
-  const body = await req.json();
-
-  const service = await prisma.service.create({
-    data: {
-      name: body.name,
-      durationMinutes: Number(body.durationMinutes),
-      price: Number(body.price),
-      category: body.category || null,
-    },
-  });
-
-  return NextResponse.json(service);
+  try {
+    const services = await prisma.service.findMany({
+      where: { isActive: true },
+      include: { serviceCategory: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    return NextResponse.json(services);
+  } catch (error) {
+    console.error("Fetch services error:", error);
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+  }
 }
