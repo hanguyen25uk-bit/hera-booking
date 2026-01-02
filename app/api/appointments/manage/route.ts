@@ -8,16 +8,15 @@ export async function PATCH(req: NextRequest) {
     const { id, token, status, startTime } = body;
 
     let appointment;
-
     if (token) {
       appointment = await prisma.appointment.findFirst({
         where: { manageToken: token },
-        include: { service: true, staff: true },
+        include: { service: true, staff: true, salon: true },
       });
     } else if (id) {
       appointment = await prisma.appointment.findUnique({
         where: { id },
-        include: { service: true, staff: true },
+        include: { service: true, staff: true, salon: true },
       });
     }
 
@@ -30,22 +29,33 @@ export async function PATCH(req: NextRequest) {
     if (status) {
       updateData.status = status;
 
+      // Handle no-show: update customer record
       if (status === "noshow" && appointment.customerEmail) {
         const customer = await prisma.customer.findUnique({
-          where: { email: appointment.customerEmail.toLowerCase() },
+          where: { 
+            salonId_email: { 
+              salonId: appointment.salonId, 
+              email: appointment.customerEmail.toLowerCase() 
+            } 
+          },
         });
 
         if (customer) {
           const newNoShowCount = customer.noShowCount + 1;
           await prisma.customer.update({
-            where: { email: appointment.customerEmail.toLowerCase() },
+            where: { 
+              salonId_email: { 
+                salonId: appointment.salonId, 
+                email: appointment.customerEmail.toLowerCase() 
+              } 
+            },
             data: {
               noShowCount: newNoShowCount,
               isBlocked: newNoShowCount >= 3,
               blockedAt: newNoShowCount >= 3 ? new Date() : null,
             },
           });
-          console.log("Customer " + appointment.customerEmail + " no-show count: " + newNoShowCount);
+          console.log(`Customer ${appointment.customerEmail} no-show count: ${newNoShowCount}`);
         }
       }
     }
@@ -81,7 +91,7 @@ export async function DELETE(req: NextRequest) {
 
     const appointment = await prisma.appointment.findFirst({
       where: { manageToken: token },
-      include: { service: true, staff: true },
+      include: { service: true, staff: true, salon: true },
     });
 
     if (!appointment) {
@@ -94,13 +104,15 @@ export async function DELETE(req: NextRequest) {
       include: { service: true, staff: true },
     });
 
+    // Send cancellation email
     try {
       await sendCancellationConfirmation({
         customerEmail: appointment.customerEmail,
         customerName: appointment.customerName,
         serviceName: appointment.service.name,
         staffName: appointment.staff.name,
-        appointmentTime: new Date(appointment.startTime),
+        startTime: new Date(appointment.startTime),
+        salonName: appointment.salon.name,
       });
       console.log("Cancellation email sent to:", appointment.customerEmail);
     } catch (emailError) {

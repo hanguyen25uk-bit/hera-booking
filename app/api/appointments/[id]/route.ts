@@ -47,7 +47,12 @@ export async function PUT(
       // NO-SHOW: Increment customer's noShowCount
       if (status === "no-show" && appointment.status !== "no-show") {
         let customer = await prisma.customer.findUnique({
-          where: { email: appointment.customerEmail },
+          where: { 
+            salonId_email: { 
+              salonId: appointment.salonId, 
+              email: appointment.customerEmail.toLowerCase() 
+            } 
+          },
         });
 
         if (customer) {
@@ -55,7 +60,12 @@ export async function PUT(
           const shouldBlock = newNoShowCount >= 3;
 
           await prisma.customer.update({
-            where: { email: appointment.customerEmail },
+            where: { 
+              salonId_email: { 
+                salonId: appointment.salonId, 
+                email: appointment.customerEmail.toLowerCase() 
+              } 
+            },
             data: {
               noShowCount: newNoShowCount,
               isBlocked: shouldBlock,
@@ -65,7 +75,8 @@ export async function PUT(
         } else {
           await prisma.customer.create({
             data: {
-              email: appointment.customerEmail,
+              salonId: appointment.salonId,
+              email: appointment.customerEmail.toLowerCase(),
               name: appointment.customerName,
               phone: appointment.customerPhone,
               noShowCount: 1,
@@ -81,7 +92,12 @@ export async function PUT(
         });
 
         const updatedCustomer = await prisma.customer.findUnique({
-          where: { email: appointment.customerEmail },
+          where: { 
+            salonId_email: { 
+              salonId: appointment.salonId, 
+              email: appointment.customerEmail.toLowerCase() 
+            } 
+          },
         });
 
         return NextResponse.json({

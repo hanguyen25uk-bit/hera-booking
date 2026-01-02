@@ -1,42 +1,56 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
+
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
 
 export async function GET(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json([]);
 
   const staffId = req.nextUrl.searchParams.get("staffId");
+  
+  const where: any = { salonId };
+  if (staffId) where.staffId = staffId;
 
-  try {
-    const where = staffId ? { staffId } : {};
-    const workingHours = await prisma.workingHours.findMany({
-      where,
-      include: { staff: true },
-      orderBy: [{ staffId: "asc" }, { dayOfWeek: "asc" }],
-    });
-    return NextResponse.json(workingHours);
-  } catch (error) {
-    console.error("Fetch working hours error:", error);
-    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
-  }
+  const workingHours = await prisma.workingHours.findMany({
+    where,
+    include: { staff: true },
+    orderBy: [{ staffId: "asc" }, { dayOfWeek: "asc" }],
+  });
+
+  return NextResponse.json(workingHours);
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
-  try {
-    const body = await req.json();
-    const { staffId, dayOfWeek, startTime, endTime, isWorking } = body;
+  const body = await req.json();
+  const { staffId, dayOfWeek, startTime, endTime, isWorking } = body;
 
-    const workingHours = await prisma.workingHours.upsert({
-      where: { staffId_dayOfWeek: { staffId, dayOfWeek } },
-      create: { staffId, dayOfWeek, startTime, endTime, isWorking: isWorking ?? true },
-      update: { startTime, endTime, isWorking: isWorking ?? true },
-    });
-
-    return NextResponse.json(workingHours);
-  } catch (error) {
-    console.error("Save working hours error:", error);
-    return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+  if (!staffId || dayOfWeek === undefined) {
+    return NextResponse.json({ error: "staffId and dayOfWeek required" }, { status: 400 });
   }
+
+  const workingHours = await prisma.workingHours.upsert({
+    where: { staffId_dayOfWeek: { staffId, dayOfWeek } },
+    create: {
+      salonId,
+      staffId,
+      dayOfWeek,
+      startTime: startTime || "09:00",
+      endTime: endTime || "17:00",
+      isWorking: isWorking ?? true,
+    },
+    update: {
+      startTime: startTime || "09:00",
+      endTime: endTime || "17:00",
+      isWorking: isWorking ?? true,
+    },
+  });
+
+  return NextResponse.json(workingHours);
 }

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
+
 export async function GET(req: NextRequest) {
   const staffId = req.nextUrl.searchParams.get("staffId");
   const date = req.nextUrl.searchParams.get("date");
@@ -59,17 +64,22 @@ export async function GET(req: NextRequest) {
 // POST - single day update
 export async function POST(req: NextRequest) {
   try {
+    const salonId = await getDefaultSalonId();
+    if (!salonId) {
+      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    }
+
     const body = await req.json();
     const { staffId, dayOfWeek, startTime, endTime, isWorking } = body;
-    
+
     const workingHours = await prisma.workingHours.upsert({
       where: {
         staffId_dayOfWeek: { staffId, dayOfWeek },
       },
       update: { startTime, endTime, isWorking },
-      create: { staffId, dayOfWeek, startTime, endTime, isWorking },
+      create: { salonId, staffId, dayOfWeek, startTime, endTime, isWorking },
     });
-    
+
     return NextResponse.json(workingHours);
   } catch (error) {
     console.error("Update working hours error:", error);
@@ -80,13 +90,18 @@ export async function POST(req: NextRequest) {
 // PUT - bulk update all days for a staff
 export async function PUT(req: NextRequest) {
   try {
+    const salonId = await getDefaultSalonId();
+    if (!salonId) {
+      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    }
+
     const body = await req.json();
     const { staffId, hours } = body;
-    
+
     if (!staffId || !hours || !Array.isArray(hours)) {
       return NextResponse.json({ error: "staffId and hours array required" }, { status: 400 });
     }
-    
+
     // Update all working hours for this staff
     const results = await Promise.all(
       hours.map(async (hour: any) => {
@@ -103,6 +118,7 @@ export async function PUT(req: NextRequest) {
             isWorking: hour.isWorking,
           },
           create: {
+            salonId,
             staffId,
             dayOfWeek: hour.dayOfWeek,
             startTime: hour.startTime,
@@ -112,7 +128,7 @@ export async function PUT(req: NextRequest) {
         });
       })
     );
-    
+
     return NextResponse.json(results);
   } catch (error) {
     console.error("Bulk update working hours error:", error);

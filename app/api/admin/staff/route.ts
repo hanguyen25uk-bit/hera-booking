@@ -1,39 +1,41 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
+
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
 
 export async function GET() {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json([]);
 
-  try {
-    const staff = await prisma.staff.findMany({
-      orderBy: { name: "asc" },
-    });
-    return NextResponse.json(staff);
-  } catch (error) {
-    console.error("Fetch staff error:", error);
-    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
-  }
+  const staff = await prisma.staff.findMany({
+    where: { salonId },
+    include: { staffServices: { include: { service: true } } },
+    orderBy: { name: "asc" },
+  });
+  return NextResponse.json(staff);
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
-  try {
-    const body = await req.json();
-    const { name, role } = body;
+  const body = await req.json();
+  const { name, role } = body;
 
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
-
-    const staff = await prisma.staff.create({
-      data: { name, role: role || null },
-    });
-
-    return NextResponse.json(staff);
-  } catch (error) {
-    console.error("Create staff error:", error);
-    return NextResponse.json({ error: "Failed to create" }, { status: 500 });
+  if (!name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
+
+  const staff = await prisma.staff.create({
+    data: {
+      salonId,
+      name,
+      role: role || null,
+    },
+  });
+
+  return NextResponse.json(staff);
 }

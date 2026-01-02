@@ -3,9 +3,19 @@ import { prisma } from "@/lib/prisma";
 
 const RESERVATION_MINUTES = 8; // Giữ chỗ 10 phút
 
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
+
 // POST - Reserve a slot
 export async function POST(req: NextRequest) {
   try {
+    const salonId = await getDefaultSalonId();
+    if (!salonId) {
+      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    }
+
     const { staffId, startTime, endTime, sessionId } = await req.json();
 
     if (!staffId || !startTime || !endTime || !sessionId) {
@@ -83,6 +93,7 @@ export async function POST(req: NextRequest) {
         expiresAt,
       },
       create: {
+        salonId,
         staffId,
         startTime: startDateTime,
         endTime: endDateTime,

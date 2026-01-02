@@ -1,37 +1,51 @@
-import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 
-const DEFAULT_POLICIES = [
-  { icon: "💵", title: "We accept CASH only.", description: "By booking an appointment, you confirm that you agree to pay in cash on the day of your service." },
-  { icon: "🚫", title: "No Deposit Required", description: "We do not take a deposit for this booking. During peak hours, we always prioritise booking customers first." },
-  { icon: "⏰", title: "Cancellation Policy", description: "Please cancel at least 2 hours before your appointment. No-shows may result in booking restrictions." },
-  { icon: "📍", title: "Arrival Time", description: "Please arrive 5 minutes before your appointment time." }
-];
-
-export async function GET() {
-  try {
-    let policy = await prisma.bookingPolicy.findUnique({ where: { id: "default" } });
-    if (!policy) {
-      policy = await prisma.bookingPolicy.create({
-        data: { id: "default", title: "Our Booking Policy", policies: JSON.stringify(DEFAULT_POLICIES) },
-      });
-    }
-    return NextResponse.json({ title: policy.title, policies: JSON.parse(policy.policies) });
-  } catch (error) {
-    return NextResponse.json({ title: "Our Booking Policy", policies: DEFAULT_POLICIES });
-  }
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
 }
 
-export async function PUT(req: NextRequest) {
-  try {
-    const { title, policies } = await req.json();
-    const policy = await prisma.bookingPolicy.upsert({
-      where: { id: "default" },
-      update: { title, policies: JSON.stringify(policies), updatedAt: new Date() },
-      create: { id: "default", title, policies: JSON.stringify(policies) },
-    });
-    return NextResponse.json({ title: policy.title, policies: JSON.parse(policy.policies) });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+export async function GET() {
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json({ title: "Booking Policy", policies: [] });
+
+  const policy = await prisma.bookingPolicy.findUnique({
+    where: { salonId },
+  });
+
+  if (!policy) {
+    return NextResponse.json({ title: "Booking Policy", policies: [] });
   }
+
+  return NextResponse.json({
+    title: policy.title,
+    policies: JSON.parse(policy.policies),
+  });
+}
+
+export async function POST(req: NextRequest) {
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
+
+  const body = await req.json();
+  const { title, policies } = body;
+
+  const policy = await prisma.bookingPolicy.upsert({
+    where: { salonId },
+    create: {
+      salonId,
+      title: title || "Booking Policy",
+      policies: JSON.stringify(policies || []),
+    },
+    update: {
+      title: title || "Booking Policy",
+      policies: JSON.stringify(policies || []),
+    },
+  });
+
+  return NextResponse.json({
+    title: policy.title,
+    policies: JSON.parse(policy.policies),
+  });
 }

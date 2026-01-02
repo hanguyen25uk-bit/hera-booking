@@ -5,14 +5,22 @@ import { validateBookingInput } from "@/lib/validation";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders } from "@/lib/rate-limit";
 import crypto from "crypto";
 
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
+
 export async function GET(req: NextRequest) {
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json([]);
+
   const date = req.nextUrl.searchParams.get("date");
   const token = req.nextUrl.searchParams.get("token");
 
   try {
     if (token) {
       const appointment = await prisma.appointment.findFirst({
-        where: { manageToken: token },
+        where: { manageToken: token, salonId },
         include: { service: true, staff: true },
       });
 
@@ -23,7 +31,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(appointment);
     }
 
-    const where: any = {};
+    const where: any = { salonId };
     if (date) {
       const start = new Date(date);
       start.setHours(0, 0, 0, 0);
@@ -46,6 +54,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const salonId = await getDefaultSalonId();
+  if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
+
   try {
     const body = await req.json();
 
@@ -71,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Check if customer is blocked
     const existingCustomer = await prisma.customer.findUnique({
-      where: { email: customerEmail },
+      where: { salonId_email: { salonId, email: customerEmail.toLowerCase() } },
     });
 
     if (existingCustomer?.isBlocked) {
@@ -82,13 +93,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Validate service exists
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
+    const service = await prisma.service.findFirst({ where: { id: serviceId, salonId } });
     if (!service) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
     // 5. Validate staff exists
-    const staff = await prisma.staff.findUnique({ where: { id: staffId } });
+    const staff = await prisma.staff.findFirst({ where: { id: staffId, salonId } });
     if (!staff) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
@@ -100,11 +111,11 @@ export async function POST(req: NextRequest) {
     // 7. Check for double booking
     const conflict = await prisma.appointment.findFirst({
       where: {
+        salonId,
         staffId,
         status: { notIn: ["cancelled", "no-show"] },
-        OR: [
-          { startTime: { lt: end }, endTime: { gt: start } },
-        ],
+        startTime: { lt: end },
+        endTime: { gt: start },
       },
     });
 
@@ -122,7 +133,8 @@ export async function POST(req: NextRequest) {
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
-          email: customerEmail,
+          salonId,
+          email: customerEmail.toLowerCase(),
           name: customerName,
           phone: customerPhone,
         },
@@ -132,6 +144,7 @@ export async function POST(req: NextRequest) {
     // 9. Create appointment
     const appointment = await prisma.appointment.create({
       data: {
+        salonId,
         serviceId,
         staffId,
         customerId: customer.id,
@@ -143,7 +156,7 @@ export async function POST(req: NextRequest) {
         manageToken,
         status: "confirmed",
       },
-      include: { service: true, staff: true },
+      include: { service: true, staff: true, salon: true },
     });
 
     // 10. Send confirmation email
@@ -157,10 +170,10 @@ export async function POST(req: NextRequest) {
         endTime: end,
         bookingId: appointment.id,
         manageToken,
+        salonName: appointment.salon.name,
       });
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);
-      // Don't fail the booking if email fails
     }
 
     return NextResponse.json(appointment);

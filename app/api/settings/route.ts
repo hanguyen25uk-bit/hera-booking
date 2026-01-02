@@ -1,20 +1,29 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
+
 export async function GET() {
   try {
-    let settings = await prisma.settings.findUnique({
-      where: { id: "default" },
-    });
-
-    // Create default settings if not exists
-    if (!settings) {
-      settings = await prisma.settings.create({
-        data: { id: "default" },
-      });
+    const salonId = await getDefaultSalonId();
+    if (!salonId) {
+      return NextResponse.json({ error: "No salon found" }, { status: 404 });
     }
 
-    return NextResponse.json(settings);
+    const salon = await prisma.salon.findUnique({
+      where: { id: salonId },
+    });
+
+    // Return settings in expected format
+    return NextResponse.json({
+      salonName: salon?.name,
+      salonPhone: salon?.phone,
+      salonAddress: salon?.address,
+      cancelMinutesAdvance: salon?.cancelMinutesAdvance,
+    });
   } catch (error) {
     console.error("Failed to fetch settings:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
@@ -23,27 +32,30 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
+    const salonId = await getDefaultSalonId();
+    if (!salonId) {
+      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    }
+
     const body = await req.json();
     const { salonName, salonPhone, salonAddress, cancelMinutesAdvance } = body;
 
-    const settings = await prisma.settings.upsert({
-      where: { id: "default" },
-      update: {
-        salonName,
-        salonPhone,
-        salonAddress,
-        cancelMinutesAdvance,
-      },
-      create: {
-        id: "default",
-        salonName,
-        salonPhone,
-        salonAddress,
+    const salon = await prisma.salon.update({
+      where: { id: salonId },
+      data: {
+        name: salonName,
+        phone: salonPhone,
+        address: salonAddress,
         cancelMinutesAdvance,
       },
     });
 
-    return NextResponse.json(settings);
+    return NextResponse.json({
+      salonName: salon.name,
+      salonPhone: salon.phone,
+      salonAddress: salon.address,
+      cancelMinutesAdvance: salon.cancelMinutesAdvance,
+    });
   } catch (error) {
     console.error("Failed to update settings:", error);
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
