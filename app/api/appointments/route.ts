@@ -1,23 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { sendBookingConfirmation } from "@/lib/email";
+import { validateBookingInput } from "@/lib/validation";
+import { checkBookingRateLimit, getClientIP, getRateLimitHeaders } from "@/lib/rate-limit";
 import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date");
   const token = req.nextUrl.searchParams.get("token");
-  
+
   try {
     if (token) {
       const appointment = await prisma.appointment.findFirst({
         where: { manageToken: token },
         include: { service: true, staff: true },
       });
-      
+
       if (!appointment) {
         return NextResponse.json({ error: "Booking not found" }, { status: 404 });
       }
-      
+
       return NextResponse.json(appointment);
     }
 
@@ -46,12 +48,30 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = body;
 
-    const emailLower = customerEmail.toLowerCase();
+    // 1. Validate input
+    const validation = validateBookingInput(body);
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0];
+      return NextResponse.json({ error: firstError }, { status: 400 });
+    }
 
+    const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.sanitized!;
+
+    // 2. Rate limiting
+    const clientIP = getClientIP(req);
+    const rateLimitResult = checkBookingRateLimit(clientIP, customerEmail);
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: `Too many booking attempts. Please try again in ${rateLimitResult.retryAfter} seconds.` },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+      );
+    }
+
+    // 3. Check if customer is blocked
     const existingCustomer = await prisma.customer.findUnique({
-      where: { email: emailLower },
+      where: { email: customerEmail },
     });
 
     if (existingCustomer?.isBlocked) {
@@ -61,31 +81,55 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 4. Validate service exists
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
+    // 5. Validate staff exists
     const staff = await prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
+    // 6. Calculate times
     const start = new Date(startTime);
     const end = new Date(start.getTime() + service.durationMinutes * 60000);
-    const manageToken = crypto.randomBytes(32).toString("hex");
 
+    // 7. Check for double booking
+    const conflict = await prisma.appointment.findFirst({
+      where: {
+        staffId,
+        status: { notIn: ["cancelled", "no-show"] },
+        OR: [
+          { startTime: { lt: end }, endTime: { gt: start } },
+        ],
+      },
+    });
+
+    if (conflict) {
+      return NextResponse.json(
+        { error: "This time slot is no longer available. Please choose another time." },
+        { status: 409 }
+      );
+    }
+
+    // 8. Create or get customer
+    const manageToken = crypto.randomBytes(32).toString("hex");
     let customer = existingCustomer;
+
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
-          email: emailLower,
+          email: customerEmail,
           name: customerName,
           phone: customerPhone,
         },
       });
     }
 
+    // 9. Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         serviceId,
@@ -93,7 +137,7 @@ export async function POST(req: NextRequest) {
         customerId: customer.id,
         customerName,
         customerPhone,
-        customerEmail: emailLower,
+        customerEmail,
         startTime: start,
         endTime: end,
         manageToken,
@@ -102,9 +146,10 @@ export async function POST(req: NextRequest) {
       include: { service: true, staff: true },
     });
 
+    // 10. Send confirmation email
     try {
-      const emailResult = await sendBookingConfirmation({
-        customerEmail: emailLower,
+      await sendBookingConfirmation({
+        customerEmail,
         customerName,
         serviceName: service.name,
         staffName: staff.name,
@@ -113,9 +158,9 @@ export async function POST(req: NextRequest) {
         bookingId: appointment.id,
         manageToken,
       });
-      console.log("Email result:", emailResult);
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);
+      // Don't fail the booking if email fails
     }
 
     return NextResponse.json(appointment);
