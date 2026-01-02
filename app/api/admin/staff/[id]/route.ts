@@ -1,36 +1,33 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
+  const { id } = await params;
   try {
-    const { id } = await params;
     const body = await req.json();
     const staff = await prisma.staff.update({
       where: { id },
-      data: {
-        name: body.name,
-        role: body.role,
-        active: body.active,
-      },
+      data: body,
     });
     return NextResponse.json(staff);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update staff" }, { status: 500 });
+    console.error("Update staff error:", error);
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
+  const { id } = await params;
   try {
-    const { id } = await params;
     await prisma.staff.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete staff" }, { status: 500 });
+    console.error("Delete staff error:", error);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }

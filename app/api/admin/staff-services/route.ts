@@ -1,63 +1,61 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
 
-// GET: Lấy danh sách dịch vụ của một staff
 export async function GET(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   const staffId = req.nextUrl.searchParams.get("staffId");
-  
+
   try {
-    if (staffId) {
-      const staffServices = await prisma.staffService.findMany({
-        where: { staffId },
-        include: { service: true },
-      });
-      return NextResponse.json(staffServices.map(ss => ss.service));
-    }
-    
-    // Trả về tất cả staff với services của họ
-    const allStaffServices = await prisma.staffService.findMany({
+    const where = staffId ? { staffId } : {};
+    const staffServices = await prisma.staffService.findMany({
+      where,
       include: { staff: true, service: true },
     });
-    return NextResponse.json(allStaffServices);
+    return NextResponse.json(staffServices);
   } catch (error) {
     console.error("Fetch staff services error:", error);
     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }
 
-// POST: Gán dịch vụ cho staff
 export async function POST(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   try {
-    const { staffId, serviceIds } = await req.json();
-    
-    if (!staffId || !Array.isArray(serviceIds)) {
-      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    const body = await req.json();
+    const { staffId, serviceId } = body;
+
+    if (!staffId || !serviceId) {
+      return NextResponse.json({ error: "Staff and service required" }, { status: 400 });
     }
-    
-    // Xóa tất cả dịch vụ cũ của staff
-    await prisma.staffService.deleteMany({
-      where: { staffId },
+
+    const staffService = await prisma.staffService.create({
+      data: { staffId, serviceId },
+      include: { staff: true, service: true },
     });
-    
-    // Thêm dịch vụ mới
-    if (serviceIds.length > 0) {
-      await prisma.staffService.createMany({
-        data: serviceIds.map((serviceId: string) => ({
-          staffId,
-          serviceId,
-        })),
-      });
-    }
-    
-    // Trả về danh sách mới
-    const updatedServices = await prisma.staffService.findMany({
-      where: { staffId },
-      include: { service: true },
-    });
-    
-    return NextResponse.json(updatedServices.map(ss => ss.service));
+
+    return NextResponse.json(staffService);
   } catch (error) {
-    console.error("Update staff services error:", error);
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    console.error("Create staff service error:", error);
+    return NextResponse.json({ error: "Failed to create" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
+  try {
+    const id = req.nextUrl.searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "ID required" }, { status: 400 });
+    }
+
+    await prisma.staffService.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete staff service error:", error);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }

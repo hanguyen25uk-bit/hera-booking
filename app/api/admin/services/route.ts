@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
 
 export async function GET() {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   try {
     const services = await prisma.service.findMany({
       include: { serviceCategory: true },
@@ -15,6 +18,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   try {
     const body = await req.json();
     const { name, description, durationMinutes, price, categoryId } = body;

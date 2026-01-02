@@ -1,25 +1,42 @@
-import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
 
-let workingHours = [
-  { dayOfWeek: 0, dayName: "Chủ nhật", isOpen: false, openTime: "10:00", closeTime: "18:00" },
-  { dayOfWeek: 1, dayName: "Thứ hai", isOpen: true, openTime: "09:30", closeTime: "19:00" },
-  { dayOfWeek: 2, dayName: "Thứ ba", isOpen: true, openTime: "09:30", closeTime: "19:00" },
-  { dayOfWeek: 3, dayName: "Thứ tư", isOpen: true, openTime: "09:30", closeTime: "19:00" },
-  { dayOfWeek: 4, dayName: "Thứ năm", isOpen: true, openTime: "09:30", closeTime: "19:00" },
-  { dayOfWeek: 5, dayName: "Thứ sáu", isOpen: true, openTime: "09:30", closeTime: "19:00" },
-  { dayOfWeek: 6, dayName: "Thứ bảy", isOpen: true, openTime: "09:00", closeTime: "18:00" },
-];
+export async function GET(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
 
-export async function GET() {
-  return NextResponse.json(workingHours);
+  const staffId = req.nextUrl.searchParams.get("staffId");
+
+  try {
+    const where = staffId ? { staffId } : {};
+    const workingHours = await prisma.workingHours.findMany({
+      where,
+      include: { staff: true },
+      orderBy: [{ staffId: "asc" }, { dayOfWeek: "asc" }],
+    });
+    return NextResponse.json(workingHours);
+  } catch (error) {
+    console.error("Fetch working hours error:", error);
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+  }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   try {
     const body = await req.json();
-    workingHours = body;
-    return NextResponse.json({ success: true });
+    const { staffId, dayOfWeek, startTime, endTime, isWorking } = body;
+
+    const workingHours = await prisma.workingHours.upsert({
+      where: { staffId_dayOfWeek: { staffId, dayOfWeek } },
+      create: { staffId, dayOfWeek, startTime, endTime, isWorking: isWorking ?? true },
+      update: { startTime, endTime, isWorking: isWorking ?? true },
+    });
+
+    return NextResponse.json(workingHours);
   } catch (error) {
+    console.error("Save working hours error:", error);
     return NextResponse.json({ error: "Failed to save" }, { status: 500 });
   }
 }
