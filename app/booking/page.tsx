@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState, FormEvent, useCallback } from "react";
+import ServiceStep from "./components/ServiceStep";
+import PolicySection from "./components/PolicySection";
 
-type Service = { id: string; name: string; durationMinutes: number; price: number; category?: string | null };
+type ServiceCategory = { id: string; name: string; description: string | null };
+type Service = { id: string; name: string; description: string | null; durationMinutes: number; price: number; category?: string | null; categoryId?: string | null; serviceCategory?: ServiceCategory | null };
 type Staff = { id: string; name: string; role?: string | null };
 type StaffAvailability = { available: boolean; reason?: string; startTime?: string; endTime?: string; isCustom?: boolean; note?: string };
 type ReservedSlot = { startTime: string; endTime: string };
@@ -29,6 +32,7 @@ export default function BookingPage() {
   const [policyAgreed, setPolicyAgreed] = useState(false);
   const [showMobilePolicy, setShowMobilePolicy] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -61,8 +65,13 @@ export default function BookingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, policyRes] = await Promise.all([fetch("/api/services"), fetch("/api/booking-policy")]);
+        const [servicesRes, categoriesRes, policyRes] = await Promise.all([
+          fetch("/api/services"), 
+          fetch("/api/categories"),
+          fetch("/api/booking-policy")
+        ]);
         setServices(await servicesRes.json());
+        setCategories(await categoriesRes.json());
         const policyData = await policyRes.json();
         setPolicyTitle(policyData.title || "Our Booking Policy");
         setPolicyItems(policyData.policies || []);
@@ -214,6 +223,12 @@ export default function BookingPage() {
     finally { setReserving(false); }
   };
 
+  const handleServiceContinue = () => {
+    if (!selectedServiceId) { setError("Please select a service"); return; }
+    setError(null);
+    goNext();
+  };
+
   const handleContinueToDetails = () => {
     if (!selectedTime) { setError("Please select a time"); return; }
     if (!policyAgreed) { setError("Please agree to the booking policy"); return; }
@@ -242,26 +257,6 @@ export default function BookingPage() {
   }
 
   const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-
-  // Policy Component - reusable for both desktop and mobile
-  const PolicySection = ({ compact = false }: { compact?: boolean }) => (
-    <div style={{ background: compact ? "#f8fafc" : "rgba(255,255,255,0.05)", borderRadius: 12, padding: compact ? 16 : 20, border: compact ? "1px solid #e2e8f0" : "1px solid rgba(255,255,255,0.1)" }}>
-      <h3 style={{ color: compact ? "#0f172a" : "#fff", fontSize: 14, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-        📋 {policyTitle}
-      </h3>
-      <div style={{ display: "flex", flexDirection: "column", gap: compact ? 12 : 16 }}>
-        {policyItems.map((item, i) => (
-          <div key={i} style={{ display: "flex", gap: 12 }}>
-            <div style={{ width: compact ? 28 : 32, height: compact ? 28 : 32, background: compact ? "#e2e8f0" : "rgba(255,255,255,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 14 : 16, flexShrink: 0 }}>{item.icon}</div>
-            <div>
-              <div style={{ color: compact ? "#0f172a" : "#fff", fontSize: compact ? 12 : 13, fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
-              <div style={{ color: compact ? "#64748b" : "#94a3b8", fontSize: compact ? 11 : 12, lineHeight: 1.4 }}>{item.description}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
   if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#94a3b8" }}><p>Loading...</p></div>;
 
@@ -298,7 +293,7 @@ export default function BookingPage() {
               <h3 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{policyTitle}</h3>
               <button onClick={() => setShowMobilePolicy(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#f1f5f9", fontSize: 18, cursor: "pointer" }}>×</button>
             </div>
-            <PolicySection compact />
+            <PolicySection title={policyTitle} items={policyItems} compact />
           </div>
         </div>
       )}
@@ -322,7 +317,7 @@ export default function BookingPage() {
           </div>
 
           {/* Desktop Policy */}
-          <PolicySection />
+          <PolicySection title={policyTitle} items={policyItems} />
 
           {/* Your Selection */}
           {currentService && (
@@ -342,28 +337,14 @@ export default function BookingPage() {
             {error && <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", fontSize: 14, marginBottom: 24 }}>{error}</div>}
 
             {step === 1 && (
-              <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Select a Service</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Choose the treatment you'd like to book</p>
-                
-                {/* Mobile Policy Button */}
-                <button className="mobile-policy" onClick={() => setShowMobilePolicy(true)} style={{ display: "none", width: "100%", padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 20, fontSize: 14, color: "#6366f1", fontWeight: 500, cursor: "pointer" }}>
-                  📋 View Booking Policy
-                </button>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {services.map((s) => (
-                    <div key={s.id} onClick={() => setSelectedServiceId(s.id)} style={{ padding: 16, borderRadius: 12, border: `2px solid ${selectedServiceId === s.id ? "#6366f1" : "#e2e8f0"}`, background: selectedServiceId === s.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{s.name}</h3>
-                        {selectedServiceId === s.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
-                      </div>
-                      <div style={{ display: "flex", gap: 16, fontSize: 14 }}><span style={{ color: "#64748b" }}>{s.durationMinutes} min</span><span style={{ fontWeight: 700, color: "#059669" }}>£{s.price}</span></div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 24 }}><button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{ width: "100%", padding: 16, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 600, cursor: "pointer" }}>Continue</button></div>
-              </>
+              <ServiceStep
+                services={services}
+                categories={categories}
+                selectedServiceId={selectedServiceId}
+                onSelectService={setSelectedServiceId}
+                onContinue={handleServiceContinue}
+                onShowPolicy={() => setShowMobilePolicy(true)}
+              />
             )}
 
             {step === 2 && (
@@ -428,7 +409,7 @@ export default function BookingPage() {
                 
                 {/* Mobile Policy Section */}
                 <div className="mobile-policy" style={{ display: "none", marginBottom: 20 }}>
-                  <PolicySection compact />
+                  <PolicySection title={policyTitle} items={policyItems} compact />
                 </div>
 
                 {/* Policy Agreement */}
