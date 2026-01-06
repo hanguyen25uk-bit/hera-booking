@@ -1,0 +1,4 @@
+hera-booking.zip
+*.zip
+.git
+node_modules
