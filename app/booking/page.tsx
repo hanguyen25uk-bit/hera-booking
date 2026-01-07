@@ -266,7 +266,7 @@ export default function BookingPage() {
         @media (max-width: 768px) {
           .desktop-sidebar { display: none !important; }
           .main-content { margin-left: 0 !important; border-radius: 0 !important; }
-          .mobile-header { display: flex !important; }
+          .mobile-header { display: none !important; }
           .mobile-policy { display: block !important; }
           .time-grid { grid-template-columns: repeat(3, 1fr) !important; }
         }
@@ -432,6 +432,21 @@ export default function BookingPage() {
                 <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Your Details</h1>
                 <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>We'll send your confirmation here</p>
                 {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
+                {/* Mobile Policy Section - only visible on mobile */}
+{policyItems.length > 0 && (
+  <div className="mobile-policy" style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 20, border: "1px solid #e2e8f0" }}>
+    <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#1e293b" }}>{policyTitle}</h3>
+    {policyItems.map((item, i) => (
+      <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < policyItems.length - 1 ? 10 : 0 }}>
+        <span style={{ fontSize: 16 }}>{item.icon}</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{item.title}</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>{item.description}</div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Full Name</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
                   <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Phone</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
