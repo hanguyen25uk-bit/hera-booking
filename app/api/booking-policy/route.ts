@@ -49,3 +49,7 @@ export async function POST(req: NextRequest) {
     policies: JSON.parse(policy.policies),
   });
 }
+
+export async function PUT(req: NextRequest) {
+  return POST(req);
+}
