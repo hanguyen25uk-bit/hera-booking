@@ -31,6 +31,8 @@ export default function BookingPage() {
   const [policyItems, setPolicyItems] = useState<PolicyItem[]>([]);
   const [policyAgreed, setPolicyAgreed] = useState(false);
   const [showMobilePolicy, setShowMobilePolicy] = useState(false);
+  const [mobilePolicyRead, setMobilePolicyRead] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -93,6 +95,14 @@ export default function BookingPage() {
   }, [selectedServiceId]);
 
   useEffect(() => { setSelectedDate(new Date().toISOString().split("T")[0]); }, []);
+
+  // Detect mobile and show policy popup
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (!selectedStaffId || !selectedDate) return;
@@ -259,6 +269,55 @@ export default function BookingPage() {
   const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#94a3b8" }}><p>Loading...</p></div>;
+
+  // Show initial policy popup on mobile
+  if (isMobile && !mobilePolicyRead && policyItems.length > 0) {
+    return (
+      <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", padding: "20px", textAlign: "center" }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 auto 12px" }}>H</div>
+          <h1 style={{ color: "#fff", fontSize: 20, fontWeight: 600, margin: 0 }}>Welcome to Hera Booking</h1>
+          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, margin: "8px 0 0" }}>Please read our booking policy before continuing</p>
+        </div>
+
+        {/* Policy Content */}
+        <div style={{ flex: 1, backgroundColor: "#fff", padding: 20, overflowY: "auto" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, color: "#1e293b" }}>{policyTitle}</h2>
+
+          {policyItems.map((item, i) => (
+            <div key={i} style={{ display: "flex", gap: 14, marginBottom: 20, padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+              <span style={{ fontSize: 28 }}>{item.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>{item.title}</div>
+                <div style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>{item.description}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Continue Button */}
+        <div style={{ padding: 20, backgroundColor: "#fff", borderTop: "1px solid #e2e8f0" }}>
+          <button
+            onClick={() => setMobilePolicyRead(true)}
+            style={{
+              width: "100%",
+              padding: 16,
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 12,
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            I've Read the Policy - Continue to Booking
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif" }}>
