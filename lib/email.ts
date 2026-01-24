@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResend = () => new Resend(process.env.RESEND_API_KEY || "");
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://hera-booking.vercel.app";
 const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
 
@@ -150,7 +150,7 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
   `;
 
   try {
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
       from: `${salonName} <${FROM_EMAIL}>`,
       to: customerEmail,
       subject: `Booking Confirmed - ${serviceName} on ${formattedDate}`,
@@ -232,7 +232,7 @@ export async function sendCancellationConfirmation(data: {
   `;
 
   try {
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
       from: `${salonName} <${FROM_EMAIL}>`,
       to: customerEmail,
       subject: `Booking Cancelled - ${serviceName}`,
