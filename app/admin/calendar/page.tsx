@@ -224,13 +224,13 @@ export default function CalendarPage() {
     return checkDate < today;
   }
 
-  function openAddModal() {
+  function openAddModal(prefilledStaffId?: string, prefilledTime?: string) {
     const todayStr = new Date().toISOString().split("T")[0];
     setAddData({
       serviceId: services.length > 0 ? services[0].id : "",
-      staffId: staffList.length > 0 ? staffList[0].id : "",
+      staffId: prefilledStaffId || (staffList.length > 0 ? staffList[0].id : ""),
       date: selectedDate >= todayStr ? selectedDate : todayStr,
-      time: "",
+      time: prefilledTime || "",
       customerName: "",
       customerPhone: "",
       customerEmail: "",
@@ -239,6 +239,45 @@ export default function CalendarPage() {
     setAddBookedSlots([]);
     setMessage(null);
     setShowAddModal(true);
+  }
+
+  function handleTimeSlotClick(staffId: string, hour: number, minute: number) {
+    const avail = staffAvailability[staffId];
+    if (!avail?.available) return;
+
+    const timeStr = hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0");
+
+    // Check if slot is in working hours
+    const startTime = avail.startTime || "09:00";
+    const endTime = avail.endTime || "18:00";
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    const slotMinutes = hour * 60 + minute;
+    const workStart = startH * 60 + startM;
+    const workEnd = endH * 60 + endM;
+
+    if (slotMinutes < workStart || slotMinutes >= workEnd) return;
+
+    // Check if time is in the past (for today)
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedDate === today) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      if (slotMinutes <= currentMinutes) return;
+    }
+
+    // Check if slot is already booked
+    const hasBooking = appointments.some(function(apt) {
+      if (apt.staff.id !== staffId || apt.status === "cancelled" || apt.status === "no-show") return false;
+      const aptStart = new Date(apt.startTime);
+      const aptEnd = new Date(apt.endTime);
+      const slotTime = new Date(selectedDate + "T" + timeStr + ":00");
+      return slotTime >= aptStart && slotTime < aptEnd;
+    });
+
+    if (hasBooking) return;
+
+    openAddModal(staffId, timeStr);
   }
 
   function closeAddModal() {
@@ -530,10 +569,10 @@ export default function CalendarPage() {
         </div>
         
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button 
-            onClick={openAddModal}
-            style={{ 
-              padding: "10px 20px", 
+          <button
+            onClick={function() { openAddModal(); }}
+            style={{
+              padding: "10px 20px",
               background: "linear-gradient(135deg, #10b981, #059669)", 
               color: "#fff", 
               border: "none", 
@@ -630,7 +669,7 @@ export default function CalendarPage() {
                 {hours.map(function(hour) {
                   const inWorkingHours = isHourInWorkingTime(hour, staff.id);
                   let bgColor = "#fff";
-                  
+
                   if (isOff) {
                     bgColor = "#fef2f2";
                   } else if (!inWorkingHours) {
@@ -638,22 +677,44 @@ export default function CalendarPage() {
                   } else if (hour % 2 !== 0) {
                     bgColor = "#fafafa";
                   }
-                  
+
+                  const canClick = !isOff && inWorkingHours && !isPastDate(selectedDate);
+
                   return (
-                    <div 
-                      key={hour} 
-                      style={{ 
-                        height: 60, 
-                        borderBottom: "1px solid #f1f5f9", 
+                    <div
+                      key={hour}
+                      style={{
+                        height: 60,
+                        borderBottom: "1px solid #f1f5f9",
                         background: bgColor,
-                        position: "relative"
+                        position: "relative",
+                        display: "flex",
+                        flexDirection: "column"
                       }}
                     >
                       {isOff && hour === 12 && (
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                           <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 600 }}>OFF</span>
                         </div>
                       )}
+                      {/* Clickable 15-min slots */}
+                      {canClick && [0, 15, 30, 45].map(function(minute) {
+                        return (
+                          <div
+                            key={minute}
+                            onClick={function() { handleTimeSlotClick(staff.id, hour, minute); }}
+                            style={{
+                              flex: 1,
+                              cursor: "pointer",
+                              borderBottom: minute < 45 ? "1px dashed #e2e8f0" : "none",
+                              transition: "background-color 0.15s"
+                            }}
+                            onMouseEnter={function(e) { e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.1)"; }}
+                            onMouseLeave={function(e) { e.currentTarget.style.backgroundColor = "transparent"; }}
+                            title={"Click to book " + hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0")}
+                          />
+                        );
+                      })}
                     </div>
                   );
                 })}
