@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthPayload } from "@/lib/admin-auth";
 
-async function getDefaultSalonId() {
+async function getSalonId(): Promise<string | null> {
+  const auth = await getAuthPayload();
+  if (auth?.salonId) return auth.salonId;
   const salon = await prisma.salon.findFirst();
-  return salon?.id;
+  return salon?.id || null;
 }
 
 // GET all staff
 export async function GET() {
-  const salonId = await getDefaultSalonId();
+  const salonId = await getSalonId();
   if (!salonId) return NextResponse.json([]);
 
   const staff = await prisma.staff.findMany({
@@ -21,7 +24,7 @@ export async function GET() {
 
 // CREATE staff
 export async function POST(req: Request) {
-  const salonId = await getDefaultSalonId();
+  const salonId = await getSalonId();
   if (!salonId) {
     return NextResponse.json({ error: "No salon found" }, { status: 404 });
   }

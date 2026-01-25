@@ -1,0 +1,143 @@
+import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { hashPassword } from "@/lib/password";
+import { generateSalonToken } from "@/lib/admin-auth";
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { email, password, name, salonName } = body;
+
+    // Validation
+    if (!email || !password || !name || !salonName) {
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters" },
+        { status: 400 }
+      );
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Invalid email format" },
+        { status: 400 }
+      );
+    }
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "Email already registered" },
+        { status: 400 }
+      );
+    }
+
+    // Generate unique slug
+    let slug = generateSlug(salonName);
+    let slugSuffix = 0;
+    let uniqueSlug = slug;
+
+    while (true) {
+      const existingSalon = await prisma.salon.findUnique({
+        where: { slug: uniqueSlug },
+      });
+      if (!existingSalon) break;
+      slugSuffix++;
+      uniqueSlug = `${slug}-${slugSuffix}`;
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
+    // Create salon and user in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create salon
+      const salon = await tx.salon.create({
+        data: {
+          slug: uniqueSlug,
+          name: salonName,
+          email: email.toLowerCase(),
+        },
+      });
+
+      // Create user linked to salon
+      const user = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          passwordHash,
+          name,
+          salonId: salon.id,
+        },
+      });
+
+      // Create default booking policy
+      await tx.bookingPolicy.create({
+        data: {
+          salonId: salon.id,
+          title: "Our Booking Policy",
+          policies: JSON.stringify([
+            { icon: "💳", title: "Payment", description: "Payment is due at the end of your appointment." },
+            { icon: "⏰", title: "Cancellation", description: "Please give at least 24 hours notice for cancellations." },
+            { icon: "🚫", title: "No-Show Policy", description: "After 3 no-shows, booking will be restricted." },
+          ]),
+        },
+      });
+
+      return { salon, user };
+    });
+
+    // Generate auth token
+    const token = generateSalonToken({
+      salonId: result.salon.id,
+      salonSlug: result.salon.slug,
+      userId: result.user.id,
+    });
+
+    const response = NextResponse.json({
+      success: true,
+      salon: {
+        id: result.salon.id,
+        slug: result.salon.slug,
+        name: result.salon.name,
+      },
+      redirectUrl: `/${result.salon.slug}/admin`,
+    });
+
+    // Set auth cookie
+    response.cookies.set("salon_auth", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 60 * 60 * 8, // 8 hours
+      path: "/",
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Signup error:", error);
+    return NextResponse.json(
+      { error: "Failed to create account" },
+      { status: 500 }
+    );
+  }
+}
