@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
 
-// TODO: Get salonId from authenticated user session
-// For now, use first salon as default
 async function getDefaultSalonId() {
   const salon = await prisma.salon.findFirst();
   return salon?.id;
@@ -36,6 +35,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   const salonId = await getDefaultSalonId();
   if (!salonId) {
     return NextResponse.json({ error: "No salon found" }, { status: 404 });
@@ -73,6 +74,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   const id = req.nextUrl.searchParams.get("id");
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });

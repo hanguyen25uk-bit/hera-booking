@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
 
 async function getDefaultSalonId() {
   const salon = await prisma.salon.findFirst();
@@ -19,6 +20,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await checkAdminAuth())) return unauthorizedResponse();
+
   const salonId = await getDefaultSalonId();
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
