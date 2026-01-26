@@ -1,14 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
+import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 
-async function getDefaultSalonId() {
+async function getSalonId(): Promise<string | null> {
+  const auth = await getAuthPayload();
+  if (auth?.salonId) return auth.salonId;
   const salon = await prisma.salon.findFirst();
-  return salon?.id;
+  return salon?.id || null;
 }
 
 export async function GET() {
-  const salonId = await getDefaultSalonId();
+  const salonId = await getSalonId();
   if (!salonId) return NextResponse.json([]);
 
   const services = await prisma.service.findMany({
@@ -20,10 +22,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
-
-  const salonId = await getDefaultSalonId();
-  if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
+  const salonId = await getSalonId();
+  if (!salonId) return unauthorizedResponse();
 
   const body = await req.json();
   const { name, description, durationMinutes, price, categoryId } = body;

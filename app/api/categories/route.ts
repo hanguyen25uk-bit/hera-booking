@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthPayload } from "@/lib/admin-auth";
 
-async function getDefaultSalonId() {
+async function getSalonId(): Promise<string | null> {
+  const auth = await getAuthPayload();
+  if (auth?.salonId) return auth.salonId;
   const salon = await prisma.salon.findFirst();
-  return salon?.id;
+  return salon?.id || null;
 }
 
 export async function GET() {
-  const salonId = await getDefaultSalonId();
+  const salonId = await getSalonId();
   if (!salonId) return NextResponse.json([]);
 
   const categories = await prisma.serviceCategory.findMany({
@@ -20,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const salonId = await getDefaultSalonId();
+  const salonId = await getSalonId();
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   const body = await req.json();
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const salonId = await getDefaultSalonId();
+  const salonId = await getSalonId();
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   const body = await req.json();

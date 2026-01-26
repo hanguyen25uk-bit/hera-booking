@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminAuth, unauthorizedResponse } from "@/lib/admin-auth";
+import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 
 export async function GET(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth) return unauthorizedResponse();
 
   const staffId = req.nextUrl.searchParams.get("staffId");
 
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth) return unauthorizedResponse();
 
   try {
     const body = await req.json();
@@ -44,7 +46,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await checkAdminAuth())) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth) return unauthorizedResponse();
 
   try {
     const id = req.nextUrl.searchParams.get("id");
