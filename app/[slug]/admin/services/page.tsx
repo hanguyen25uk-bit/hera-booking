@@ -47,8 +47,8 @@ export default function ServicesPage() {
   async function loadData() {
     try {
       const [servicesRes, categoriesRes] = await Promise.all([
-        fetch("/api/services"),
-        fetch("/api/categories"),
+        fetch("/api/admin/services", { credentials: "include" }),
+        fetch("/api/categories", { credentials: "include" }),
       ]);
       setServices(await servicesRes.json());
       setCategories(await categoriesRes.json());
@@ -65,9 +65,10 @@ export default function ServicesPage() {
     try {
       const url = editingService ? `/api/admin/services/${editingService.id}` : "/api/admin/services";
       const method = editingService ? "PUT" : "POST";
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: formName,
           description: formDescription || null,
@@ -76,11 +77,15 @@ export default function ServicesPage() {
           categoryId: formCategoryId || null,
         }),
       });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to save");
+      }
       setShowModal(false);
       resetForm();
       loadData();
-    } catch (err) {
-      alert("Error saving");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error saving");
     } finally {
       setSaving(false);
     }
@@ -92,19 +97,24 @@ export default function ServicesPage() {
     try {
       const url = editingCategory ? `/api/categories/${editingCategory.id}` : "/api/categories";
       const method = editingCategory ? "PUT" : "POST";
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: catName,
           description: catDescription || null,
         }),
       });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to save category");
+      }
       setShowCategoryModal(false);
       resetCategoryForm();
       loadData();
-    } catch (err) {
-      alert("Error saving category");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error saving category");
     } finally {
       setSaving(false);
     }
@@ -113,7 +123,8 @@ export default function ServicesPage() {
   async function handleDeleteCategory(cat: ServiceCategory) {
     if (!confirm(`Delete category "${cat.name}"? Services in this category will become uncategorized.`)) return;
     try {
-      await fetch(`/api/categories/${cat.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/categories/${cat.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
       loadData();
     } catch (err) {
       alert("Error deleting");
@@ -123,7 +134,8 @@ export default function ServicesPage() {
   async function handleDelete(service: Service) {
     if (!confirm(`Delete "${service.name}"?`)) return;
     try {
-      await fetch(`/api/admin/services/${service.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/services/${service.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
       loadData();
     } catch (err) {
       alert("Error deleting");
