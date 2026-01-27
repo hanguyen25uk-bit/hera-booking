@@ -89,7 +89,7 @@ export default function SalonCalendarPage() {
     setLoading(true);
     try {
       const [aptsRes, staffRes] = await Promise.all([
-        fetch("/api/appointments?date=" + selectedDate),
+        fetch("/api/appointments?date=" + selectedDate, { credentials: "include" }),
         fetch("/api/staff", { credentials: "include" }),
       ]);
       const apts = await aptsRes.json();
@@ -116,11 +116,11 @@ export default function SalonCalendarPage() {
   async function loadEditAvailability() {
     setLoadingAvailability(true);
     try {
-      const availRes = await fetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date);
+      const availRes = await fetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date, { credentials: "include" });
       const avail = await availRes.json();
       setEditAvailability(avail);
 
-      const aptsRes = await fetch("/api/appointments?date=" + editData.date);
+      const aptsRes = await fetch("/api/appointments?date=" + editData.date, { credentials: "include" });
       const apts: Appointment[] = await aptsRes.json();
       const booked = (Array.isArray(apts) ? apts : [])
         .filter(function(a) { return a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id; })
@@ -136,11 +136,11 @@ export default function SalonCalendarPage() {
   async function loadAddAvailability() {
     setLoadingAddAvailability(true);
     try {
-      const availRes = await fetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date);
+      const availRes = await fetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date, { credentials: "include" });
       const avail = await availRes.json();
       setAddAvailability(avail);
 
-      const aptsRes = await fetch("/api/appointments?date=" + addData.date);
+      const aptsRes = await fetch("/api/appointments?date=" + addData.date, { credentials: "include" });
       const apts: Appointment[] = await aptsRes.json();
       const booked = (Array.isArray(apts) ? apts : [])
         .filter(function(a) { return a.staff.id === addData.staffId && a.status !== "cancelled" && a.status !== "no-show"; })

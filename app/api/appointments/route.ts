@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendBookingConfirmation } from "@/lib/email";
 import { validateBookingInput } from "@/lib/validation";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders } from "@/lib/rate-limit";
+import { getAuthPayload } from "@/lib/admin-auth";
 import crypto from "crypto";
 
 async function getDefaultSalonId() {
@@ -11,7 +12,9 @@ async function getDefaultSalonId() {
 }
 
 export async function GET(req: NextRequest) {
-  const salonId = await getDefaultSalonId();
+  // Use auth salonId if logged in, otherwise fall back to default
+  const authPayload = await getAuthPayload();
+  const salonId = authPayload?.salonId || await getDefaultSalonId();
   if (!salonId) return NextResponse.json([]);
 
   const date = req.nextUrl.searchParams.get("date");
