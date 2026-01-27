@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendCancellationConfirmation } from "@/lib/email";
 
 // GET - Get single appointment
 export async function GET(
@@ -107,13 +108,28 @@ export async function PUT(
         });
       }
 
-      // CANCELLED: Just update status
+      // CANCELLED: Update status and send cancellation email
       if (status === "cancelled") {
         const updated = await prisma.appointment.update({
           where: { id },
           data: { status: "cancelled" },
-          include: { service: true, staff: true },
+          include: { service: true, staff: true, salon: true },
         });
+
+        // Send cancellation email
+        try {
+          await sendCancellationConfirmation({
+            customerEmail: updated.customerEmail,
+            customerName: updated.customerName,
+            serviceName: updated.service.name,
+            staffName: updated.staff.name,
+            startTime: updated.startTime,
+            salonName: updated.salon?.name || "Salon",
+          });
+        } catch (emailError) {
+          console.error("Failed to send cancellation email:", emailError);
+        }
+
         return NextResponse.json(updated);
       }
 
