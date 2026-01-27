@@ -190,19 +190,27 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   }, [selectedDate, currentService, bookedSlots]);
 
   const findAvailableStaff = (time: string): string | null => {
+    const serviceDuration = currentService?.durationMinutes || 60;
     for (const member of staff) {
       const availability = allStaffAvailability[member.id];
       if (!availability?.available) continue;
       const [timeH, timeM] = time.split(":").map(Number);
+      const slotStart = timeH * 60 + timeM;
+      const slotEnd = slotStart + serviceDuration;
       const [startH, startM] = (availability.startTime || "09:00").split(":").map(Number);
       const [endH, endM] = (availability.endTime || "17:00").split(":").map(Number);
-      if (timeH * 60 + timeM < startH * 60 + startM || timeH * 60 + timeM >= endH * 60 + endM) continue;
+      const availStart = startH * 60 + startM;
+      const availEnd = endH * 60 + endM;
+      // Check if slot starts within hours AND service completes before closing
+      if (slotStart < availStart || slotEnd > availEnd) continue;
       if (!isSlotBooked(time) && !isSlotReserved(time)) return member.id;
     }
     return null;
   };
 
   const generateTimeSlots = () => {
+    const serviceDuration = currentService?.durationMinutes || 60;
+
     if (isAnyStaff) {
       let earliestStart = 24 * 60, latestEnd = 0, hasAvailable = false;
       for (const member of staff) {
@@ -215,8 +223,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         latestEnd = Math.max(latestEnd, endH * 60 + endM);
       }
       if (!hasAvailable) return [];
+      // Last slot must allow service to complete before closing
+      const lastSlotTime = latestEnd - serviceDuration;
       const slots: string[] = [];
-      for (let m = earliestStart; m < latestEnd; m += 30) {
+      for (let m = earliestStart; m <= lastSlotTime; m += 30) {
         const time = `${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`;
         if (findAvailableStaff(time)) slots.push(time);
       }
@@ -225,10 +235,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       if (!staffAvailability?.available) return [];
       const [startH, startM] = (staffAvailability.startTime || "09:00").split(":").map(Number);
       const [endH, endM] = (staffAvailability.endTime || "17:00").split(":").map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      // Last slot must allow service to complete before closing
+      const lastSlotTime = endMinutes - serviceDuration;
       const slots: string[] = [];
-      for (let h = startH, m = startM; h < endH || (h === endH && m < endM); m += 30) {
-        if (m >= 60) { m = 0; h++; }
-        slots.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+      for (let m = startMinutes; m <= lastSlotTime; m += 30) {
+        slots.push(`${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`);
       }
       return slots;
     }
