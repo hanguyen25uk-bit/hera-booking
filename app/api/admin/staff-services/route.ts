@@ -27,10 +27,34 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { staffId, serviceId } = body;
+    const { staffId, serviceId, serviceIds } = body;
 
-    if (!staffId || !serviceId) {
-      return NextResponse.json({ error: "Staff and service required" }, { status: 400 });
+    if (!staffId) {
+      return NextResponse.json({ error: "Staff ID required" }, { status: 400 });
+    }
+
+    // Handle bulk assignment (serviceIds array)
+    if (serviceIds && Array.isArray(serviceIds)) {
+      // Delete existing staff services for this staff
+      await prisma.staffService.deleteMany({ where: { staffId } });
+
+      // Create new staff services
+      if (serviceIds.length > 0) {
+        await prisma.staffService.createMany({
+          data: serviceIds.map((svcId: string) => ({ staffId, serviceId: svcId })),
+        });
+      }
+
+      const staffServices = await prisma.staffService.findMany({
+        where: { staffId },
+        include: { staff: true, service: true },
+      });
+      return NextResponse.json(staffServices);
+    }
+
+    // Handle single service assignment
+    if (!serviceId) {
+      return NextResponse.json({ error: "Service ID required" }, { status: 400 });
     }
 
     const staffService = await prisma.staffService.create({
