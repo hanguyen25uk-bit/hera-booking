@@ -89,6 +89,22 @@ export default function WorkingHoursPage() {
     );
   };
 
+  const applyToAllDays = () => {
+    const sunday = workingHours.find((h) => h.dayOfWeek === 0);
+    if (!sunday) return;
+
+    setWorkingHours((prev) =>
+      prev.map((h) => ({
+        ...h,
+        startTime: sunday.startTime,
+        endTime: sunday.endTime,
+        isWorking: sunday.isWorking,
+      }))
+    );
+    setMessage({ type: "success", text: "Applied Sunday hours to all days" });
+    setTimeout(() => setMessage(null), 2000);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
@@ -170,6 +186,7 @@ export default function WorkingHoursPage() {
               <th style={{ padding: "12px 16px", textAlign: "center", fontSize: 14, fontWeight: 600, color: "#374151" }}>Working</th>
               <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 14, fontWeight: 600, color: "#374151" }}>Start Time</th>
               <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 14, fontWeight: 600, color: "#374151" }}>End Time</th>
+              <th style={{ padding: "12px 16px", textAlign: "center", fontSize: 14, fontWeight: 600, color: "#374151" }}></th>
             </tr>
           </thead>
           <tbody>
@@ -223,6 +240,26 @@ export default function WorkingHoursPage() {
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
+                </td>
+                <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                  {hour.dayOfWeek === 0 && (
+                    <button
+                      onClick={applyToAllDays}
+                      style={{
+                        padding: "6px 12px",
+                        backgroundColor: "#6366f1",
+                        color: "#FFFFFF",
+                        border: "none",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Apply to All
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
