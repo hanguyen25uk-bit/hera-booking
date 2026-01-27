@@ -41,6 +41,11 @@ function verifyLegacyToken(token: string): boolean {
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Skip API routes - they handle their own auth
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   // Add security headers
   const response = NextResponse.next();
   response.headers.set("X-Frame-Options", "DENY");
