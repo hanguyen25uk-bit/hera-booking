@@ -40,5 +40,29 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Create default working hours (Monday-Saturday, 09:00-18:00)
+  const defaultWorkingHours = [];
+  for (let day = 1; day <= 6; day++) { // 1=Monday to 6=Saturday
+    defaultWorkingHours.push({
+      salonId,
+      staffId: staff.id,
+      dayOfWeek: day,
+      startTime: "09:00",
+      endTime: "18:00",
+      isWorking: true,
+    });
+  }
+  // Sunday off
+  defaultWorkingHours.push({
+    salonId,
+    staffId: staff.id,
+    dayOfWeek: 0,
+    startTime: "09:00",
+    endTime: "18:00",
+    isWorking: false,
+  });
+
+  await prisma.workingHours.createMany({ data: defaultWorkingHours });
+
   return NextResponse.json(staff);
 }

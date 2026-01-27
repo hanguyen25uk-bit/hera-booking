@@ -24,9 +24,10 @@ export async function GET(
     const dayOfWeek = dateObj.getDay();
 
     // Check for schedule override
-    const override = await prisma.staffScheduleOverride.findUnique({
+    const override = await prisma.staffScheduleOverride.findFirst({
       where: {
-        staffId_date: { staffId, date: dateObj },
+        staffId,
+        date: dateObj,
         salonId: salon.id,
       },
     });
@@ -49,9 +50,10 @@ export async function GET(
     }
 
     // Get regular working hours
-    const workingHours = await prisma.workingHours.findUnique({
+    const workingHours = await prisma.workingHours.findFirst({
       where: {
-        staffId_dayOfWeek: { staffId, dayOfWeek },
+        staffId,
+        dayOfWeek,
         salonId: salon.id,
       },
     });
