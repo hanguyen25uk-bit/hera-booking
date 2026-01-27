@@ -55,6 +55,7 @@ model Salon {
   scheduleOverrides StaffScheduleOverride[]
   slotReservations SlotReservation[]
   bookingPolicy BookingPolicy?
+  salonWorkingHours SalonWorkingHours[]
 }
 
 // ============ SERVICES ============
@@ -252,10 +253,28 @@ model BookingPolicy {
   id        String   @id @default(cuid())
   title     String   @default("Our Booking Policy")
   policies  String   @db.Text
-  
+
   salonId   String   @unique
   salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============ SALON WORKING HOURS ============
+
+model SalonWorkingHours {
+  id        String   @id @default(cuid())
+  dayOfWeek Int      // 0=Sunday, 1=Monday, etc.
+  startTime String   // "09:00"
+  endTime   String   // "18:00"
+  isOpen    Boolean  @default(true)
+
+  salonId   String
+  salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([salonId, dayOfWeek])
 }

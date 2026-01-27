@@ -38,8 +38,9 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
     { href: `${basePath}/calendar`, label: "Calendar", icon: "📅" },
     { href: `${basePath}/services`, label: "Services", icon: "✨" },
     { href: `${basePath}/staff`, label: "Staff", icon: "👤" },
+    { href: `${basePath}/shop-hours`, label: "Shop Hours", icon: "🏪" },
+    { href: `${basePath}/working-hours`, label: "Staff Hours", icon: "🕐" },
     { href: `${basePath}/schedule`, label: "Schedule", icon: "🗓" },
-    { href: `${basePath}/working-hours`, label: "Hours", icon: "🕐" },
     { href: `${basePath}/policy`, label: "Policy", icon: "📋" },
     { href: `${basePath}/settings`, label: "Settings", icon: "⚙️" },
   ];
