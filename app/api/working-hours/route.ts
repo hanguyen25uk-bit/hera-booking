@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT - bulk update all days for a staff
+// PUT - bulk update all days for a staff (or all staff)
 export async function PUT(req: NextRequest) {
   try {
     const salonId = await getDefaultSalonId();
@@ -96,13 +96,55 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { staffId, hours } = body;
+    const { staffId, hours, applyToAll } = body;
 
-    if (!staffId || !hours || !Array.isArray(hours)) {
-      return NextResponse.json({ error: "staffId and hours array required" }, { status: 400 });
+    if (!hours || !Array.isArray(hours)) {
+      return NextResponse.json({ error: "hours array required" }, { status: 400 });
     }
 
-    // Update all working hours for this staff
+    // If applyToAll is true, apply to all active staff
+    if (applyToAll) {
+      const allStaff = await prisma.staff.findMany({
+        where: { salonId, active: true },
+        select: { id: true },
+      });
+
+      const results = await Promise.all(
+        allStaff.flatMap((staff) =>
+          hours.map(async (hour: any) => {
+            return prisma.workingHours.upsert({
+              where: {
+                staffId_dayOfWeek: {
+                  staffId: staff.id,
+                  dayOfWeek: hour.dayOfWeek,
+                },
+              },
+              update: {
+                startTime: hour.startTime,
+                endTime: hour.endTime,
+                isWorking: hour.isWorking,
+              },
+              create: {
+                salonId,
+                staffId: staff.id,
+                dayOfWeek: hour.dayOfWeek,
+                startTime: hour.startTime,
+                endTime: hour.endTime,
+                isWorking: hour.isWorking,
+              },
+            });
+          })
+        )
+      );
+
+      return NextResponse.json({ updated: allStaff.length, results });
+    }
+
+    // Single staff update
+    if (!staffId) {
+      return NextResponse.json({ error: "staffId required" }, { status: 400 });
+    }
+
     const results = await Promise.all(
       hours.map(async (hour: any) => {
         return prisma.workingHours.upsert({
