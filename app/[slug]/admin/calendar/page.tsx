@@ -77,7 +77,7 @@ export default function SalonCalendarPage() {
 
   async function loadStaffAndServices() {
     try {
-      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
+      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff", { credentials: "include" }), fetch("/api/services", { credentials: "include" })]);
       const staffData = await staffRes.json();
       const servicesData = await servicesRes.json();
       setStaffList(Array.isArray(staffData) ? staffData : []);
@@ -90,7 +90,7 @@ export default function SalonCalendarPage() {
     try {
       const [aptsRes, staffRes] = await Promise.all([
         fetch("/api/appointments?date=" + selectedDate),
-        fetch("/api/staff"),
+        fetch("/api/staff", { credentials: "include" }),
       ]);
       const apts = await aptsRes.json();
       const staffData = await staffRes.json();
@@ -289,7 +289,7 @@ export default function SalonCalendarPage() {
     setMessage(null);
     try {
       const startTime = new Date(addData.date + "T" + addData.time + ":00").toISOString();
-      const res = await fetch("/api/appointments", {
+      const res = await fetch("/api/appointments", { credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

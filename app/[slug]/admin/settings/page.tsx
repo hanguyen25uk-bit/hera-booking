@@ -23,7 +23,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await fetch("/api/settings");
+        const res = await fetch("/api/settings", { credentials: "include" });
         const data = await res.json();
         if (data && !data.error) {
           setSettings(data);
@@ -42,7 +42,7 @@ export default function SettingsPage() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetch("/api/settings", { credentials: "include",
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),

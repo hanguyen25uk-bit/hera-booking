@@ -39,7 +39,7 @@ export default function WorkingHoursPage() {
   useEffect(() => {
     async function loadStaff() {
       try {
-        const res = await fetch("/api/staff");
+        const res = await fetch("/api/staff", { credentials: "include" });
         const data = await res.json();
         const activeStaff = data.filter((s: Staff) => s.active);
         setStaff(activeStaff);
@@ -94,7 +94,7 @@ export default function WorkingHoursPage() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/working-hours", {
+      const res = await fetch("/api/working-hours", { credentials: "include",
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ staffId: selectedStaff, hours: workingHours }),

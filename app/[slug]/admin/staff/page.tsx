@@ -37,8 +37,8 @@ export default function StaffPage() {
   async function loadData() {
     try {
       const [staffRes, servicesRes] = await Promise.all([
-        fetch("/api/admin/staff"),
-        fetch("/api/services"),
+        fetch("/api/admin/staff", { credentials: "include" }),
+        fetch("/api/admin/services", { credentials: "include" }),
       ]);
       setStaff(await staffRes.json());
       setServices(await servicesRes.json());
@@ -51,9 +51,9 @@ export default function StaffPage() {
 
   async function loadStaffServices(staffId: string) {
     try {
-      const res = await fetch(`/api/admin/staff-services?staffId=${staffId}`);
+      const res = await fetch(`/api/admin/staff-services?staffId=${staffId}`, { credentials: "include" });
       const data = await res.json();
-      setStaffServices(data.map((s: Service) => s.id));
+      setStaffServices(data.map((s: { serviceId: string }) => s.serviceId));
     } catch (err) {
       setStaffServices([]);
     }
@@ -63,14 +63,16 @@ export default function StaffPage() {
     if (!selectedStaff) return;
     setSaving(true);
     try {
-      await fetch("/api/admin/staff-services", {
+      const res = await fetch("/api/admin/staff-services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ staffId: selectedStaff.id, serviceIds: staffServices }),
       });
+      if (!res.ok) throw new Error("Failed to save");
       setShowServiceModal(false);
     } catch (err) {
-      alert("Error saving");
+      alert("Error saving services");
     } finally {
       setSaving(false);
     }
@@ -82,18 +84,23 @@ export default function StaffPage() {
     try {
       const url = editingStaff ? `/api/admin/staff/${editingStaff.id}` : "/api/admin/staff";
       const method = editingStaff ? "PUT" : "POST";
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ name: formName, role: formRole || "Nail Technician" }),
       });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to save");
+      }
       setShowModal(false);
       setFormName("");
       setFormRole("");
       setEditingStaff(null);
       loadData();
-    } catch (err) {
-      alert("Error saving");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error saving");
     } finally {
       setSaving(false);
     }
@@ -101,21 +108,24 @@ export default function StaffPage() {
 
   async function handleToggleActive(s: Staff) {
     try {
-      await fetch(`/api/admin/staff/${s.id}`, {
+      const res = await fetch(`/api/admin/staff/${s.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ active: !s.active }),
       });
+      if (!res.ok) throw new Error("Failed to update");
       loadData();
     } catch (err) {
-      alert("Error");
+      alert("Error updating status");
     }
   }
 
   async function handleDelete(s: Staff) {
     if (!confirm(`Delete ${s.name}?`)) return;
     try {
-      await fetch(`/api/admin/staff/${s.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/staff/${s.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
       loadData();
     } catch (err) {
       alert("Error deleting");

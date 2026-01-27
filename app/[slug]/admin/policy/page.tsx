@@ -24,7 +24,7 @@ export default function PolicyPage() {
 
   async function loadPolicy() {
     try {
-      const res = await fetch("/api/booking-policy");
+      const res = await fetch("/api/booking-policy", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setTitle(data.title);
@@ -41,7 +41,7 @@ export default function PolicyPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/booking-policy", {
+      const res = await fetch("/api/booking-policy", { credentials: "include",
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, policies }),

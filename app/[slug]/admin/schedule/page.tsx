@@ -43,8 +43,8 @@ export default function SchedulePage() {
   async function loadData() {
     try {
       const [staffRes, overridesRes] = await Promise.all([
-        fetch("/api/admin/staff"),
-        fetch("/api/admin/schedule-override"),
+        fetch("/api/admin/staff", { credentials: "include" }),
+        fetch("/api/admin/schedule-override", { credentials: "include" }),
       ]);
       setStaff(await staffRes.json());
       setOverrides(await overridesRes.json());
@@ -79,7 +79,7 @@ export default function SchedulePage() {
       // Create override for each date
       await Promise.all(
         dates.map((date) =>
-          fetch("/api/admin/schedule-override", {
+          fetch("/api/admin/schedule-override", { credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
