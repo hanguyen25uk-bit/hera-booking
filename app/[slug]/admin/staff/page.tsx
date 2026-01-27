@@ -158,6 +158,14 @@ export default function StaffPage() {
     );
   }
 
+  function selectAllServices() {
+    setStaffServices(services.map(s => s.id));
+  }
+
+  function deselectAllServices() {
+    setStaffServices([]);
+  }
+
   if (loading) {
     return (
       <div style={styles.page}>
@@ -290,7 +298,43 @@ export default function StaffPage() {
               <button style={styles.closeBtn} onClick={() => setShowServiceModal(false)}>×</button>
             </div>
             <div style={styles.modalBody}>
-              <p style={styles.modalSubtitle}>Select services this staff member can perform:</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <p style={{ ...styles.modalSubtitle, margin: 0 }}>Select services this staff member can perform:</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={selectAllServices}
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: "#6366f1",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deselectAllServices}
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: "#f1f5f9",
+                      color: "#475569",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
               <div style={styles.serviceGrid}>
                 {services.map((service) => (
                   <label key={service.id} style={{
