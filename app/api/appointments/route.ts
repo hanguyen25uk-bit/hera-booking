@@ -19,8 +19,9 @@ export async function GET(req: NextRequest) {
 
   try {
     if (token) {
+      // Token lookup doesn't need salonId filter - token is unique
       const appointment = await prisma.appointment.findFirst({
-        where: { manageToken: token, salonId },
+        where: { manageToken: token },
         include: { service: true, staff: true },
       });
 
