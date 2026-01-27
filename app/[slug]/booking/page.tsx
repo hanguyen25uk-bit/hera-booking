@@ -226,7 +226,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       // Last slot must allow service to complete before closing
       const lastSlotTime = latestEnd - serviceDuration;
       const slots: string[] = [];
-      for (let m = earliestStart; m <= lastSlotTime; m += 30) {
+      for (let m = earliestStart; m <= lastSlotTime; m += 15) {
         const time = `${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`;
         if (findAvailableStaff(time)) slots.push(time);
       }
@@ -240,7 +240,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       // Last slot must allow service to complete before closing
       const lastSlotTime = endMinutes - serviceDuration;
       const slots: string[] = [];
-      for (let m = startMinutes; m <= lastSlotTime; m += 30) {
+      for (let m = startMinutes; m <= lastSlotTime; m += 15) {
         slots.push(`${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`);
       }
       return slots;
