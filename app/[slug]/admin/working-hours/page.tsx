@@ -34,7 +34,6 @@ export default function WorkingHoursPage() {
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>(getDefaultHours());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingAll, setSavingAll] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
@@ -114,36 +113,7 @@ export default function WorkingHoursPage() {
     }
   };
 
-  const handleApplyToAll = async () => {
-    if (!confirm(`Apply these working hours to all ${staff.length} staff members?`)) {
-      return;
-    }
-
-    setSavingAll(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch("/api/working-hours", {
-        credentials: "include",
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hours: workingHours, applyToAll: true }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setMessage({ type: "success", text: `Working hours applied to ${data.updated} staff members!` });
-      } else {
-        setMessage({ type: "error", text: "Failed to apply working hours" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: "Failed to apply working hours" });
-    } finally {
-      setSavingAll(false);
-      setTimeout(() => setMessage(null), 3000);
-    }
-  };
-
+  
   if (loading) {
     return (
       <div style={{ padding: 24, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "50vh" }}>
@@ -260,26 +230,10 @@ export default function WorkingHoursPage() {
         </table>
       </div>
 
-      <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end", gap: 12 }}>
-        <button
-          onClick={handleApplyToAll}
-          disabled={savingAll || saving}
-          style={{
-            padding: "12px 24px",
-            backgroundColor: savingAll ? "#9CA3AF" : "#6366f1",
-            color: "#FFFFFF",
-            border: "none",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: savingAll ? "not-allowed" : "pointer",
-          }}
-        >
-          {savingAll ? "Applying..." : "Apply to All Staff"}
-        </button>
+      <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
         <button
           onClick={handleSave}
-          disabled={saving || savingAll}
+          disabled={saving}
           style={{
             padding: "12px 24px",
             backgroundColor: saving ? "#9CA3AF" : "#EC4899",
