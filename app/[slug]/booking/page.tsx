@@ -38,7 +38,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingStaff, setLoadingStaff] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
@@ -46,10 +45,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [staffAvailability, setStaffAvailability] = useState<StaffAvailability | null>(null);
   const [allStaffAvailability, setAllStaffAvailability] = useState<Record<string, StaffAvailability>>({});
   const [reservedSlots, setReservedSlots] = useState<ReservedSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<ReservedSlot[]>([]);
+  const [staffBookedSlots, setStaffBookedSlots] = useState<Record<string, ReservedSlot[]>>({});
+  const [staffReservedSlots, setStaffReservedSlots] = useState<Record<string, ReservedSlot[]>>({});
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [assignedStaffId, setAssignedStaffId] = useState("");
   const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
@@ -63,9 +63,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [error, setError] = useState<string | null>(null);
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
 
-  const isAnyStaff = selectedStaffId === "any";
   const currentService = services.find((s) => s.id === selectedServiceId);
-  const currentStaff = staff.find((s) => s.id === (assignedStaffId || selectedStaffId));
+  const isAnyStaff = selectedStaffId === "any";
+  const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
   const filteredServices = selectedCategoryId ? services.filter(s => s.categoryId === selectedCategoryId) : services;
 
   // Load initial data
@@ -98,16 +98,19 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     loadData();
   }, [apiBase, slug]);
 
-  // Load staff when service selected
+  // Load staff who can perform the selected service
   useEffect(() => {
     if (!selectedServiceId) return;
+    // Reset staff and selections when service changes
+    setStaff([]);
+    setSelectedStaffId("");
+    setSelectedTime("");
+    setAssignedStaffId("");
     async function loadStaff() {
-      setLoadingStaff(true);
       try {
         const res = await fetch(`${apiBase}/staff?serviceId=${selectedServiceId}`);
         setStaff(await res.json());
       } catch (err) { console.error(err); }
-      finally { setLoadingStaff(false); }
     }
     loadStaff();
   }, [selectedServiceId, apiBase]);
@@ -123,40 +126,40 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load availability
+  // Load availability - always load ALL staff availability to show combined slots
   useEffect(() => {
-    if (!selectedStaffId || !selectedDate) return;
+    if (!selectedDate || staff.length === 0) return;
     async function loadAvailability() {
       setLoadingAvailability(true);
       setSelectedTime(""); setAssignedStaffId(""); setReservationExpiry(null);
       try {
-        if (selectedStaffId === "any") {
-          const availabilityMap: Record<string, StaffAvailability> = {};
-          await Promise.all(staff.map(async (s) => {
-            const res = await fetch(`${apiBase}/staff-availability?staffId=${s.id}&date=${selectedDate}`);
-            availabilityMap[s.id] = await res.json();
-          }));
-          setAllStaffAvailability(availabilityMap);
-          let allReserved: ReservedSlot[] = [], allBooked: ReservedSlot[] = [];
-          await Promise.all(staff.map(async (s) => {
-            const res = await fetch(`${apiBase}/slot-reservation?staffId=${s.id}&date=${selectedDate}&sessionId=${sessionId}`);
-            const data = await res.json();
-            if (data.reservations) allReserved = [...allReserved, ...data.reservations];
-            if (data.appointments) allBooked = [...allBooked, ...data.appointments];
-          }));
-          setReservedSlots(allReserved); setBookedSlots(allBooked);
-        } else {
-          const res = await fetch(`${apiBase}/staff-availability?staffId=${selectedStaffId}&date=${selectedDate}`);
-          setStaffAvailability(await res.json());
-          const resRes = await fetch(`${apiBase}/slot-reservation?staffId=${selectedStaffId}&date=${selectedDate}&sessionId=${sessionId}`);
-          const resData = await resRes.json();
-          setReservedSlots(resData.reservations || []); setBookedSlots(resData.appointments || []);
-        }
+        // Always load all staff availability to show combined time slots
+        const availabilityMap: Record<string, StaffAvailability> = {};
+        await Promise.all(staff.map(async (s) => {
+          const res = await fetch(`${apiBase}/staff-availability?staffId=${s.id}&date=${selectedDate}`);
+          availabilityMap[s.id] = await res.json();
+        }));
+        setAllStaffAvailability(availabilityMap);
+
+        // Load reservations and bookings for all staff (track per-staff)
+        let allReserved: ReservedSlot[] = [], allBooked: ReservedSlot[] = [];
+        const perStaffBooked: Record<string, ReservedSlot[]> = {};
+        const perStaffReserved: Record<string, ReservedSlot[]> = {};
+        await Promise.all(staff.map(async (s) => {
+          const res = await fetch(`${apiBase}/slot-reservation?staffId=${s.id}&date=${selectedDate}&sessionId=${sessionId}`);
+          const data = await res.json();
+          perStaffBooked[s.id] = data.appointments || [];
+          perStaffReserved[s.id] = data.reservations || [];
+          if (data.reservations) allReserved = [...allReserved, ...data.reservations];
+          if (data.appointments) allBooked = [...allBooked, ...data.appointments];
+        }));
+        setReservedSlots(allReserved); setBookedSlots(allBooked);
+        setStaffBookedSlots(perStaffBooked); setStaffReservedSlots(perStaffReserved);
       } catch (err) { console.error(err); }
       finally { setLoadingAvailability(false); }
     }
     loadAvailability();
-  }, [selectedStaffId, selectedDate, staff, sessionId, apiBase]);
+  }, [selectedDate, staff, sessionId, apiBase]);
 
   // Reservation timer
   useEffect(() => {
@@ -191,27 +194,44 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   const findAvailableStaff = (time: string): string | null => {
     const serviceDuration = currentService?.durationMinutes || 60;
+    const slotStart = new Date(`${selectedDate}T${time}:00`);
+    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+
     for (const member of staff) {
       const availability = allStaffAvailability[member.id];
       if (!availability?.available) continue;
+
+      // Check if within working hours
       const [timeH, timeM] = time.split(":").map(Number);
-      const slotStart = timeH * 60 + timeM;
-      const slotEnd = slotStart + serviceDuration;
+      const slotStartMin = timeH * 60 + timeM;
+      const slotEndMin = slotStartMin + serviceDuration;
       const [startH, startM] = (availability.startTime || "09:00").split(":").map(Number);
       const [endH, endM] = (availability.endTime || "17:00").split(":").map(Number);
       const availStart = startH * 60 + startM;
       const availEnd = endH * 60 + endM;
-      // Check if slot starts within hours AND service completes before closing
-      if (slotStart < availStart || slotEnd > availEnd) continue;
-      if (!isSlotBooked(time) && !isSlotReserved(time)) return member.id;
+      if (slotStartMin < availStart || slotEndMin > availEnd) continue;
+
+      // Check if this staff has the slot booked
+      const staffBooked = staffBookedSlots[member.id] || [];
+      const hasBooking = staffBooked.some(a => slotStart < new Date(a.endTime) && slotEnd > new Date(a.startTime));
+      if (hasBooking) continue;
+
+      // Check if this staff has the slot reserved
+      const staffReserved = staffReservedSlots[member.id] || [];
+      const hasReservation = staffReserved.some(r => slotStart < new Date(r.endTime) && slotEnd > new Date(r.startTime));
+      if (hasReservation) continue;
+
+      return member.id;
     }
     return null;
   };
 
   const generateTimeSlots = () => {
     const serviceDuration = currentService?.durationMinutes || 60;
+    const isAnyStaff = selectedStaffId === "any";
 
     if (isAnyStaff) {
+      // Combined availability from all staff
       let earliestStart = 24 * 60, latestEnd = 0, hasAvailable = false;
       for (const member of staff) {
         const availability = allStaffAvailability[member.id];
@@ -223,7 +243,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         latestEnd = Math.max(latestEnd, endH * 60 + endM);
       }
       if (!hasAvailable) return [];
-      // Last slot must allow service to complete before closing
       const lastSlotTime = latestEnd - serviceDuration;
       const slots: string[] = [];
       for (let m = earliestStart; m <= lastSlotTime; m += 15) {
@@ -232,23 +251,44 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       }
       return slots;
     } else {
-      if (!staffAvailability?.available) return [];
-      const [startH, startM] = (staffAvailability.startTime || "09:00").split(":").map(Number);
-      const [endH, endM] = (staffAvailability.endTime || "17:00").split(":").map(Number);
+      // Specific staff selected - show only their availability
+      const availability = allStaffAvailability[selectedStaffId];
+      if (!availability?.available) return [];
+      const [startH, startM] = (availability.startTime || "09:00").split(":").map(Number);
+      const [endH, endM] = (availability.endTime || "17:00").split(":").map(Number);
       const startMinutes = startH * 60 + startM;
       const endMinutes = endH * 60 + endM;
-      // Last slot must allow service to complete before closing
       const lastSlotTime = endMinutes - serviceDuration;
       const slots: string[] = [];
       for (let m = startMinutes; m <= lastSlotTime; m += 15) {
-        slots.push(`${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`);
+        const time = `${Math.floor(m / 60).toString().padStart(2, "0")}:${(m % 60).toString().padStart(2, "0")}`;
+        // Check if slot is available for this specific staff
+        if (isSlotAvailableForStaff(time, selectedStaffId)) slots.push(time);
       }
       return slots;
     }
   };
 
+  const isSlotAvailableForStaff = (time: string, staffId: string): boolean => {
+    const serviceDuration = currentService?.durationMinutes || 60;
+    const slotStart = new Date(`${selectedDate}T${time}:00`);
+    const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+
+    // Check if slot conflicts with booked appointments for THIS staff
+    const staffBooked = staffBookedSlots[staffId] || [];
+    const hasConflict = staffBooked.some(a => slotStart < new Date(a.endTime) && slotEnd > new Date(a.startTime));
+
+    // Check reserved slots for THIS staff
+    const staffReserved = staffReservedSlots[staffId] || [];
+    const isReserved = staffReserved.some(r => slotStart < new Date(r.endTime) && slotEnd > new Date(r.startTime));
+
+    return !hasConflict && !isReserved;
+  };
+
   const timeSlots = generateTimeSlots();
-  const isStaffOnDayOff = !isAnyStaff && staffAvailability && !staffAvailability.available;
+  const selectedStaffAvailability = selectedStaffId && selectedStaffId !== "any" ? allStaffAvailability[selectedStaffId] : null;
+  const isSelectedStaffOff = selectedStaffAvailability && !selectedStaffAvailability.available;
+  const noStaffAvailable = selectedStaffId === "any" && Object.values(allStaffAvailability).every(a => !a.available);
 
   const isTimeSlotPast = (time: string) => {
     const now = new Date(), today = now.toISOString().split("T")[0];
@@ -260,6 +300,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   };
 
   const handleTimeSelect = async (time: string) => {
+    const isAnyStaff = selectedStaffId === "any";
+    // Use selected staff or find an available one
     const finalStaffId = isAnyStaff ? findAvailableStaff(time) : selectedStaffId;
     if (!finalStaffId) return;
     setReserving(true); setError(null);
@@ -281,6 +323,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault(); setError(null);
+    const isAnyStaff = selectedStaffId === "any";
     const finalStaffId = isAnyStaff ? assignedStaffId : selectedStaffId;
     if (!selectedServiceId || !finalStaffId || !selectedDate || !selectedTime) { setError("Please complete all selections."); return; }
     if (!customerName || !customerPhone || !customerEmail) { setError("Please fill in your details."); return; }
@@ -469,23 +512,21 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {step === 2 && (
               <>
                 <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Specialist</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select your preferred technician</p>
-                {loadingStaff ? <p>Loading...</p> : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⭐</div>
-                      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 13 }}>First available specialist</div></div>
-                      {selectedStaffId === "any" && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
-                    </div>
-                    {staff.map((m) => (
-                      <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{m.name.charAt(0)}</div>
-                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 13 }}>{m.role || "Nail Technician"}</div></div>
-                        {selectedStaffId === m.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
-                      </div>
-                    ))}
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select your preferred technician or let us assign one</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⭐</div>
+                    <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 13 }}>First available specialist</div></div>
+                    {selectedStaffId === "any" && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
                   </div>
-                )}
+                  {staff.map((m) => (
+                    <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{m.name.charAt(0)}</div>
+                      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 13 }}>{m.role || "Nail Technician"}</div></div>
+                      {selectedStaffId === m.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
+                    </div>
+                  ))}
+                </div>
                 <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
                   <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
                   <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Continue</button>
@@ -502,9 +543,14 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
                   <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} />
                 </div>
-                {loadingAvailability ? <p>Checking availability...</p> : isStaffOnDayOff ? (
+                {loadingAvailability ? <p>Checking availability...</p> : isSelectedStaffOff ? (
                   <div style={{ padding: 16, background: "#fef3c7", borderRadius: 12, marginBottom: 20 }}>
-                    <strong style={{ color: "#92400e" }}>{currentStaff?.name} is not available</strong>
+                    <strong style={{ color: "#92400e" }}>{currentStaff?.name || "This specialist"} is not available on this date</strong>
+                    <p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 13 }}>Please select another date or choose a different specialist.</p>
+                  </div>
+                ) : noStaffAvailable ? (
+                  <div style={{ padding: 16, background: "#fef3c7", borderRadius: 12, marginBottom: 20 }}>
+                    <strong style={{ color: "#92400e" }}>No staff available on this date</strong>
                     <p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 13 }}>Please select another date.</p>
                   </div>
                 ) : timeSlots.length === 0 ? (
@@ -514,8 +560,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Available Times</label>
                     <div className="time-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                       {timeSlots.map((time) => {
-                        const past = isTimeSlotPast(time), reserved = !isAnyStaff && isSlotReserved(time), booked = !isAnyStaff && isSlotBooked(time), unavailable = past || reserved || booked;
-                        return <button key={time} disabled={unavailable || reserving} onClick={() => handleTimeSelect(time)} style={{ padding: 12, borderRadius: 8, border: `2px solid ${selectedTime === time ? "#6366f1" : "#e2e8f0"}`, background: selectedTime === time ? "#6366f1" : unavailable ? "#f1f5f9" : "#fff", color: selectedTime === time ? "#fff" : unavailable ? "#94a3b8" : "#1e293b", fontSize: 14, fontWeight: 600, cursor: unavailable ? "not-allowed" : "pointer" }}>{time}</button>;
+                        const past = isTimeSlotPast(time);
+                        return <button key={time} disabled={past || reserving} onClick={() => handleTimeSelect(time)} style={{ padding: 12, borderRadius: 8, border: `2px solid ${selectedTime === time ? "#6366f1" : "#e2e8f0"}`, background: selectedTime === time ? "#6366f1" : past ? "#f1f5f9" : "#fff", color: selectedTime === time ? "#fff" : past ? "#94a3b8" : "#1e293b", fontSize: 14, fontWeight: 600, cursor: past ? "not-allowed" : "pointer" }}>{time}</button>;
                       })}
                     </div>
                     {reserving && <p style={{ color: "#6366f1", marginTop: 12, fontSize: 14 }}>Reserving...</p>}
