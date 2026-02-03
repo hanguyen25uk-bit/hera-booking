@@ -9,6 +9,7 @@ type StaffAvailability = { available: boolean; reason?: string; startTime?: stri
 type ReservedSlot = { startTime: string; endTime: string };
 type PolicyItem = { icon: string; title: string; description: string };
 type Step = 1 | 2 | 3 | 4 | 5;
+type Discount = { id: string; name: string; discountPercent: number; startTime: string; endTime: string; daysOfWeek: number[]; serviceIds: string[]; staffIds: string[] };
 
 function generateSessionId() {
   return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -37,6 +38,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -68,14 +70,57 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
   const filteredServices = selectedCategoryId ? services.filter(s => s.categoryId === selectedCategoryId) : services;
 
+  // Get applicable discount for a service
+  function getApplicableDiscount(serviceId: string, date?: string, time?: string, staffId?: string): Discount | null {
+    if (!discounts.length) return null;
+
+    // If no date/time selected, check if any discount could potentially apply
+    const checkDate = date ? new Date(date) : new Date();
+    const dayOfWeek = checkDate.getDay();
+    const checkTime = time || new Date().toTimeString().slice(0, 5);
+
+    for (const discount of discounts) {
+      // Check if service is included
+      if (!discount.serviceIds.includes(serviceId)) continue;
+
+      // Check if day is included
+      if (!discount.daysOfWeek.includes(dayOfWeek)) continue;
+
+      // Check if time is within range
+      if (checkTime < discount.startTime || checkTime >= discount.endTime) continue;
+
+      // Check if staff matches (empty staffIds means all staff)
+      if (staffId && discount.staffIds.length > 0 && !discount.staffIds.includes(staffId)) continue;
+
+      return discount;
+    }
+    return null;
+  }
+
+  // Calculate discounted price
+  function getDiscountedPrice(originalPrice: number, discount: Discount | null): number {
+    if (!discount) return originalPrice;
+    return originalPrice * (1 - discount.discountPercent / 100);
+  }
+
+  // Get the current applicable discount for selected service
+  const currentDiscount = selectedServiceId ? getApplicableDiscount(
+    selectedServiceId,
+    selectedDate,
+    selectedTime,
+    isAnyStaff ? assignedStaffId : selectedStaffId
+  ) : null;
+  const finalPrice = currentService ? getDiscountedPrice(currentService.price, currentDiscount) : 0;
+
   // Load initial data
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, categoriesRes, policyRes] = await Promise.all([
+        const [servicesRes, categoriesRes, policyRes, discountsRes] = await Promise.all([
           fetch(`${apiBase}/services`),
           fetch(`${apiBase}/categories`),
-          fetch(`${apiBase}/booking-policy`)
+          fetch(`${apiBase}/booking-policy`),
+          fetch(`${apiBase}/discounts`)
         ]);
 
         if (!servicesRes.ok) {
@@ -89,6 +134,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         setPolicyTitle(policyData.title || "Our Booking Policy");
         setPolicyItems(policyData.policies || []);
         setSalonName(slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+        if (discountsRes.ok) {
+          setDiscounts(await discountsRes.json());
+        }
       } catch (err) {
         setError("Failed to load. Please refresh.");
       } finally {
@@ -463,7 +511,18 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 12 }}>Your Selection</div>
               <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>✨ {currentService.name}</div>
               {currentStaff && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>👤 {currentStaff.name}</div>}
-              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 13 }}>📅 {selectedDate} at {selectedTime}</div>}
+              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>📅 {selectedDate} at {selectedTime}</div>}
+              <div style={{ color: "#fff", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+                💰 {currentDiscount ? (
+                  <>
+                    <span style={{ color: "#10b981", fontWeight: 600 }}>£{finalPrice.toFixed(2)}</span>
+                    <span style={{ color: "#64748b", textDecoration: "line-through", fontSize: 12 }}>£{currentService.price}</span>
+                    <span style={{ background: "#10b981", color: "#fff", padding: "2px 6px", borderRadius: 8, fontSize: 10, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
+                  </>
+                ) : (
+                  <span>£{currentService.price}</span>
+                )}
+              </div>
               {reservationTimer > 0 && <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 600, marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>⏱️ Reserved for {formatTimer(reservationTimer)}</div>}
             </div>
           )}
@@ -478,7 +537,43 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {step === 1 && (
               <>
                 <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Service</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select the service you would like to book</p>
+                <p style={{ color: "#64748b", marginBottom: 16, fontSize: 14 }}>Select the service you would like to book</p>
+
+                {/* Quiet Time Discount Banner */}
+                {discounts.length > 0 && (
+                  <div style={{
+                    background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                    borderRadius: 16,
+                    padding: 20,
+                    marginBottom: 24,
+                    color: "#fff",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}>
+                    <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.15 }}>🏷️</div>
+                    <div style={{ position: "relative" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 24 }}>⏰</span>
+                        <span style={{ fontSize: 18, fontWeight: 700 }}>Quiet Time Deals!</span>
+                      </div>
+                      <p style={{ fontSize: 14, opacity: 0.95, margin: "0 0 12px", lineHeight: 1.5 }}>
+                        Book during our quiet hours and save up to <strong>{Math.max(...discounts.map(d => d.discountPercent))}%</strong> on selected services!
+                      </p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {discounts.slice(0, 2).map(d => (
+                          <div key={d.id} style={{
+                            background: "rgba(255,255,255,0.2)",
+                            borderRadius: 8,
+                            padding: "8px 12px",
+                            fontSize: 12,
+                          }}>
+                            <strong>{d.discountPercent}% OFF</strong> • {d.startTime}-{d.endTime} • {d.daysOfWeek.map(day => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day]).join(", ")}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Category Tabs */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
@@ -490,18 +585,85 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
                 {/* Services */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {filteredServices.map((service) => (
-                    <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{ padding: 16, borderRadius: 12, border: `2px solid ${selectedServiceId === service.id ? "#6366f1" : "#e2e8f0"}`, background: selectedServiceId === service.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{service.name}</div>
-                          {service.description && <div style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>{service.description}</div>}
-                          <div style={{ color: "#64748b", fontSize: 13 }}>{service.durationMinutes} min</div>
+                  {filteredServices.map((service) => {
+                    const discount = getApplicableDiscount(service.id);
+                    const discountedPrice = discount ? getDiscountedPrice(service.price, discount) : null;
+                    const savings = discount ? (service.price - (discountedPrice || 0)) : 0;
+                    return (
+                      <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        border: `2px solid ${selectedServiceId === service.id ? "#6366f1" : discount ? "#10b981" : "#e2e8f0"}`,
+                        background: selectedServiceId === service.id ? "#f5f3ff" : discount ? "#f0fdf4" : "#fff",
+                        cursor: "pointer",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}>
+                        {discount && (
+                          <div style={{
+                            position: "absolute",
+                            top: 12,
+                            right: -35,
+                            background: "linear-gradient(135deg, #059669, #10b981)",
+                            color: "#fff",
+                            padding: "4px 40px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            transform: "rotate(45deg)",
+                          }}>
+                            SAVE £{savings.toFixed(0)}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                          <div style={{ flex: 1, paddingRight: discount ? 50 : 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 600, fontSize: 15 }}>{service.name}</span>
+                              {discount && (
+                                <span style={{
+                                  padding: "4px 10px",
+                                  borderRadius: 20,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  background: "linear-gradient(135deg, #059669, #10b981)",
+                                  color: "#fff",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                }}>
+                                  ⏰ {discount.discountPercent}% OFF
+                                </span>
+                              )}
+                            </div>
+                            {service.description && <div style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>{service.description}</div>}
+                            <div style={{ color: "#64748b", fontSize: 13 }}>{service.durationMinutes} min</div>
+                            {discount && (
+                              <div style={{
+                                marginTop: 8,
+                                padding: "6px 10px",
+                                background: "#ecfdf5",
+                                borderRadius: 6,
+                                fontSize: 11,
+                                color: "#047857",
+                                display: "inline-block",
+                              }}>
+                                ⏰ Quiet time: {discount.startTime} - {discount.endTime}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            {discountedPrice !== null ? (
+                              <>
+                                <div style={{ fontWeight: 700, fontSize: 18, color: "#059669" }}>£{discountedPrice.toFixed(2)}</div>
+                                <div style={{ fontSize: 13, color: "#94a3b8", textDecoration: "line-through" }}>£{service.price}</div>
+                              </>
+                            ) : (
+                              <div style={{ fontWeight: 700, fontSize: 16, color: "#6366f1" }}>£{service.price}</div>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: 16, color: "#6366f1" }}>£{service.price}</div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{ width: "100%", marginTop: 24, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Continue</button>
@@ -610,6 +772,19 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Service</span><span style={{ fontWeight: 600 }}>{currentService?.name}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Specialist</span><span style={{ fontWeight: 600 }}>{currentStaff?.name}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}>
+                    <span style={{ color: "#64748b" }}>Price</span>
+                    <span style={{ fontWeight: 600 }}>
+                      {currentDiscount ? (
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: "#059669" }}>£{finalPrice.toFixed(2)}</span>
+                          <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: 12 }}>£{currentService?.price}</span>
+                        </span>
+                      ) : (
+                        <span>£{currentService?.price}</span>
+                      )}
+                    </span>
+                  </div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Booking ID</span><span style={{ fontWeight: 600 }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
                 </div>
                 <p style={{ color: "#64748b", marginBottom: 20, fontSize: 14 }}>📧 Confirmation sent to {customerEmail}</p>

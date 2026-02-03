@@ -16,11 +16,17 @@ type Appointment = {
 
 type Staff = { id: string; name: string; role?: string };
 type Service = { id: string; name: string; durationMinutes: number; price: number };
-type StaffAvailability = { 
-  available: boolean; 
-  reason?: string; 
-  startTime?: string; 
+type StaffAvailability = {
+  available: boolean;
+  reason?: string;
+  startTime?: string;
   endTime?: string;
+};
+type ReceiptItem = {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
 };
 
 export default function CalendarPage() {
@@ -58,6 +64,18 @@ export default function CalendarPage() {
   const [editBookedSlots, setEditBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
+  // Receipt state
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [salonInfo, setSalonInfo] = useState<{ name: string; address?: string; phone?: string } | null>(null);
+  const [sendingReceipt, setSendingReceipt] = useState(false);
+
+  // Receipt editor state
+  const [showReceiptEditor, setShowReceiptEditor] = useState(false);
+  const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([]);
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemPrice, setNewItemPrice] = useState("");
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
   // Update current time every minute
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -91,6 +109,18 @@ export default function CalendarPage() {
       setVisibleStaff(new Set(staffData.map((s: Staff) => s.id)));
     } catch (err) { console.error(err); }
   }
+
+  async function loadSalonInfo() {
+    try {
+      const res = await fetch("/api/settings", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setSalonInfo({ name: data.name || "Salon", address: data.address, phone: data.phone });
+      }
+    } catch (err) { console.error(err); }
+  }
+
+  useEffect(function() { loadSalonInfo(); }, []);
 
   async function loadData() {
     setLoading(true);
@@ -511,6 +541,441 @@ export default function CalendarPage() {
       setMessage({ type: "error", text: err.message });
     } finally {
       setSaving(false);
+    }
+  }
+
+  function generateReceiptNumber(appointmentId: string) {
+    const date = new Date();
+    const dateStr = date.toISOString().slice(2, 10).replace(/-/g, "");
+    const shortId = appointmentId.slice(-6).toUpperCase();
+    return `RCP-${dateStr}-${shortId}`;
+  }
+
+  function printReceipt() {
+    if (!selectedAppointment) return;
+
+    const receiptNumber = generateReceiptNumber(selectedAppointment.id);
+    const printDate = new Date().toLocaleString("en-GB");
+    const appointmentDate = new Date(selectedAppointment.startTime).toLocaleDateString("en-GB", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric"
+    });
+    const appointmentTime = new Date(selectedAppointment.startTime).toLocaleTimeString("en-GB", {
+      hour: "2-digit", minute: "2-digit"
+    });
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${receiptNumber}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+          .receipt { border: 1px dashed #000; padding: 20px; }
+          .header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed #000; }
+          .salon-name { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+          .salon-info { font-size: 11px; color: #333; }
+          .receipt-title { font-size: 16px; font-weight: bold; margin: 15px 0 10px; text-align: center; }
+          .receipt-number { font-size: 12px; text-align: center; margin-bottom: 15px; }
+          .section { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ccc; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+          .label { color: #666; }
+          .value { font-weight: bold; text-align: right; }
+          .service-name { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+          .total-section { margin-top: 15px; padding-top: 15px; border-top: 2px solid #000; }
+          .total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; }
+          .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #666; }
+          .thank-you { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+          @media print {
+            body { padding: 0; }
+            .receipt { border: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <div class="salon-name">${salonInfo?.name || "Salon"}</div>
+            ${salonInfo?.address ? `<div class="salon-info">${salonInfo.address}</div>` : ""}
+            ${salonInfo?.phone ? `<div class="salon-info">Tel: ${salonInfo.phone}</div>` : ""}
+          </div>
+
+          <div class="receipt-title">RECEIPT</div>
+          <div class="receipt-number">${receiptNumber}</div>
+
+          <div class="section">
+            <div class="row">
+              <span class="label">Date:</span>
+              <span class="value">${appointmentDate}</span>
+            </div>
+            <div class="row">
+              <span class="label">Time:</span>
+              <span class="value">${appointmentTime}</span>
+            </div>
+            <div class="row">
+              <span class="label">Staff:</span>
+              <span class="value">${selectedAppointment.staff.name}</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="row">
+              <span class="label">Customer:</span>
+              <span class="value">${selectedAppointment.customerName}</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="service-name">${selectedAppointment.service.name}</div>
+            <div class="row">
+              <span class="label">Duration:</span>
+              <span class="value">${selectedAppointment.service.durationMinutes} mins</span>
+            </div>
+            <div class="row">
+              <span class="label">Price:</span>
+              <span class="value">£${selectedAppointment.service.price.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="total-section">
+            <div class="total-row">
+              <span>TOTAL</span>
+              <span>£${selectedAppointment.service.price.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <div class="thank-you">Thank you for your visit!</div>
+            <div>Printed: ${printDate}</div>
+          </div>
+        </div>
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  async function sendReceiptEmail() {
+    if (!selectedAppointment) return;
+
+    // Check if customer has a valid email
+    if (!selectedAppointment.customerEmail || selectedAppointment.customerEmail === "walkin@salon.com") {
+      setMessage({ type: "error", text: "Customer does not have a valid email address" });
+      return;
+    }
+
+    setSendingReceipt(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`/api/appointments/${selectedAppointment.id}/receipt`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send receipt");
+      }
+
+      setMessage({ type: "success", text: `Receipt sent to ${selectedAppointment.customerEmail}` });
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setSendingReceipt(false);
+    }
+  }
+
+  // Receipt Editor Functions
+  function openReceiptEditor() {
+    if (!selectedAppointment) return;
+    // Initialize with the main service
+    setReceiptItems([{
+      id: "main-service",
+      name: selectedAppointment.service.name,
+      price: selectedAppointment.service.price,
+      quantity: 1,
+    }]);
+    setNewItemName("");
+    setNewItemPrice("");
+    setShowReceiptEditor(true);
+  }
+
+  function addReceiptItem() {
+    if (!newItemName.trim() || !newItemPrice) return;
+    const price = parseFloat(newItemPrice);
+    if (isNaN(price) || price < 0) return;
+
+    setReceiptItems(prev => [...prev, {
+      id: `item-${Date.now()}`,
+      name: newItemName.trim(),
+      price: price,
+      quantity: 1,
+    }]);
+    setNewItemName("");
+    setNewItemPrice("");
+  }
+
+  function removeReceiptItem(itemId: string) {
+    setReceiptItems(prev => prev.filter(item => item.id !== itemId));
+  }
+
+  function updateItemQuantity(itemId: string, quantity: number) {
+    if (quantity < 1) return;
+    setReceiptItems(prev => prev.map(item =>
+      item.id === itemId ? { ...item, quantity } : item
+    ));
+  }
+
+  function calculateTotal() {
+    return receiptItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  }
+
+  async function previewReceiptPdf() {
+    if (!selectedAppointment) return;
+    setGeneratingPdf(true);
+
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "mm", format: [80, 200] }); // Receipt size
+
+      const receiptNumber = generateReceiptNumber(selectedAppointment.id);
+      const appointmentDate = new Date(selectedAppointment.startTime);
+      let y = 10;
+
+      // Header
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(salonInfo?.name || "Salon", 40, y, { align: "center" });
+      y += 5;
+
+      if (salonInfo?.address) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(salonInfo.address, 40, y, { align: "center" });
+        y += 4;
+      }
+      if (salonInfo?.phone) {
+        doc.setFontSize(8);
+        doc.text(`Tel: ${salonInfo.phone}`, 40, y, { align: "center" });
+        y += 4;
+      }
+
+      // Divider
+      y += 3;
+      doc.setLineWidth(0.1);
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, y, 75, y);
+      y += 6;
+
+      // Receipt title
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("RECEIPT", 40, y, { align: "center" });
+      y += 5;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(receiptNumber, 40, y, { align: "center" });
+      y += 6;
+
+      // Date & Customer
+      doc.setFontSize(8);
+      doc.text(`Date: ${appointmentDate.toLocaleDateString("en-GB")}`, 5, y);
+      y += 4;
+      doc.text(`Time: ${appointmentDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`, 5, y);
+      y += 4;
+      doc.text(`Customer: ${selectedAppointment.customerName}`, 5, y);
+      y += 4;
+      doc.text(`Staff: ${selectedAppointment.staff.name}`, 5, y);
+      y += 6;
+
+      // Divider
+      doc.line(5, y, 75, y);
+      y += 4;
+
+      // Items
+      doc.setFont("helvetica", "bold");
+      doc.text("Item", 5, y);
+      doc.text("Qty", 45, y);
+      doc.text("Price", 75, y, { align: "right" });
+      y += 4;
+      doc.setFont("helvetica", "normal");
+
+      receiptItems.forEach(item => {
+        const itemName = item.name.length > 20 ? item.name.substring(0, 20) + "..." : item.name;
+        doc.text(itemName, 5, y);
+        doc.text(item.quantity.toString(), 48, y);
+        doc.text(`£${(item.price * item.quantity).toFixed(2)}`, 75, y, { align: "right" });
+        y += 4;
+      });
+
+      // Total
+      y += 2;
+      doc.line(5, y, 75, y);
+      y += 5;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("TOTAL", 5, y);
+      doc.text(`£${calculateTotal().toFixed(2)}`, 75, y, { align: "right" });
+      y += 8;
+
+      // Footer
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Thank you for your visit!", 40, y, { align: "center" });
+      y += 5;
+      doc.setFontSize(7);
+      doc.text(`Printed: ${new Date().toLocaleString("en-GB")}`, 40, y, { align: "center" });
+
+      // Open in new window for preview
+      const pdfBlob = doc.output("blob");
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, "_blank");
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      setMessage({ type: "error", text: "Failed to generate PDF" });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
+  async function sendReceiptPdfEmail() {
+    if (!selectedAppointment) return;
+
+    if (!selectedAppointment.customerEmail || selectedAppointment.customerEmail === "walkin@salon.com") {
+      setMessage({ type: "error", text: "Customer does not have a valid email address" });
+      return;
+    }
+
+    setGeneratingPdf(true);
+    setMessage(null);
+
+    try {
+      // Generate PDF first
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "mm", format: [80, 200] });
+
+      const receiptNumber = generateReceiptNumber(selectedAppointment.id);
+      const appointmentDate = new Date(selectedAppointment.startTime);
+      let y = 10;
+
+      // Header
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(salonInfo?.name || "Salon", 40, y, { align: "center" });
+      y += 5;
+
+      if (salonInfo?.address) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(salonInfo.address, 40, y, { align: "center" });
+        y += 4;
+      }
+      if (salonInfo?.phone) {
+        doc.setFontSize(8);
+        doc.text(`Tel: ${salonInfo.phone}`, 40, y, { align: "center" });
+        y += 4;
+      }
+
+      // Divider
+      y += 3;
+      doc.setLineWidth(0.1);
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, y, 75, y);
+      y += 6;
+
+      // Receipt title
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("RECEIPT", 40, y, { align: "center" });
+      y += 5;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(receiptNumber, 40, y, { align: "center" });
+      y += 6;
+
+      // Date & Customer
+      doc.setFontSize(8);
+      doc.text(`Date: ${appointmentDate.toLocaleDateString("en-GB")}`, 5, y);
+      y += 4;
+      doc.text(`Time: ${appointmentDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`, 5, y);
+      y += 4;
+      doc.text(`Customer: ${selectedAppointment.customerName}`, 5, y);
+      y += 4;
+      doc.text(`Staff: ${selectedAppointment.staff.name}`, 5, y);
+      y += 6;
+
+      // Divider
+      doc.line(5, y, 75, y);
+      y += 4;
+
+      // Items
+      doc.setFont("helvetica", "bold");
+      doc.text("Item", 5, y);
+      doc.text("Qty", 45, y);
+      doc.text("Price", 75, y, { align: "right" });
+      y += 4;
+      doc.setFont("helvetica", "normal");
+
+      receiptItems.forEach(item => {
+        const itemName = item.name.length > 20 ? item.name.substring(0, 20) + "..." : item.name;
+        doc.text(itemName, 5, y);
+        doc.text(item.quantity.toString(), 48, y);
+        doc.text(`£${(item.price * item.quantity).toFixed(2)}`, 75, y, { align: "right" });
+        y += 4;
+      });
+
+      // Total
+      y += 2;
+      doc.line(5, y, 75, y);
+      y += 5;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("TOTAL", 5, y);
+      doc.text(`£${calculateTotal().toFixed(2)}`, 75, y, { align: "right" });
+      y += 8;
+
+      // Footer
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Thank you for your visit!", 40, y, { align: "center" });
+      y += 5;
+      doc.setFontSize(7);
+      doc.text(`Printed: ${new Date().toLocaleString("en-GB")}`, 40, y, { align: "center" });
+
+      // Get PDF as base64
+      const pdfBase64 = doc.output("datauristring").split(",")[1];
+
+      // Send to API
+      const res = await fetch(`/api/appointments/${selectedAppointment.id}/receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          pdfBase64,
+          receiptNumber,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send receipt");
+      }
+
+      setMessage({ type: "success", text: `Receipt PDF sent to ${selectedAppointment.customerEmail}` });
+      setShowReceiptEditor(false);
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setGeneratingPdf(false);
     }
   }
 
@@ -1120,7 +1585,7 @@ export default function CalendarPage() {
                           </div>
                         </>
                       )}
-                      
+
                       {(selectedAppointment.status === "cancelled" || selectedAppointment.status === "no-show") && (
                         <>
                           <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 8, background: "#059669", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Restore</button>
@@ -1128,7 +1593,13 @@ export default function CalendarPage() {
                         </>
                       )}
 
-                      <button onClick={closeModal} style={{ padding: 14, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 15, cursor: "pointer", marginTop: 8 }}>Close</button>
+                      <button
+                        onClick={openReceiptEditor}
+                        style={{ padding: 14, border: "none", borderRadius: 8, background: "#6366F1", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                      >
+                        <span>🧾</span> Create Receipt
+                      </button>
+                      <button onClick={closeModal} style={{ padding: 14, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 15, cursor: "pointer" }}>Close</button>
                     </div>
                   )}
                 </>
@@ -1211,6 +1682,129 @@ export default function CalendarPage() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Editor Modal */}
+      {showReceiptEditor && selectedAppointment && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, width: "100%", maxWidth: 500, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
+            {/* Header */}
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>Create Receipt</h2>
+              <button onClick={() => setShowReceiptEditor(false)} style={{ width: 32, height: 32, border: "none", background: "rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", fontSize: 18, color: "#FFFFFF" }}>×</button>
+            </div>
+
+            <div style={{ padding: 24 }}>
+              {/* Customer Info */}
+              <div style={{ marginBottom: 20, padding: 16, background: "#F8FAFC", borderRadius: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748B", textTransform: "uppercase", marginBottom: 4 }}>Customer</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#1E293B" }}>{selectedAppointment.customerName}</div>
+                <div style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>
+                  {new Date(selectedAppointment.startTime).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                  {" - "}
+                  {selectedAppointment.staff.name}
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 12 }}>Items</div>
+                {receiptItems.map((item, index) => (
+                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: index < receiptItems.length - 1 ? "1px solid #E5E7EB" : "none" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: "#1E293B" }}>{item.name}</div>
+                      <div style={{ fontSize: 13, color: "#64748B" }}>£{item.price.toFixed(2)} each</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                        disabled={item.quantity <= 1}
+                        style={{ width: 28, height: 28, border: "1px solid #E5E7EB", borderRadius: 6, background: "#FFFFFF", cursor: item.quantity > 1 ? "pointer" : "not-allowed", fontSize: 16, color: item.quantity > 1 ? "#374151" : "#D1D5DB" }}
+                      >-</button>
+                      <span style={{ width: 24, textAlign: "center", fontSize: 14, fontWeight: 600 }}>{item.quantity}</span>
+                      <button
+                        onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                        style={{ width: 28, height: 28, border: "1px solid #E5E7EB", borderRadius: 6, background: "#FFFFFF", cursor: "pointer", fontSize: 16, color: "#374151" }}
+                      >+</button>
+                    </div>
+                    <div style={{ width: 70, textAlign: "right", fontSize: 14, fontWeight: 600, color: "#1E293B" }}>
+                      £{(item.price * item.quantity).toFixed(2)}
+                    </div>
+                    {item.id !== "main-service" && (
+                      <button
+                        onClick={() => removeReceiptItem(item.id)}
+                        style={{ width: 28, height: 28, border: "none", borderRadius: 6, background: "#FEE2E2", cursor: "pointer", fontSize: 14, color: "#DC2626" }}
+                      >×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Item Form */}
+              <div style={{ marginBottom: 20, padding: 16, background: "#F0FDF4", borderRadius: 12, border: "1px dashed #10B981" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#059669", marginBottom: 12 }}>+ Add Extra Item</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Item name (e.g., Nail Art)"
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    style={{ flex: 1, padding: 10, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={newItemPrice}
+                    onChange={(e) => setNewItemPrice(e.target.value)}
+                    style={{ width: 80, padding: 10, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+                    min="0"
+                    step="0.01"
+                  />
+                  <button
+                    onClick={addReceiptItem}
+                    disabled={!newItemName.trim() || !newItemPrice}
+                    style={{ padding: "10px 16px", border: "none", borderRadius: 8, background: newItemName.trim() && newItemPrice ? "#10B981" : "#E5E7EB", color: newItemName.trim() && newItemPrice ? "#FFFFFF" : "#9CA3AF", fontWeight: 600, cursor: newItemName.trim() && newItemPrice ? "pointer" : "not-allowed" }}
+                  >Add</button>
+                </div>
+              </div>
+
+              {/* Total */}
+              <div style={{ padding: 16, background: "linear-gradient(135deg, #1E293B, #334155)", borderRadius: 12, marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}>Total Amount</span>
+                  <span style={{ color: "#FFFFFF", fontSize: 28, fontWeight: 700 }}>£{calculateTotal().toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={previewReceiptPdf}
+                    disabled={generatingPdf}
+                    style={{ flex: 1, padding: 14, border: "none", borderRadius: 8, background: "#6366F1", color: "#FFFFFF", fontSize: 14, fontWeight: 600, cursor: generatingPdf ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: generatingPdf ? 0.7 : 1 }}
+                  >
+                    <span>👁</span> {generatingPdf ? "Loading..." : "Preview Receipt"}
+                  </button>
+                  <button
+                    onClick={sendReceiptPdfEmail}
+                    disabled={generatingPdf || !selectedAppointment.customerEmail || selectedAppointment.customerEmail === "walkin@salon.com"}
+                    style={{ flex: 1, padding: 14, border: "none", borderRadius: 8, background: "#10B981", color: "#FFFFFF", fontSize: 14, fontWeight: 600, cursor: (generatingPdf || !selectedAppointment.customerEmail || selectedAppointment.customerEmail === "walkin@salon.com") ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: (generatingPdf || !selectedAppointment.customerEmail || selectedAppointment.customerEmail === "walkin@salon.com") ? 0.7 : 1 }}
+                  >
+                    <span>📧</span> {generatingPdf ? "Sending..." : "Email to Customer"}
+                  </button>
+                </div>
+                {(!selectedAppointment.customerEmail || selectedAppointment.customerEmail === "walkin@salon.com") && (
+                  <p style={{ fontSize: 12, color: "#DC2626", textAlign: "center", margin: "4px 0 0" }}>Customer has no email - download PDF instead</p>
+                )}
+                <button
+                  onClick={() => setShowReceiptEditor(false)}
+                  style={{ padding: 14, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 15, cursor: "pointer" }}
+                >Cancel</button>
+              </div>
             </div>
           </div>
         </div>

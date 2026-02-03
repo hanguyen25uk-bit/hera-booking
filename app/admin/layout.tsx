@@ -32,6 +32,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const menuItems = [
     { href: "/admin/calendar", label: "Calendar", icon: CalendarIcon, badge: null },
+    { href: "/admin/receipts", label: "Receipts", icon: ReceiptIcon, badge: null },
+    { href: "/admin/discounts", label: "Discounts", icon: DiscountIcon, badge: null },
     { href: "/admin/services", label: "Services", icon: ServicesIcon, badge: null },
     { href: "/admin/staff", label: "Staff", icon: StaffIcon, badge: null },
     { href: "/admin/working-hours", label: "Working Hours", icon: ClockIcon, badge: null },
@@ -263,6 +265,26 @@ function CalendarIcon({ active }: { active?: boolean }) {
       <line x1="16" y1="2" x2="16" y2="6"/>
       <line x1="8" y1="2" x2="8" y2="6"/>
       <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  );
+}
+
+function ReceiptIcon({ active }: { active?: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#1A1A1A" : "#666666"} strokeWidth="2">
+      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="12" y2="14"/>
+    </svg>
+  );
+}
+
+function DiscountIcon({ active }: { active?: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={active ? "#1A1A1A" : "#666666"} strokeWidth="2">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+      <line x1="7" y1="7" x2="7.01" y2="7"/>
     </svg>
   );
 }

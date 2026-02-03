@@ -245,3 +245,253 @@ export async function sendCancellationConfirmation(data: {
     return { success: false, error };
   }
 }
+
+export async function sendReceipt(data: {
+  customerEmail: string;
+  customerName: string;
+  serviceName: string;
+  servicePrice: number;
+  serviceDuration: number;
+  staffName: string;
+  appointmentDate: Date;
+  receiptNumber: string;
+  salonName?: string;
+  salonPhone?: string;
+  salonAddress?: string;
+}) {
+  const {
+    customerEmail,
+    customerName,
+    serviceName,
+    servicePrice,
+    serviceDuration,
+    staffName,
+    appointmentDate,
+    receiptNumber,
+    salonName = "Salon",
+    salonPhone = "",
+    salonAddress = "",
+  } = data;
+
+  const formattedDate = appointmentDate.toLocaleDateString("en-GB", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const formattedTime = appointmentDate.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt - ${receiptNumber}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">${salonName}</h1>
+              ${salonAddress ? `<p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 13px;">${salonAddress}</p>` : ''}
+              ${salonPhone ? `<p style="color: rgba(255,255,255,0.9); margin: 4px 0 0; font-size: 13px;">Tel: ${salonPhone}</p>` : ''}
+            </td>
+          </tr>
+
+          <!-- Receipt Title -->
+          <tr>
+            <td style="padding: 32px 24px 16px; text-align: center;">
+              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: #ffffff; font-size: 28px; line-height: 64px;">🧾</span>
+              </div>
+              <h2 style="color: #1e293b; margin: 0 0 8px; font-size: 22px; font-weight: 600;">Your Receipt</h2>
+              <p style="color: #64748b; margin: 0; font-size: 14px;">Receipt No: <strong>${receiptNumber}</strong></p>
+            </td>
+          </tr>
+
+          <!-- Customer Info -->
+          <tr>
+            <td style="padding: 0 24px 16px;">
+              <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px;">
+                <p style="color: #64748b; font-size: 12px; margin: 0 0 4px; text-transform: uppercase;">Customer</p>
+                <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0;">${customerName}</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Service Details -->
+          <tr>
+            <td style="padding: 0 24px 16px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px;">
+                <tr>
+                  <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 12px; text-transform: uppercase;">Service</span><br>
+                    <strong style="color: #1e293b; font-size: 16px;">${serviceName}</strong>
+                    <span style="color: #64748b; font-size: 13px;"> (${serviceDuration} mins)</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 12px; text-transform: uppercase;">Staff</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${staffName}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 12px; text-transform: uppercase;">Date</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${formattedDate}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 16px;">
+                    <span style="color: #64748b; font-size: 12px; text-transform: uppercase;">Time</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${formattedTime}</strong>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Total -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <table width="100%">
+                      <tr>
+                        <td style="color: rgba(255,255,255,0.8); font-size: 14px;">Total Amount</td>
+                        <td style="color: #ffffff; font-size: 28px; font-weight: 700; text-align: right;">£${servicePrice.toFixed(2)}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Thank you for your visit!</p>
+              <p style="color: #64748b; font-size: 13px; margin: 0;">We hope to see you again soon.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  try {
+    const result = await getResend().emails.send({
+      from: `${salonName} <${FROM_EMAIL}>`,
+      to: customerEmail,
+      subject: `Receipt from ${salonName} - ${receiptNumber}`,
+      html: emailHtml,
+    });
+
+    console.log("Receipt email sent successfully:", result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Failed to send receipt email:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendReceiptPdf(data: {
+  customerEmail: string;
+  customerName: string;
+  pdfBase64: string;
+  receiptNumber: string;
+  salonName?: string;
+}) {
+  const {
+    customerEmail,
+    customerName,
+    pdfBase64,
+    receiptNumber,
+    salonName = "Salon",
+  } = data;
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Receipt</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">${salonName}</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 32px 24px; text-align: center;">
+              <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 22px; font-weight: 600;">Your Receipt</h2>
+              <p style="color: #64748b; margin: 0 0 8px; font-size: 14px;">Hi ${customerName},</p>
+              <p style="color: #64748b; margin: 0 0 24px; font-size: 14px;">Please find your receipt attached to this email.</p>
+              <p style="color: #94a3b8; margin: 0; font-size: 12px;">Receipt No: <strong>${receiptNumber}</strong></p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">Thank you for your visit!</p>
+              <p style="color: #64748b; font-size: 13px; margin: 0;">We hope to see you again soon.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  try {
+    const result = await getResend().emails.send({
+      from: `${salonName} <${FROM_EMAIL}>`,
+      to: customerEmail,
+      subject: `Receipt from ${salonName} - ${receiptNumber}`,
+      html: emailHtml,
+      attachments: [
+        {
+          filename: `Receipt-${receiptNumber}.pdf`,
+          content: pdfBase64,
+        },
+      ],
+    });
+
+    console.log("Receipt PDF email sent successfully:", result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Failed to send receipt PDF email:", error);
+    return { success: false, error };
+  }
+}

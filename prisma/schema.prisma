@@ -45,7 +45,7 @@ model Salon {
   updatedAt     DateTime @updatedAt
   
   owner         User?
-  
+
   categories    ServiceCategory[]
   services      Service[]
   staff         Staff[]
@@ -56,6 +56,7 @@ model Salon {
   slotReservations SlotReservation[]
   bookingPolicy BookingPolicy?
   salonWorkingHours SalonWorkingHours[]
+  discounts     Discount[]
 }
 
 // ============ SERVICES ============
@@ -277,4 +278,29 @@ model SalonWorkingHours {
   updatedAt DateTime @updatedAt
 
   @@unique([salonId, dayOfWeek])
+}
+
+// ============ DISCOUNTS ============
+
+model Discount {
+  id              String   @id @default(cuid())
+  name            String   // e.g., "Quiet Time Discount"
+  discountPercent Int      // e.g., 20 for 20%
+
+  startTime       String   // "10:00" - start of discount period
+  endTime         String   // "16:00" - end of discount period
+  daysOfWeek      Int[]    // [1, 2, 3] for Mon, Tue, Wed (0=Sun, 6=Sat)
+
+  serviceIds      String[] // IDs of services this discount applies to
+  staffIds        String[] // IDs of staff (empty = all staff)
+
+  isActive        Boolean  @default(true)
+
+  salonId         String
+  salon           Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([salonId])
 }
