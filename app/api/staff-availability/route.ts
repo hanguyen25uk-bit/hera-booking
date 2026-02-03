@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+async function getDefaultSalonId() {
+  const salon = await prisma.salon.findFirst();
+  return salon?.id;
+}
+
 export async function GET(req: NextRequest) {
   const staffId = req.nextUrl.searchParams.get("staffId");
   const date = req.nextUrl.searchParams.get("date");
@@ -10,6 +15,19 @@ export async function GET(req: NextRequest) {
   }
   
   try {
+    const salonId = await getDefaultSalonId();
+    if (!salonId) {
+      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    }
+
+    // Verify staff belongs to this salon
+    const staff = await prisma.staff.findFirst({
+      where: { id: staffId, salonId },
+    });
+    if (!staff) {
+      return NextResponse.json({ error: "Staff not found" }, { status: 404 });
+    }
+
     const dayOfWeek = new Date(date).getDay();
     
     // Create date object at midnight UTC for exact match

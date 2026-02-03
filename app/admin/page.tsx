@@ -120,8 +120,8 @@ export default function AdminDashboard() {
                   <div key={apt.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: 12, backgroundColor: "#F9FAFB", borderRadius: 8 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", minWidth: 50 }}>{formatTime(apt.startTime)}</div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: "#111827", margin: 0 }}>{apt.service.name}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280", margin: 0, marginTop: 2 }}>{apt.customerName} • {apt.staff.name}</p>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: "#111827", margin: 0 }}>{apt.service?.name || "Unknown Service"}</p>
+                      <p style={{ fontSize: 12, color: "#6B7280", margin: 0, marginTop: 2 }}>{apt.customerName} • {apt.staff?.name || "Unassigned"}</p>
                     </div>
                     <div style={{ padding: "4px 10px", borderRadius: 12, fontSize: 11, fontWeight: 600, textTransform: "capitalize", backgroundColor: apt.status === "booked" ? "#DCFCE7" : "#FEE2E2", color: apt.status === "booked" ? "#166534" : "#991B1B" }}>
                       {apt.status}

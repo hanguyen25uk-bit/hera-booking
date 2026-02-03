@@ -40,8 +40,14 @@ export default function StaffPage() {
         fetch("/api/admin/staff"),
         fetch("/api/services"),
       ]);
-      setStaff(await staffRes.json());
-      setServices(await servicesRes.json());
+      if (!staffRes.ok || !servicesRes.ok) {
+        console.error("Failed to load staff or services");
+        return;
+      }
+      const staffData = await staffRes.json();
+      const servicesData = await servicesRes.json();
+      setStaff(Array.isArray(staffData) ? staffData : []);
+      setServices(Array.isArray(servicesData) ? servicesData : []);
     } catch (err) {
       console.error("Failed to load data:", err);
     } finally {
@@ -52,8 +58,12 @@ export default function StaffPage() {
   async function loadStaffServices(staffId: string) {
     try {
       const res = await fetch(`/api/admin/staff-services?staffId=${staffId}`);
+      if (!res.ok) {
+        setStaffServices([]);
+        return;
+      }
       const data = await res.json();
-      setStaffServices(data.map((s: Service) => s.id));
+      setStaffServices(Array.isArray(data) ? data.map((s: Service) => s.id) : []);
     } catch (err) {
       setStaffServices([]);
     }

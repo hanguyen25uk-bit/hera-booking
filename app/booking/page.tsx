@@ -88,7 +88,7 @@ export default function BookingPage() {
     async function loadStaff() {
       setLoadingStaff(true);
       try { const res = await fetch(`/api/staff?serviceId=${selectedServiceId}`); setStaff(await res.json()); }
-      catch (err) { console.error(err); }
+      catch (err) { console.error(err); setError("Failed to load staff. Please try again."); }
       finally { setLoadingStaff(false); }
     }
     loadStaff();
@@ -124,7 +124,7 @@ export default function BookingPage() {
           const resData = await resRes.json();
           setReservedSlots(resData.reservations || []); setBookedSlots(resData.appointments || []);
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error(err); setError("Failed to load availability. Please try again."); }
       finally { setLoadingAvailability(false); }
     }
     loadAvailability();

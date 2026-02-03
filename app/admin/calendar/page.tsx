@@ -74,10 +74,14 @@ export default function CalendarPage() {
   async function loadStaffAndServices() {
     try {
       const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
+      if (!staffRes.ok || !servicesRes.ok) {
+        console.error("Failed to load staff or services");
+        return;
+      }
       const staffData = await staffRes.json();
       const servicesData = await servicesRes.json();
-      setStaffList(staffData);
-      setServices(servicesData);
+      setStaffList(Array.isArray(staffData) ? staffData : []);
+      setServices(Array.isArray(servicesData) ? servicesData : []);
     } catch (err) { console.error(err); }
   }
 
@@ -88,10 +92,14 @@ export default function CalendarPage() {
         fetch("/api/appointments?date=" + selectedDate),
         fetch("/api/staff"),
       ]);
+      if (!aptsRes.ok || !staffRes.ok) {
+        console.error("Failed to load appointments or staff");
+        return;
+      }
       const apts = await aptsRes.json();
       const staffData = await staffRes.json();
-      setAppointments(apts);
-      setStaffList(staffData);
+      setAppointments(Array.isArray(apts) ? apts : []);
+      setStaffList(Array.isArray(staffData) ? staffData : []);
 
       const availabilityMap: Record<string, StaffAvailability> = {};
       await Promise.all(
@@ -113,11 +121,15 @@ export default function CalendarPage() {
     setLoadingAvailability(true);
     try {
       const availRes = await fetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date);
-      const avail = await availRes.json();
-      setEditAvailability(avail);
+      if (!availRes.ok) {
+        setEditAvailability({ available: true, startTime: "09:00", endTime: "18:00" });
+      } else {
+        const avail = await availRes.json();
+        setEditAvailability(avail);
+      }
 
       const aptsRes = await fetch("/api/appointments?date=" + editData.date);
-      const apts: Appointment[] = await aptsRes.json();
+      const apts: Appointment[] = aptsRes.ok ? await aptsRes.json() : [];
       const booked = apts
         .filter(function(a) { return a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id; })
         .map(function(a) { return { startTime: a.startTime, endTime: a.endTime }; });
@@ -133,11 +145,15 @@ export default function CalendarPage() {
     setLoadingAddAvailability(true);
     try {
       const availRes = await fetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date);
-      const avail = await availRes.json();
-      setAddAvailability(avail);
+      if (!availRes.ok) {
+        setAddAvailability({ available: true, startTime: "09:00", endTime: "18:00" });
+      } else {
+        const avail = await availRes.json();
+        setAddAvailability(avail);
+      }
 
       const aptsRes = await fetch("/api/appointments?date=" + addData.date);
-      const apts: Appointment[] = await aptsRes.json();
+      const apts: Appointment[] = aptsRes.ok ? await aptsRes.json() : [];
       const booked = apts
         .filter(function(a) { return a.staff.id === addData.staffId && a.status !== "cancelled" && a.status !== "no-show"; })
         .map(function(a) { return { startTime: a.startTime, endTime: a.endTime }; });

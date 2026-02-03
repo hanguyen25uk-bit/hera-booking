@@ -50,8 +50,14 @@ export default function ServicesPage() {
         fetch("/api/services"),
         fetch("/api/categories"),
       ]);
-      setServices(await servicesRes.json());
-      setCategories(await categoriesRes.json());
+      if (!servicesRes.ok || !categoriesRes.ok) {
+        console.error("Failed to load services or categories");
+        return;
+      }
+      const servicesData = await servicesRes.json();
+      const categoriesData = await categoriesRes.json();
+      setServices(Array.isArray(servicesData) ? servicesData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
@@ -61,26 +67,40 @@ export default function ServicesPage() {
 
   async function handleSave() {
     if (!formName.trim() || !formPrice) return;
+    const duration = parseInt(formDuration);
+    const price = parseFloat(formPrice);
+    if (isNaN(duration) || duration <= 0) {
+      alert("Please enter a valid duration");
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      alert("Please enter a valid price");
+      return;
+    }
     setSaving(true);
     try {
       const url = editingService ? `/api/admin/services/${editingService.id}` : "/api/admin/services";
       const method = editingService ? "PUT" : "POST";
-      await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName,
           description: formDescription || null,
-          durationMinutes: parseInt(formDuration),
-          price: parseFloat(formPrice),
+          durationMinutes: duration,
+          price: price,
           categoryId: formCategoryId || null,
         }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save");
+      }
       setShowModal(false);
       resetForm();
       loadData();
-    } catch (err) {
-      alert("Error saving");
+    } catch (err: any) {
+      alert(err.message || "Error saving");
     } finally {
       setSaving(false);
     }
