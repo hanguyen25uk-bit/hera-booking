@@ -517,7 +517,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <>
                     <span style={{ color: "#10b981", fontWeight: 600 }}>£{finalPrice.toFixed(2)}</span>
                     <span style={{ color: "#64748b", textDecoration: "line-through", fontSize: 12 }}>£{currentService.price}</span>
-                    <span style={{ background: "#10b981", color: "#fff", padding: "2px 6px", borderRadius: 8, fontSize: 10, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
+                    <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>OFF-PEAK</span>
                   </>
                 ) : (
                   <span>£{currentService.price}</span>
@@ -537,43 +537,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {step === 1 && (
               <>
                 <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Service</h1>
-                <p style={{ color: "#64748b", marginBottom: 16, fontSize: 14 }}>Select the service you would like to book</p>
-
-                {/* Quiet Time Discount Banner */}
-                {discounts.length > 0 && (
-                  <div style={{
-                    background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
-                    borderRadius: 16,
-                    padding: 20,
-                    marginBottom: 24,
-                    color: "#fff",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}>
-                    <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.15 }}>🏷️</div>
-                    <div style={{ position: "relative" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <span style={{ fontSize: 24 }}>⏰</span>
-                        <span style={{ fontSize: 18, fontWeight: 700 }}>Quiet Time Deals!</span>
-                      </div>
-                      <p style={{ fontSize: 14, opacity: 0.95, margin: "0 0 12px", lineHeight: 1.5 }}>
-                        Book during our quiet hours and save up to <strong>{Math.max(...discounts.map(d => d.discountPercent))}%</strong> on selected services!
-                      </p>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {discounts.slice(0, 2).map(d => (
-                          <div key={d.id} style={{
-                            background: "rgba(255,255,255,0.2)",
-                            borderRadius: 8,
-                            padding: "8px 12px",
-                            fontSize: 12,
-                          }}>
-                            <strong>{d.discountPercent}% OFF</strong> • {d.startTime}-{d.endTime} • {d.daysOfWeek.map(day => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][day]).join(", ")}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select the service you would like to book</p>
 
                 {/* Category Tabs */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
@@ -586,78 +550,60 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {/* Services */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {filteredServices.map((service) => {
-                    const discount = getApplicableDiscount(service.id);
-                    const discountedPrice = discount ? getDiscountedPrice(service.price, discount) : null;
-                    const savings = discount ? (service.price - (discountedPrice || 0)) : 0;
+                    // Find the best discount available for this service
+                    const serviceDiscounts = discounts.filter(d => d.serviceIds.includes(service.id));
+                    const bestDiscount = serviceDiscounts.length > 0
+                      ? serviceDiscounts.reduce((max, d) => d.discountPercent > max.discountPercent ? d : max)
+                      : null;
+                    const discountedPrice = bestDiscount
+                      ? service.price * (1 - bestDiscount.discountPercent / 100)
+                      : service.price;
+
                     return (
                       <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{
                         padding: 16,
                         borderRadius: 12,
-                        border: `2px solid ${selectedServiceId === service.id ? "#6366f1" : discount ? "#10b981" : "#e2e8f0"}`,
-                        background: selectedServiceId === service.id ? "#f5f3ff" : discount ? "#f0fdf4" : "#fff",
+                        border: `2px solid ${selectedServiceId === service.id ? "#6366f1" : "#e2e8f0"}`,
+                        background: selectedServiceId === service.id ? "#f5f3ff" : "#fff",
                         cursor: "pointer",
-                        position: "relative",
-                        overflow: "hidden",
                       }}>
-                        {discount && (
-                          <div style={{
-                            position: "absolute",
-                            top: 12,
-                            right: -35,
-                            background: "linear-gradient(135deg, #059669, #10b981)",
-                            color: "#fff",
-                            padding: "4px 40px",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            transform: "rotate(45deg)",
-                          }}>
-                            SAVE £{savings.toFixed(0)}
-                          </div>
-                        )}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                          <div style={{ flex: 1, paddingRight: discount ? 50 : 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                               <span style={{ fontWeight: 600, fontSize: 15 }}>{service.name}</span>
-                              {discount && (
+                              {bestDiscount && (
                                 <span style={{
-                                  padding: "4px 10px",
-                                  borderRadius: 20,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  background: "linear-gradient(135deg, #059669, #10b981)",
+                                  padding: "3px 8px",
+                                  borderRadius: 4,
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  background: "#22c55e",
                                   color: "#fff",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
                                 }}>
-                                  ⏰ {discount.discountPercent}% OFF
+                                  {bestDiscount.discountPercent}% OFF
                                 </span>
                               )}
                             </div>
                             {service.description && <div style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>{service.description}</div>}
                             <div style={{ color: "#64748b", fontSize: 13 }}>{service.durationMinutes} min</div>
-                            {discount && (
-                              <div style={{
-                                marginTop: 8,
-                                padding: "6px 10px",
-                                background: "#ecfdf5",
-                                borderRadius: 6,
-                                fontSize: 11,
-                                color: "#047857",
-                                display: "inline-block",
-                              }}>
-                                ⏰ Quiet time: {discount.startTime} - {discount.endTime}
-                              </div>
-                            )}
                           </div>
                           <div style={{ textAlign: "right" }}>
-                            {discountedPrice !== null ? (
+                            {bestDiscount ? (
                               <>
-                                <div style={{ fontWeight: 700, fontSize: 18, color: "#059669" }}>£{discountedPrice.toFixed(2)}</div>
-                                <div style={{ fontSize: 13, color: "#94a3b8", textDecoration: "line-through" }}>£{service.price}</div>
+                                <div style={{ fontWeight: 700, fontSize: 16, color: "#16a34a" }}>
+                                  from £{discountedPrice.toFixed(2)}
+                                </div>
+                                <div style={{
+                                  fontSize: 12,
+                                  color: "#94a3b8",
+                                  textDecoration: "line-through",
+                                  marginTop: 2
+                                }}>
+                                  £{service.price}
+                                </div>
                               </>
                             ) : (
-                              <div style={{ fontWeight: 700, fontSize: 16, color: "#6366f1" }}>£{service.price}</div>
+                              <div style={{ fontWeight: 700, fontSize: 16, color: "#1e293b" }}>£{service.price}</div>
                             )}
                           </div>
                         </div>
@@ -719,11 +665,115 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <div style={{ padding: 20, background: "#fef2f2", borderRadius: 10, color: "#dc2626", textAlign: "center", fontSize: 14 }}>No available times. Please select another date.</div>
                 ) : (
                   <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Available Times</label>
-                    <div className="time-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Available Times</label>
+
+                    {/* Off-Peak Info Banner */}
+                    {discounts.length > 0 && currentService && discounts.some(d => d.serviceIds.includes(currentService.id)) && (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "10px 14px",
+                        background: "#f0fdf4",
+                        borderRadius: 8,
+                        marginBottom: 16,
+                        border: "1px solid #bbf7d0"
+                      }}>
+                        <span style={{ fontSize: 16 }}>💚</span>
+                        <span style={{ fontSize: 13, color: "#15803d" }}>
+                          <strong>Off-Peak prices</strong> available - look for green slots to save!
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {timeSlots.map((time) => {
                         const past = isTimeSlotPast(time);
-                        return <button key={time} disabled={past || reserving} onClick={() => handleTimeSelect(time)} style={{ padding: 12, borderRadius: 8, border: `2px solid ${selectedTime === time ? "#6366f1" : "#e2e8f0"}`, background: selectedTime === time ? "#6366f1" : past ? "#f1f5f9" : "#fff", color: selectedTime === time ? "#fff" : past ? "#94a3b8" : "#1e293b", fontSize: 14, fontWeight: 600, cursor: past ? "not-allowed" : "pointer" }}>{time}</button>;
+                        const slotDiscount = currentService ? getApplicableDiscount(currentService.id, selectedDate, time, isAnyStaff ? undefined : selectedStaffId) : null;
+                        const originalPrice = currentService?.price || 0;
+                        const discountedPrice = slotDiscount ? getDiscountedPrice(originalPrice, slotDiscount) : originalPrice;
+                        const isOffPeak = slotDiscount !== null;
+                        const isSelected = selectedTime === time;
+
+                        return (
+                          <button
+                            type="button"
+                            key={time}
+                            disabled={past || reserving}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (!past && !reserving) {
+                                handleTimeSelect(time);
+                              }
+                            }}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "14px 16px",
+                              borderRadius: 10,
+                              border: isSelected ? "2px solid #6366f1" : isOffPeak ? "2px solid #22c55e" : "2px solid #e2e8f0",
+                              background: isSelected ? "#6366f1" : past ? "#f8fafc" : isOffPeak ? "#f0fdf4" : "#fff",
+                              cursor: past || reserving ? "not-allowed" : "pointer",
+                              opacity: past ? 0.5 : 1,
+                              transition: "all 0.15s ease",
+                              position: "relative",
+                              zIndex: 1,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, pointerEvents: "none" }}>
+                              <span style={{
+                                fontSize: 15,
+                                fontWeight: 600,
+                                color: isSelected ? "#fff" : "#1e293b"
+                              }}>
+                                {time}
+                              </span>
+                              {isOffPeak && !isSelected && (
+                                <span style={{
+                                  padding: "3px 8px",
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: "#22c55e",
+                                  color: "#fff",
+                                }}>
+                                  OFF-PEAK
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "none" }}>
+                              {isOffPeak ? (
+                                <>
+                                  <span style={{
+                                    fontSize: 13,
+                                    color: isSelected ? "rgba(255,255,255,0.7)" : "#94a3b8",
+                                    textDecoration: "line-through"
+                                  }}>
+                                    £{originalPrice}
+                                  </span>
+                                  <span style={{
+                                    fontSize: 15,
+                                    fontWeight: 700,
+                                    color: isSelected ? "#fff" : "#16a34a"
+                                  }}>
+                                    £{discountedPrice.toFixed(2)}
+                                  </span>
+                                </>
+                              ) : (
+                                <span style={{
+                                  fontSize: 15,
+                                  fontWeight: 600,
+                                  color: isSelected ? "#fff" : "#64748b"
+                                }}>
+                                  £{originalPrice}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
                       })}
                     </div>
                     {reserving && <p style={{ color: "#6366f1", marginTop: 12, fontSize: 14 }}>Reserving...</p>}
@@ -774,12 +824,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}>
                     <span style={{ color: "#64748b" }}>Price</span>
-                    <span style={{ fontWeight: 600 }}>
+                    <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                       {currentDiscount ? (
-                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ color: "#059669" }}>£{finalPrice.toFixed(2)}</span>
+                        <>
+                          <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>OFF-PEAK</span>
                           <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: 12 }}>£{currentService?.price}</span>
-                        </span>
+                          <span style={{ color: "#16a34a" }}>£{finalPrice.toFixed(2)}</span>
+                        </>
                       ) : (
                         <span>£{currentService?.price}</span>
                       )}

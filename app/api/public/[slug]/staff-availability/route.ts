@@ -89,14 +89,26 @@ export async function GET(
         },
       });
 
-      if (!workingHours || !workingHours.isWorking) {
+      if (workingHours) {
+        if (!workingHours.isWorking) {
+          return NextResponse.json({
+            available: false,
+            reason: "Not working this day",
+          });
+        }
+        staffStart = workingHours.startTime;
+        staffEnd = workingHours.endTime;
+      } else if (shopHours && shopHours.isOpen) {
+        // Fall back to shop hours if no staff working hours configured
+        staffStart = shopHours.startTime;
+        staffEnd = shopHours.endTime;
+      } else {
+        // No working hours and no shop hours - not available
         return NextResponse.json({
           available: false,
-          reason: "Not working this day",
+          reason: "Schedule not configured",
         });
       }
-      staffStart = workingHours.startTime;
-      staffEnd = workingHours.endTime;
     }
 
     // Calculate effective hours (intersection of shop and staff hours)
