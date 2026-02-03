@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState, FormEvent, useCallback } from "react";
-import ServiceStep from "./components/ServiceStep";
-import PolicySection from "./components/PolicySection";
 
 type ServiceCategory = { id: string; name: string; description: string | null };
 type Service = { id: string; name: string; description: string | null; durationMinutes: number; price: number; category?: string | null; categoryId?: string | null; serviceCategory?: ServiceCategory | null };
@@ -28,16 +26,16 @@ export default function BookingPage() {
 
   const [step, setStep] = useState<Step>(1);
   const [policyTitle, setPolicyTitle] = useState("Our Booking Policy");
+  const [policyDescription, setPolicyDescription] = useState("");
   const [policyItems, setPolicyItems] = useState<PolicyItem[]>([]);
   const [policyAgreed, setPolicyAgreed] = useState(false);
-  const [showMobilePolicy, setShowMobilePolicy] = useState(false);
-  const [mobilePolicyRead, setMobilePolicyRead] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStaff, setLoadingStaff] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [salonName, setSalonName] = useState("Hera Nail Spa");
 
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("");
@@ -67,16 +65,23 @@ export default function BookingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, categoriesRes, policyRes] = await Promise.all([
-          fetch("/api/services"), 
+        const [servicesRes, categoriesRes, policyRes, settingsRes] = await Promise.all([
+          fetch("/api/services"),
           fetch("/api/categories"),
-          fetch("/api/booking-policy")
+          fetch("/api/booking-policy"),
+          fetch("/api/settings"),
         ]);
         setServices(await servicesRes.json());
         setCategories(await categoriesRes.json());
         const policyData = await policyRes.json();
         setPolicyTitle(policyData.title || "Our Booking Policy");
+        setPolicyDescription(policyData.description || "");
         setPolicyItems(policyData.policies || []);
+        
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (settingsData.salonName) setSalonName(settingsData.salonName);
+        }
       } catch (err) { setError("Failed to load. Please refresh."); }
       finally { setLoading(false); }
     }
@@ -95,14 +100,6 @@ export default function BookingPage() {
   }, [selectedServiceId]);
 
   useEffect(() => { setSelectedDate(new Date().toISOString().split("T")[0]); }, []);
-
-  // Detect mobile and show policy popup
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   useEffect(() => {
     if (!selectedStaffId || !selectedDate) return;
@@ -233,15 +230,8 @@ export default function BookingPage() {
     finally { setReserving(false); }
   };
 
-  const handleServiceContinue = () => {
-    if (!selectedServiceId) { setError("Please select a service"); return; }
-    setError(null);
-    goNext();
-  };
-
-  const handleContinueToDetails = () => {
-    if (!selectedTime) { setError("Please select a time"); return; }
-    if (!policyAgreed) { setError("Please agree to the booking policy"); return; }
+  const handleServiceSelect = (serviceId: string) => {
+    setSelectedServiceId(serviceId);
     setError(null);
     goNext();
   };
@@ -268,274 +258,726 @@ export default function BookingPage() {
 
   const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#94a3b8" }}><p>Loading...</p></div>;
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
 
-  // Show initial policy popup on mobile
-  if (isMobile && !mobilePolicyRead && policyItems.length > 0) {
+  // Group services by category
+  const servicesByCategory: Record<string, Service[]> = {};
+  const uncategorizedServices: Service[] = [];
+  
+  services.forEach(service => {
+    if (service.categoryId) {
+      if (!servicesByCategory[service.categoryId]) {
+        servicesByCategory[service.categoryId] = [];
+      }
+      servicesByCategory[service.categoryId].push(service);
+    } else {
+      uncategorizedServices.push(service);
+    }
+  });
+
+  if (loading) {
     return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
-        {/* Header */}
-        <div style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", padding: "20px", textAlign: "center" }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 auto 12px" }}>H</div>
-          <h1 style={{ color: "#fff", fontSize: 20, fontWeight: 600, margin: 0 }}>Welcome to Hera Booking</h1>
-          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, margin: "8px 0 0" }}>Please read our booking policy before continuing</p>
-        </div>
-
-        {/* Policy Content */}
-        <div style={{ flex: 1, backgroundColor: "#fff", padding: 20, overflowY: "auto" }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, color: "#1e293b" }}>{policyTitle}</h2>
-
-          {policyItems.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 14, marginBottom: 20, padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-              <span style={{ fontSize: 28 }}>{item.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>{item.title}</div>
-                <div style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>{item.description}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Continue Button */}
-        <div style={{ padding: 20, backgroundColor: "#fff", borderTop: "1px solid #e2e8f0" }}>
-          <button
-            onClick={() => setMobilePolicyRead(true)}
-            style={{
-              width: "100%",
-              padding: 16,
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 12,
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: "pointer"
-            }}
-          >
-            I've Read the Policy - Continue to Booking
-          </button>
-        </div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#FAFAFA" }}>
+        <p style={{ color: "#666" }}>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif" }}>
-      <style>{`
-        @media (max-width: 768px) {
-          .desktop-sidebar { display: none !important; }
-          .main-content { margin-left: 0 !important; border-radius: 0 !important; }
-          .mobile-header { display: none !important; }
-          .mobile-policy { display: block !important; }
-          .time-grid { grid-template-columns: repeat(3, 1fr) !important; }
-        }
-        @media (min-width: 769px) {
-          .mobile-header { display: none !important; }
-          .mobile-policy { display: none !important; }
-        }
-      `}</style>
-
-      {/* Mobile Header */}
-      <div className="mobile-header" style={{ display: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", padding: "16px 20px", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>H</div>
-          <span style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>Hera Booking</span>
-        </div>
-        <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13 }}>Step {step} of 5</div>
-      </div>
-
-      {/* Mobile Policy Modal */}
-      {showMobilePolicy && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "flex-end" }}>
-          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: "80vh", overflow: "auto", padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{policyTitle}</h3>
-              <button onClick={() => setShowMobilePolicy(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#f1f5f9", fontSize: 18, cursor: "pointer" }}>×</button>
-            </div>
-            <PolicySection title={policyTitle} items={policyItems} compact />
+    <div style={{ minHeight: "100vh", backgroundColor: "#FAFAFA", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      {/* Header */}
+      <header style={{
+        backgroundColor: "#FFFFFF",
+        borderBottom: "1px solid #E8E8E8",
+        padding: "16px 24px",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+      }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #D4B896 0%, #C4A77D 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#FFFFFF",
+            fontWeight: 700,
+            fontSize: 18,
+          }}>
+            {salonName.charAt(0)}
           </div>
-        </div>
-      )}
-
-      <div style={{ display: "flex", minHeight: "100vh" }}>
-        {/* Desktop Sidebar */}
-        <div className="desktop-sidebar" style={{ width: 360, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", overflowY: "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>H</div>
-            <span style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>Hera Booking</span>
-          </div>
-
-          {/* Progress Steps */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
-            {[{ n: 1, l: "Service" }, { n: 2, l: "Specialist" }, { n: 3, l: "Date & Time" }, { n: 4, l: "Your Info" }, { n: 5, l: "Confirmed" }].map((item) => (
-              <div key={item.n} style={{ display: "flex", alignItems: "center", gap: 12, opacity: step >= item.n ? 1 : 0.4 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: step > item.n ? "#10b981" : step === item.n ? "#6366f1" : "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 600 }}>{step > item.n ? "✓" : item.n}</div>
-                <span style={{ color: "#fff", fontSize: 13, fontWeight: step === item.n ? 600 : 400 }}>{item.l}</span>
+          <div style={{ flex: 1 }}>
+            {step === 1 && (
+              <div style={{ display: "flex", gap: 24 }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: "#1A1A1A", borderBottom: "2px solid #1A1A1A", paddingBottom: 4 }}>Services</span>
+                <span style={{ fontSize: 15, color: "#999", paddingBottom: 4 }}>Reviews</span>
               </div>
-            ))}
+            )}
+            {step > 1 && step < 5 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button onClick={goBack} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </button>
+                <span style={{ fontSize: 15, fontWeight: 500, color: "#1A1A1A" }}>
+                  {step === 2 && "Choose Specialist"}
+                  {step === 3 && "Pick Date & Time"}
+                  {step === 4 && "Your Details"}
+                </span>
+              </div>
+            )}
           </div>
-
-          {/* Desktop Policy */}
-          <PolicySection title={policyTitle} items={policyItems} />
-
-          {/* Your Selection */}
-          {currentService && (
-            <div style={{ marginTop: 20, background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.1)" }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 12 }}>Your Selection</div>
-              <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>✨ {currentService.name}</div>
-              {currentStaff && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>👤 {currentStaff.name}</div>}
-              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 13 }}>📅 {selectedDate} at {selectedTime}</div>}
-              {reservationTimer > 0 && <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 600, marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>⏱️ Reserved for {formatTimer(reservationTimer)}</div>}
+          {step > 1 && step < 5 && reservationTimer > 0 && (
+            <div style={{
+              backgroundColor: "#FFF8E1",
+              color: "#F57C00",
+              padding: "6px 12px",
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+            }}>
+              {formatTimer(reservationTimer)}
             </div>
           )}
         </div>
+      </header>
 
-        {/* Main Content */}
-        <div className="main-content" style={{ flex: 1, marginLeft: 360, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: "32px 24px", minHeight: "100vh" }}>
-          <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            {error && <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", fontSize: 14, marginBottom: 24 }}>{error}</div>}
+      <main style={{ maxWidth: 800, margin: "0 auto", padding: "24px 16px" }}>
+        {error && (
+          <div style={{
+            padding: 16,
+            backgroundColor: "#FFEBEE",
+            borderRadius: 12,
+            color: "#C62828",
+            fontSize: 14,
+            marginBottom: 24,
+          }}>
+            {error}
+          </div>
+        )}
 
-            {step === 1 && (
-              <ServiceStep
-                services={services}
-                categories={categories}
-                selectedServiceId={selectedServiceId}
-                onSelectService={setSelectedServiceId}
-                onContinue={handleServiceContinue}
-                onShowPolicy={() => setShowMobilePolicy(true)}
-              />
-            )}
-
-            {step === 2 && (
-              <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Specialist</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select your preferred technician</p>
-                {loadingStaff ? <p>Loading...</p> : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⭐</div>
-                      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 13 }}>First available specialist</div></div>
-                      {selectedStaffId === "any" && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
-                    </div>
-                    {staff.map((m) => (
-                      <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                        <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{m.name.charAt(0)}</div>
-                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 13 }}>{m.role || "Nail Technician"}</div></div>
-                        {selectedStaffId === m.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-                  <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
-                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Continue</button>
-                </div>
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Pick Date & Time</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Choose when you'd like to visit</p>
-                
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                  <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} />
-                </div>
-
-                {loadingAvailability ? <p>Checking availability...</p> : isStaffOnDayOff ? (
-                  <div style={{ display: "flex", gap: 12, padding: 16, background: "#fef3c7", borderRadius: 12, marginBottom: 20 }}>
-                    <span style={{ fontSize: 24 }}>🚫</span>
-                    <div><strong style={{ color: "#92400e", fontSize: 14 }}>{currentStaff?.name} is not available</strong><p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 13 }}>Please select another date.</p></div>
-                  </div>
-                ) : timeSlots.length === 0 ? (
-                  <div style={{ padding: 20, background: "#fef2f2", borderRadius: 10, color: "#dc2626", textAlign: "center", fontSize: 14 }}>No available times. Please select another date.</div>
-                ) : (
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Available Times</label>
-                    <div className="time-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                      {timeSlots.map((time) => {
-                        const past = isTimeSlotPast(time), reserved = !isAnyStaff && isSlotReserved(time), booked = !isAnyStaff && isSlotBooked(time), unavailable = past || reserved || booked;
-                        return <button key={time} disabled={unavailable || reserving} onClick={() => handleTimeSelect(time)} style={{ padding: 12, borderRadius: 8, border: `2px solid ${selectedTime === time ? "#6366f1" : "#e2e8f0"}`, background: selectedTime === time ? "#6366f1" : unavailable ? "#f1f5f9" : "#fff", color: selectedTime === time ? "#fff" : unavailable ? "#94a3b8" : "#1e293b", fontSize: 14, fontWeight: 600, cursor: unavailable ? "not-allowed" : "pointer" }}>{time}</button>;
-                      })}
-                    </div>
-                    {reserving && <p style={{ color: "#6366f1", marginTop: 12, fontSize: 14 }}>Reserving...</p>}
-                  </div>
-                )}
-
-                {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 14, background: "#ecfdf5", borderRadius: 10, color: "#059669", marginBottom: 20, fontSize: 14 }}>✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
-                {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
-                
-                {/* Mobile Policy Section */}
-                <div className="mobile-policy" style={{ display: "none", marginBottom: 20 }}>
-                  <PolicySection title={policyTitle} items={policyItems} compact />
-                </div>
-
-                {/* Policy Agreement */}
-                <div style={{ padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 2, accentColor: "#6366f1" }} />
-                    <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>I have read and agree to the <strong>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
-                  </label>
-                </div>
-
-                <div style={{ display: "flex", gap: 12 }}>
-                  <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
-                  <button onClick={handleContinueToDetails} style={{ flex: 1, padding: 14, background: policyAgreed ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", color: policyAgreed ? "#fff" : "#94a3b8", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed" }}>Continue</button>
-                </div>
-              </>
-            )}
-
-            {step === 4 && (
-              <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Your Details</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>We'll send your confirmation here</p>
-                {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
-                {/* Mobile Policy Section - only visible on mobile */}
-{policyItems.length > 0 && (
-  <div className="mobile-policy" style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 20, border: "1px solid #e2e8f0" }}>
-    <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "#1e293b" }}>{policyTitle}</h3>
-    {policyItems.map((item, i) => (
-      <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < policyItems.length - 1 ? 10 : 0 }}>
-        <span style={{ fontSize: 16 }}>{item.icon}</span>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{item.title}</div>
-          <div style={{ fontSize: 12, color: "#64748b" }}>{item.description}</div>
-        </div>
-      </div>
-    ))}
-  </div>
-)}
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Full Name</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Phone</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Email</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="you@example.com" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                    <button type="button" onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
-                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1 }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
-                  </div>
-                </form>
-              </>
-            )}
-
-            {step === 5 && (
-              <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <div style={{ width: 70, height: 70, borderRadius: 16, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 32, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>✓</div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>You're all set!</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Your appointment has been confirmed</p>
-                <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, textAlign: "left", marginBottom: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Service</span><span style={{ fontWeight: 600 }}>{currentService?.name}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Specialist</span><span style={{ fontWeight: 600 }}>{currentStaff?.name}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Booking ID</span><span style={{ fontWeight: 600 }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
-                </div>
-                <p style={{ color: "#64748b", marginBottom: 20, fontSize: 14 }}>📧 Confirmation sent to {customerEmail}</p>
-                <button onClick={() => { sessionStorage.setItem('booking_session_id', generateSessionId()); window.location.reload(); }} style={{ padding: "14px 24px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Book Another</button>
+        {/* Step 1: Service Selection */}
+        {step === 1 && (
+          <>
+            {/* Booking Policy Card */}
+            {policyItems.length > 0 && (
+              <div style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 16,
+                padding: 24,
+                marginBottom: 32,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 600, color: "#1A1A1A" }}>{policyTitle}</h3>
+                <p style={{ margin: "0 0 16px", fontSize: 14, color: "#666", lineHeight: 1.6 }}>
+                  {policyDescription || policyItems.map(p => p.description).join(' ')}
+                </p>
+                <button
+                  onClick={() => {}}
+                  style={{
+                    display: "block",
+                    marginLeft: "auto",
+                    padding: "10px 24px",
+                    border: "1px solid #1A1A1A",
+                    borderRadius: 25,
+                    backgroundColor: "#FFFFFF",
+                    color: "#1A1A1A",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  Okay
+                </button>
               </div>
             )}
+
+            {/* Services Section */}
+            <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 600, color: "#1A1A1A" }}>Services</h2>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {categories.map(category => {
+                const categoryServices = servicesByCategory[category.id] || [];
+                if (categoryServices.length === 0) return null;
+                const isExpanded = expandedCategories.has(category.id);
+
+                return (
+                  <div key={category.id} style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    border: "1px solid #E8E8E8",
+                  }}>
+                    {/* Category Header */}
+                    <button
+                      onClick={() => toggleCategory(category.id)}
+                      style={{
+                        width: "100%",
+                        padding: "18px 20px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        backgroundColor: "#FFFFFF",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 15,
+                        fontWeight: 500,
+                        color: "#1A1A1A",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      <span>{category.name}</span>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#999"
+                        strokeWidth="2"
+                        style={{
+                          transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                          transition: "transform 0.2s ease",
+                        }}
+                      >
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+
+                    {/* Services List */}
+                    {isExpanded && (
+                      <div style={{ borderTop: "1px solid #E8E8E8" }}>
+                        {categoryServices.map((service, idx) => (
+                          <div
+                            key={service.id}
+                            onClick={() => handleServiceSelect(service.id)}
+                            style={{
+                              padding: "16px 20px",
+                              borderBottom: idx < categoryServices.length - 1 ? "1px solid #F0F0F0" : "none",
+                              cursor: "pointer",
+                              transition: "background-color 0.15s",
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#FAFAFA"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#FFFFFF"; }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 15, fontWeight: 500, color: "#1A1A1A", marginBottom: 4 }}>{service.name}</div>
+                                {service.description && (
+                                  <div style={{ fontSize: 13, color: "#666", marginBottom: 4, lineHeight: 1.4 }}>{service.description}</div>
+                                )}
+                                <div style={{ fontSize: 13, color: "#999" }}>{service.durationMinutes}min</div>
+                              </div>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: "#1A1A1A" }}>£{service.price}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Uncategorized Services */}
+              {uncategorizedServices.length > 0 && (
+                <div style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  border: "1px solid #E8E8E8",
+                }}>
+                  <button
+                    onClick={() => toggleCategory("uncategorized")}
+                    style={{
+                      width: "100%",
+                      padding: "18px 20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      backgroundColor: "#FFFFFF",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 15,
+                      fontWeight: 500,
+                      color: "#1A1A1A",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    <span>OTHER SERVICES</span>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#999"
+                      strokeWidth="2"
+                      style={{
+                        transform: expandedCategories.has("uncategorized") ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                      }}
+                    >
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  {expandedCategories.has("uncategorized") && (
+                    <div style={{ borderTop: "1px solid #E8E8E8" }}>
+                      {uncategorizedServices.map((service, idx) => (
+                        <div
+                          key={service.id}
+                          onClick={() => handleServiceSelect(service.id)}
+                          style={{
+                            padding: "16px 20px",
+                            borderBottom: idx < uncategorizedServices.length - 1 ? "1px solid #F0F0F0" : "none",
+                            cursor: "pointer",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#FAFAFA"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#FFFFFF"; }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 15, fontWeight: 500, color: "#1A1A1A", marginBottom: 4 }}>{service.name}</div>
+                              <div style={{ fontSize: 13, color: "#999" }}>{service.durationMinutes}min</div>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "#1A1A1A" }}>£{service.price}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Good to know Section */}
+            <div style={{ marginTop: 40 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#1A1A1A" }}>Good to know</h3>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 16px",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  border: "1px solid #E8E8E8",
+                  cursor: "pointer",
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span style={{ fontSize: 14, color: "#1A1A1A", textDecoration: "underline" }}>Booking policy</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Step 2: Staff Selection */}
+        {step === 2 && (
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 24 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 600, color: "#1A1A1A" }}>Choose a Specialist</h2>
+            <p style={{ margin: "0 0 24px", fontSize: 14, color: "#666" }}>Select your preferred technician</p>
+            
+            {loadingStaff ? <p style={{ color: "#666" }}>Loading...</p> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Any Available Option */}
+                <div
+                  onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: 16,
+                    borderRadius: 12,
+                    border: `2px solid ${selectedStaffId === "any" ? "#1A1A1A" : "#E8E8E8"}`,
+                    backgroundColor: selectedStaffId === "any" ? "#F5F5F5" : "#FFFFFF",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    backgroundColor: "#E8E8E8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#1A1A1A" }}>Any Available</div>
+                    <div style={{ fontSize: 13, color: "#666" }}>First available specialist</div>
+                  </div>
+                  {selectedStaffId === "any" && (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#1A1A1A" stroke="#FFFFFF" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="8 12 11 15 16 9"/>
+                    </svg>
+                  )}
+                </div>
+
+                {/* Individual Staff */}
+                {staff.map(m => (
+                  <div
+                    key={m.id}
+                    onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 16,
+                      padding: 16,
+                      borderRadius: 12,
+                      border: `2px solid ${selectedStaffId === m.id ? "#1A1A1A" : "#E8E8E8"}`,
+                      backgroundColor: selectedStaffId === m.id ? "#F5F5F5" : "#FFFFFF",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #D4B896 0%, #C4A77D 100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#FFFFFF",
+                      fontWeight: 600,
+                      fontSize: 18,
+                    }}>
+                      {m.name.charAt(0)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#1A1A1A" }}>{m.name}</div>
+                      <div style={{ fontSize: 13, color: "#666" }}>{m.role || "Nail Technician"}</div>
+                    </div>
+                    {selectedStaffId === m.id && (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="#1A1A1A" stroke="#FFFFFF" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="8 12 11 15 16 9"/>
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")}
+              style={{
+                width: "100%",
+                marginTop: 24,
+                padding: 16,
+                border: "none",
+                borderRadius: 25,
+                backgroundColor: "#1A1A1A",
+                color: "#FFFFFF",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Continue
+            </button>
           </div>
-        </div>
-      </div>
+        )}
+
+        {/* Step 3: Date & Time */}
+        {step === 3 && (
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 24 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 600, color: "#1A1A1A" }}>Pick Date & Time</h2>
+            <p style={{ margin: "0 0 24px", fontSize: 14, color: "#666" }}>Choose when you'd like to visit</p>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }}
+                min={new Date().toISOString().split("T")[0]}
+                style={{
+                  width: "100%",
+                  padding: 14,
+                  border: "1px solid #E8E8E8",
+                  borderRadius: 12,
+                  fontSize: 16,
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {loadingAvailability ? (
+              <p style={{ color: "#666" }}>Checking availability...</p>
+            ) : isStaffOnDayOff ? (
+              <div style={{ padding: 20, backgroundColor: "#FFF8E1", borderRadius: 12, marginBottom: 20 }}>
+                <strong style={{ color: "#F57C00" }}>{currentStaff?.name} is not available on this date</strong>
+                <p style={{ color: "#F57C00", margin: "8px 0 0", fontSize: 14 }}>Please select another date.</p>
+              </div>
+            ) : timeSlots.length === 0 ? (
+              <div style={{ padding: 20, backgroundColor: "#FFEBEE", borderRadius: 12, color: "#C62828", textAlign: "center", marginBottom: 20 }}>
+                No available times. Please select another date.
+              </div>
+            ) : (
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 12, color: "#1A1A1A" }}>Available Times</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  {timeSlots.map(time => {
+                    const past = isTimeSlotPast(time);
+                    const reserved = !isAnyStaff && isSlotReserved(time);
+                    const booked = !isAnyStaff && isSlotBooked(time);
+                    const unavailable = past || reserved || booked;
+                    return (
+                      <button
+                        key={time}
+                        disabled={unavailable || reserving}
+                        onClick={() => handleTimeSelect(time)}
+                        style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          border: selectedTime === time ? "2px solid #1A1A1A" : "1px solid #E8E8E8",
+                          backgroundColor: selectedTime === time ? "#1A1A1A" : unavailable ? "#F5F5F5" : "#FFFFFF",
+                          color: selectedTime === time ? "#FFFFFF" : unavailable ? "#999" : "#1A1A1A",
+                          fontSize: 14,
+                          fontWeight: 500,
+                          cursor: unavailable ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {time}
+                      </button>
+                    );
+                  })}
+                </div>
+                {reserving && <p style={{ color: "#D4B896", marginTop: 12, fontSize: 14 }}>Reserving...</p>}
+              </div>
+            )}
+
+            {isAnyStaff && assignedStaffId && selectedTime && (
+              <div style={{ padding: 14, backgroundColor: "#E8F5E9", borderRadius: 12, color: "#2E7D32", marginBottom: 20, fontSize: 14 }}>
+                ✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist
+              </div>
+            )}
+
+            {reservationTimer > 0 && (
+              <div style={{ padding: 14, backgroundColor: "#FFF8E1", borderRadius: 12, color: "#F57C00", textAlign: "center", marginBottom: 20, fontSize: 14 }}>
+                Slot reserved for <strong>{formatTimer(reservationTimer)}</strong>
+              </div>
+            )}
+
+            {/* Policy Agreement */}
+            <div style={{ padding: 16, backgroundColor: "#F5F5F5", borderRadius: 12, marginBottom: 20 }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={policyAgreed}
+                  onChange={(e) => setPolicyAgreed(e.target.checked)}
+                  style={{ width: 20, height: 20, marginTop: 2, accentColor: "#1A1A1A" }}
+                />
+                <span style={{ fontSize: 13, color: "#1A1A1A", lineHeight: 1.5 }}>
+                  I have read and agree to the <strong>Booking Policy</strong>. I understand the payment terms and cancellation policy.
+                </span>
+              </label>
+            </div>
+
+            <button
+              onClick={() => {
+                if (!selectedTime) { setError("Please select a time"); return; }
+                if (!policyAgreed) { setError("Please agree to the booking policy"); return; }
+                setError(null);
+                goNext();
+              }}
+              disabled={!selectedTime || !policyAgreed}
+              style={{
+                width: "100%",
+                padding: 16,
+                border: "none",
+                borderRadius: 25,
+                backgroundColor: selectedTime && policyAgreed ? "#1A1A1A" : "#E8E8E8",
+                color: selectedTime && policyAgreed ? "#FFFFFF" : "#999",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: selectedTime && policyAgreed ? "pointer" : "not-allowed",
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step 4: Customer Details */}
+        {step === 4 && (
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 24 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 600, color: "#1A1A1A" }}>Your Details</h2>
+            <p style={{ margin: "0 0 24px", fontSize: 14, color: "#666" }}>We'll send your confirmation here</p>
+
+            {reservationTimer > 0 && (
+              <div style={{ padding: 14, backgroundColor: "#FFF8E1", borderRadius: 12, color: "#F57C00", textAlign: "center", marginBottom: 20, fontSize: 14 }}>
+                Complete within <strong>{formatTimer(reservationTimer)}</strong>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Full Name</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Enter your name"
+                  required
+                  style={{
+                    width: "100%",
+                    padding: 14,
+                    border: "1px solid #E8E8E8",
+                    borderRadius: 12,
+                    fontSize: 16,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Phone</label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="07xxx xxxxxx"
+                  required
+                  style={{
+                    width: "100%",
+                    padding: 14,
+                    border: "1px solid #E8E8E8",
+                    borderRadius: 12,
+                    fontSize: 16,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Email</label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  style={{
+                    width: "100%",
+                    padding: 14,
+                    border: "1px solid #E8E8E8",
+                    borderRadius: 12,
+                    fontSize: 16,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting || reservationTimer === 0}
+                style={{
+                  width: "100%",
+                  padding: 16,
+                  border: "none",
+                  borderRadius: 25,
+                  backgroundColor: submitting || reservationTimer === 0 ? "#E8E8E8" : "#1A1A1A",
+                  color: submitting || reservationTimer === 0 ? "#999" : "#FFFFFF",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: submitting || reservationTimer === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {submitting ? "Booking..." : "Confirm Booking"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Step 5: Success */}
+        {step === 5 && (
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 32, textAlign: "center" }}>
+            <div style={{
+              width: 80,
+              height: 80,
+              borderRadius: "50%",
+              backgroundColor: "#E8F5E9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 24px",
+            }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+
+            <h2 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 600, color: "#1A1A1A" }}>You're all set!</h2>
+            <p style={{ margin: "0 0 32px", fontSize: 14, color: "#666" }}>Your appointment has been confirmed</p>
+
+            <div style={{ backgroundColor: "#F5F5F5", borderRadius: 12, padding: 20, textAlign: "left", marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #E8E8E8" }}>
+                <span style={{ fontSize: 14, color: "#666" }}>Service</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A" }}>{currentService?.name}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #E8E8E8" }}>
+                <span style={{ fontSize: 14, color: "#666" }}>Specialist</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A" }}>{currentStaff?.name}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #E8E8E8" }}>
+                <span style={{ fontSize: 14, color: "#666" }}>Date & Time</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A" }}>{selectedDate} at {selectedTime}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0" }}>
+                <span style={{ fontSize: 14, color: "#666" }}>Booking ID</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A" }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span>
+              </div>
+            </div>
+
+            <p style={{ color: "#666", fontSize: 14, marginBottom: 24 }}>Confirmation sent to {customerEmail}</p>
+
+            <button
+              onClick={() => {
+                sessionStorage.setItem('booking_session_id', generateSessionId());
+                window.location.reload();
+              }}
+              style={{
+                padding: "14px 32px",
+                border: "none",
+                borderRadius: 25,
+                backgroundColor: "#1A1A1A",
+                color: "#FFFFFF",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Book Another
+            </button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

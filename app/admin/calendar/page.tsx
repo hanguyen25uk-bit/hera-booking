@@ -30,6 +30,8 @@ export default function CalendarPage() {
   const [staffAvailability, setStaffAvailability] = useState<Record<string, StaffAvailability>>({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
+  const [visibleStaff, setVisibleStaff] = useState<Set<string>>(new Set());
+  const [currentTime, setCurrentTime] = useState(new Date());
   
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
@@ -56,6 +58,12 @@ export default function CalendarPage() {
   const [editBookedSlots, setEditBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(function() { loadData(); }, [selectedDate]);
   useEffect(function() { loadStaffAndServices(); }, []);
 
@@ -74,14 +82,13 @@ export default function CalendarPage() {
   async function loadStaffAndServices() {
     try {
       const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
-      if (!staffRes.ok || !servicesRes.ok) {
-        console.error("Failed to load staff or services");
-        return;
-      }
+      if (!staffRes.ok || !servicesRes.ok) return;
       const staffData = await staffRes.json();
       const servicesData = await servicesRes.json();
       setStaffList(Array.isArray(staffData) ? staffData : []);
       setServices(Array.isArray(servicesData) ? servicesData : []);
+      // Initialize all staff as visible
+      setVisibleStaff(new Set(staffData.map((s: Staff) => s.id)));
     } catch (err) { console.error(err); }
   }
 
@@ -92,10 +99,7 @@ export default function CalendarPage() {
         fetch("/api/appointments?date=" + selectedDate),
         fetch("/api/staff"),
       ]);
-      if (!aptsRes.ok || !staffRes.ok) {
-        console.error("Failed to load appointments or staff");
-        return;
-      }
+      if (!aptsRes.ok || !staffRes.ok) return;
       const apts = await aptsRes.json();
       const staffData = await staffRes.json();
       setAppointments(Array.isArray(apts) ? apts : []);
@@ -181,11 +185,8 @@ export default function CalendarPage() {
     
     const selectedService = services.find(function(s) { return s.id === serviceId; });
     const duration = selectedService?.durationMinutes || 60;
-    
-    // Calculate end time in minutes from midnight
     const closingTimeMinutes = endH * 60 + endM;
     
-    // Get current time for checking past slots
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     const currentHour = now.getHours();
@@ -198,15 +199,12 @@ export default function CalendarPage() {
       const slotStart = new Date(date + "T" + timeStr + ":00");
       const slotEnd = new Date(slotStart.getTime() + duration * 60000);
       
-      // Calculate slot end time in minutes from midnight
       const slotEndHour = slotEnd.getHours();
       const slotEndMinute = slotEnd.getMinutes();
       const slotEndMinutes = slotEndHour * 60 + slotEndMinute;
       
-      // Check 1: Slot end must not exceed closing time
       const exceedsClosingTime = slotEndMinutes > closingTimeMinutes;
       
-      // Check 2: For today, slot must be in the future (only if checkPastTime is true)
       let isPastTime = false;
       if (checkPastTime && date === today) {
         const slotMinutes = h * 60 + m;
@@ -214,7 +212,6 @@ export default function CalendarPage() {
         isPastTime = slotMinutes <= currentMinutes;
       }
       
-      // Check 3: No conflict with existing bookings
       const hasConflict = bookedSlots.some(function(booked) {
         const bookedStart = new Date(booked.startTime);
         const bookedEnd = new Date(booked.endTime);
@@ -263,7 +260,6 @@ export default function CalendarPage() {
 
     const timeStr = hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0");
 
-    // Check if slot is in working hours
     const startTime = avail.startTime || "09:00";
     const endTime = avail.endTime || "18:00";
     const [startH, startM] = startTime.split(":").map(Number);
@@ -274,7 +270,6 @@ export default function CalendarPage() {
 
     if (slotMinutes < workStart || slotMinutes >= workEnd) return;
 
-    // Check if time is in the past (for today)
     const today = new Date().toISOString().split("T")[0];
     if (selectedDate === today) {
       const now = new Date();
@@ -282,7 +277,6 @@ export default function CalendarPage() {
       if (slotMinutes <= currentMinutes) return;
     }
 
-    // Check if slot is already booked
     const hasBooking = appointments.some(function(apt) {
       if (apt.staff.id !== staffId || apt.status === "cancelled" || apt.status === "no-show") return false;
       const aptStart = new Date(apt.startTime);
@@ -367,14 +361,6 @@ export default function CalendarPage() {
 
   function formatDateDisplay(dateStr: string) {
     const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-
-    if (dateStr === today.toISOString().split("T")[0]) return "Today";
-    if (dateStr === tomorrow.toISOString().split("T")[0]) return "Tomorrow";
-    if (dateStr === yesterday.toISOString().split("T")[0]) return "Yesterday";
-    
     return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
@@ -527,23 +513,46 @@ export default function CalendarPage() {
     }
   }
 
-  const hours = Array.from({ length: 13 }, function(_, i) { return i + 8; });
+  const toggleStaffVisibility = (staffId: string) => {
+    setVisibleStaff(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(staffId)) {
+        newSet.delete(staffId);
+      } else {
+        newSet.add(staffId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllStaff = () => {
+    if (visibleStaff.size === staffList.length) {
+      setVisibleStaff(new Set());
+    } else {
+      setVisibleStaff(new Set(staffList.map(s => s.id)));
+    }
+  };
+
+  const hours = Array.from({ length: 12 }, function(_, i) { return i + 9; }); // 9 AM to 8 PM
 
   function getAppointmentStyle(apt: Appointment) {
     const start = new Date(apt.startTime);
     const end = new Date(apt.endTime);
     const startHour = start.getHours() + start.getMinutes() / 60;
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    const top = (startHour - 8) * 60;
+    const top = (startHour - 9) * 60;
     const height = Math.max(duration * 60, 30);
     
-    let bgColor = "#6366f1";
-    let borderColor = "#4f46e5";
-    if (apt.status === "cancelled") { bgColor = "#94a3b8"; borderColor = "#64748b"; }
-    if (apt.status === "no-show") { bgColor = "#ef4444"; borderColor = "#dc2626"; }
-    if (apt.status === "completed") { bgColor = "#10b981"; borderColor = "#059669"; }
+    // Warm coral/peach color for appointments
+    let bgColor = "#F8D7C4";
+    let borderColor = "#E8A889";
+    let textColor = "#5D4037";
     
-    return { top: top, height: height, bgColor: bgColor, borderColor: borderColor };
+    if (apt.status === "cancelled") { bgColor = "#E8E8E8"; borderColor = "#CCCCCC"; textColor = "#888888"; }
+    if (apt.status === "no-show") { bgColor = "#FFCDD2"; borderColor = "#EF9A9A"; textColor = "#C62828"; }
+    if (apt.status === "completed") { bgColor = "#C8E6C9"; borderColor = "#A5D6A7"; textColor = "#2E7D32"; }
+    
+    return { top, height, bgColor, borderColor, textColor };
   }
 
   function isHourInWorkingTime(hour: number, staffId: string): boolean {
@@ -566,382 +575,563 @@ export default function CalendarPage() {
     return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   }
 
+  const visibleStaffList = staffList.filter(s => visibleStaff.has(s.id));
   const activeAppointments = appointments.filter(function(a) { return a.status !== "cancelled"; });
-  const confirmedCount = appointments.filter(function(a) { return a.status === "confirmed" || a.status === "booked"; }).length;
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
   
-  // For edit: don't check past time (allow editing existing appointments)
   const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date, !isPastDate(editData.date));
-  // For add: always check past time
   const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date, true);
 
+  // Current time position for the indicator
+  const currentHour = currentTime.getHours();
+  const currentMinute = currentTime.getMinutes();
+  const currentTimePosition = (currentHour - 9) * 60 + currentMinute;
+  const showTimeIndicator = isToday && currentHour >= 9 && currentHour < 21;
+
   return (
-    <div style={{ maxWidth: 1400 }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: 0 }}>Calendar</h1>
-          <p style={{ color: "#64748b", margin: "4px 0 0" }}>Manage appointments</p>
+    <div style={{ display: "flex", height: "100vh", backgroundColor: "#FAFAFA" }}>
+      {/* Left Sidebar - Team Filter */}
+      <div style={{
+        width: 280,
+        backgroundColor: "#FFFFFF",
+        borderRight: "1px solid #E8E8E8",
+        display: "flex",
+        flexDirection: "column",
+        padding: "20px 0",
+      }}>
+        <div style={{ padding: "0 20px 20px", borderBottom: "1px solid #E8E8E8" }}>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 8 }}>Your calendars</h3>
+          <button style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            backgroundColor: "transparent",
+            border: "none",
+            color: "#666",
+            fontSize: 14,
+            cursor: "pointer",
+          }}>
+            <span style={{ fontSize: 18 }}>+</span> Connect calendar
+          </button>
         </div>
-        
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            onClick={function() { openAddModal(); }}
-            style={{
-              padding: "10px 20px",
-              background: "linear-gradient(135deg, #10b981, #059669)", 
-              color: "#fff", 
-              border: "none", 
-              borderRadius: 8, 
-              fontSize: 14, 
-              fontWeight: 600, 
+
+        <div style={{ padding: "20px" }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 600, color: "#1A1A1A" }}>Team</h3>
+          
+          {/* Search */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            backgroundColor: "#F5F5F5",
+            borderRadius: 8,
+            marginBottom: 16,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search"
+              style={{
+                border: "none",
+                background: "transparent",
+                outline: "none",
+                fontSize: 14,
+                color: "#1A1A1A",
+                width: "100%",
+              }}
+            />
+          </div>
+
+          {/* All Team Checkbox */}
+          <label style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 0",
+            cursor: "pointer",
+          }}>
+            <input
+              type="checkbox"
+              checked={visibleStaff.size === staffList.length}
+              onChange={toggleAllStaff}
+              style={{ width: 18, height: 18, accentColor: "#1A1A1A" }}
+            />
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              backgroundColor: "#E8E8E8",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: 14, color: "#1A1A1A" }}>All team ({staffList.length})</span>
+          </label>
+
+          {/* Individual Staff */}
+          {staffList.map(staff => (
+            <label
+              key={staff.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 0",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={visibleStaff.has(staff.id)}
+                onChange={() => toggleStaffVisibility(staff.id)}
+                style={{ width: 18, height: 18, accentColor: "#1A1A1A" }}
+              />
+              <div style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #D4B896 0%, #C4A77D 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#FFFFFF",
+                fontWeight: 600,
+                fontSize: 12,
+              }}>
+                {staff.name.charAt(0)}
+              </div>
+              <span style={{ fontSize: 14, color: "#1A1A1A" }}>{staff.name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Calendar Area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "16px 24px",
+          backgroundColor: "#FFFFFF",
+          borderBottom: "1px solid #E8E8E8",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, color: "#666" }}>All team calendars</span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <button onClick={goToPreviousDay} style={{
+              width: 32,
+              height: 32,
+              border: "1px solid #E8E8E8",
+              borderRadius: 8,
+              background: "#FFFFFF",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: 6
-            }}
-          >
-            + Add Booking
-          </button>
+              justifyContent: "center",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            
+            <span style={{ fontSize: 16, fontWeight: 600, color: "#1A1A1A", minWidth: 180, textAlign: "center" }}>
+              {formatDateDisplay(selectedDate)}
+            </span>
+            
+            <button onClick={goToNextDay} style={{
+              width: 32,
+              height: 32,
+              border: "1px solid #E8E8E8",
+              borderRadius: 8,
+              background: "#FFFFFF",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
 
-          <div style={{ width: 1, height: 30, background: "#e2e8f0", margin: "0 8px" }}></div>
+            {!isToday && (
+              <button onClick={goToToday} style={{
+                padding: "6px 16px",
+                border: "1px solid #E8E8E8",
+                borderRadius: 20,
+                background: "#FFFFFF",
+                color: "#1A1A1A",
+                fontSize: 14,
+                cursor: "pointer",
+              }}>
+                Today
+              </button>
+            )}
 
-          <button onClick={goToPreviousDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
-          
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#f8fafc", borderRadius: 8, minWidth: 200, justifyContent: "center" }}>
-            <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{formatDateDisplay(selectedDate)}</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                padding: "6px 12px",
+                border: "1px solid #E8E8E8",
+                borderRadius: 8,
+                fontSize: 14,
+              }}
+            />
           </div>
-          
-          <button onClick={goToNextDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
-          
-          {!isToday && (
-            <button onClick={goToToday} style={{ padding: "8px 16px", border: "1px solid #6366f1", borderRadius: 8, background: "#fff", color: "#6366f1", fontSize: 14, fontWeight: 500, cursor: "pointer", marginLeft: 8 }}>Today</button>
-          )}
-          
-          <input type="date" value={selectedDate} onChange={function(e) { setSelectedDate(e.target.value); }} style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, marginLeft: 8 }} />
-        </div>
-      </div>
 
-      {/* Stats Bar */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-        <div style={{ padding: "12px 20px", background: "#f0fdf4", borderRadius: 10, border: "1px solid #bbf7d0" }}>
-          <span style={{ color: "#15803d", fontSize: 14 }}>Confirmed: <strong>{confirmedCount}</strong></span>
-        </div>
-        <div style={{ padding: "12px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-          <span style={{ color: "#64748b", fontSize: 14 }}>Total: <strong>{activeAppointments.length}</strong></span>
-        </div>
-      </div>
-
-      {/* Calendar Grid */}
-      <div style={{ backgroundColor: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-        {/* Staff Headers */}
-        <div style={{ display: "flex", borderBottom: "2px solid #e2e8f0", backgroundColor: "#f8fafc" }}>
-          <div style={{ width: 70, padding: 16, borderRight: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 12, color: "#64748b" }}>Time</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={() => openAddModal()} style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "none",
+              backgroundColor: "#1A1A1A",
+              color: "#FFFFFF",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 20,
+            }}>
+              +
+            </button>
+            
+            <button style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              border: "1px solid #E8E8E8",
+              borderRadius: 20,
+              background: "#FFFFFF",
+              cursor: "pointer",
+              fontSize: 14,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+              Share
+            </button>
           </div>
-          {staffList.filter(function(s) { return s.name; }).map(function(staff) {
-            const avail = staffAvailability[staff.id];
-            const isOff = avail && !avail.available;
-            return (
-              <div key={staff.id} style={{ flex: 1, padding: 16, textAlign: "center", borderRight: "1px solid #e2e8f0", background: isOff ? "#fef2f2" : "transparent" }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: isOff ? "#fca5a5" : "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontWeight: 600, fontSize: 18 }}>
-                  {staff.name.charAt(0)}
-                </div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: isOff ? "#dc2626" : "#0f172a" }}>{staff.name}</div>
-                <div style={{ color: "#64748b", fontSize: 12 }}>{staff.role || "Staff"}</div>
-                {isOff && (
-                  <div style={{ marginTop: 4, padding: "2px 8px", background: "#dc2626", color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 600, display: "inline-block" }}>
-                    {avail.reason === "day-off" ? "DAY OFF" : avail.reason === "holiday" ? "HOLIDAY" : "OFF"}
-                  </div>
-                )}
-                {!isOff && avail && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>
-                    {avail.startTime} - {avail.endTime}
-                  </div>
-                )}
+        </div>
+
+        {/* Calendar Grid */}
+        <div style={{ flex: 1, overflow: "auto" }}>
+          <div style={{ display: "flex", minWidth: "100%" }}>
+            {/* Time Column */}
+            <div style={{ width: 60, flexShrink: 0, backgroundColor: "#FFFFFF", borderRight: "1px solid #E8E8E8" }}>
+              <div style={{ height: 60, borderBottom: "1px solid #E8E8E8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 11, color: "#999" }}>GMT</span>
               </div>
-            );
-          })}
-        </div>
+              {hours.map(hour => (
+                <div key={hour} style={{
+                  height: 60,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "flex-end",
+                  paddingRight: 8,
+                  paddingTop: 4,
+                  borderBottom: "1px solid #F0F0F0",
+                }}>
+                  <span style={{ fontSize: 12, color: "#999" }}>
+                    {hour > 12 ? `${hour - 12}PM` : hour === 12 ? "12PM" : `${hour}AM`}
+                  </span>
+                </div>
+              ))}
+            </div>
 
-        {/* Time Grid */}
-        <div style={{ display: "flex", position: "relative" }}>
-          <div style={{ width: 70, borderRight: "1px solid #e2e8f0", background: "#fafafa" }}>
-            {hours.map(function(hour) {
+            {/* Staff Columns */}
+            {visibleStaffList.map(staff => {
+              const avail = staffAvailability[staff.id];
+              const isOff = avail && !avail.available;
+
               return (
-                <div key={hour} style={{ height: 60, padding: "4px 12px", fontSize: 13, color: "#64748b", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", fontWeight: 500 }}>
-                  {hour}:00
+                <div key={staff.id} style={{ flex: 1, minWidth: 180, borderRight: "1px solid #E8E8E8" }}>
+                  {/* Staff Header */}
+                  <div style={{
+                    height: 60,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "0 16px",
+                    borderBottom: "1px solid #E8E8E8",
+                    backgroundColor: isOff ? "#FFF5F5" : "#FFFFFF",
+                  }}>
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      background: isOff ? "#FFCDD2" : "linear-gradient(135deg, #D4B896 0%, #C4A77D 100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: isOff ? "#C62828" : "#FFFFFF",
+                      fontWeight: 600,
+                      fontSize: 14,
+                    }}>
+                      {staff.name.charAt(0)}
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: isOff ? "#C62828" : "#1A1A1A" }}>
+                      {staff.name}
+                    </span>
+                  </div>
+
+                  {/* Time Slots */}
+                  <div style={{ position: "relative" }}>
+                    {hours.map(hour => {
+                      const inWorkingHours = isHourInWorkingTime(hour, staff.id);
+                      return (
+                        <div
+                          key={hour}
+                          style={{
+                            height: 60,
+                            borderBottom: "1px solid #F0F0F0",
+                            backgroundColor: isOff ? "#FFF5F5" : inWorkingHours ? "#FFFFFF" : "#F8F8F8",
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
+                          {!isOff && inWorkingHours && !isPastDate(selectedDate) && [0, 15, 30, 45].map(minute => (
+                            <div
+                              key={minute}
+                              onClick={() => handleTimeSlotClick(staff.id, hour, minute)}
+                              style={{
+                                flex: 1,
+                                cursor: "pointer",
+                                borderBottom: minute < 45 ? "1px dashed #F0F0F0" : "none",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(212, 184, 150, 0.1)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
+
+                    {/* Current Time Indicator */}
+                    {showTimeIndicator && (
+                      <div style={{
+                        position: "absolute",
+                        top: currentTimePosition,
+                        left: 0,
+                        right: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        zIndex: 5,
+                        pointerEvents: "none",
+                      }}>
+                        <div style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          backgroundColor: "#1A1A1A",
+                          marginLeft: -4,
+                        }} />
+                        <div style={{
+                          flex: 1,
+                          height: 2,
+                          backgroundColor: "#1A1A1A",
+                        }} />
+                      </div>
+                    )}
+
+                    {/* Appointments */}
+                    {activeAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
+                      const style = getAppointmentStyle(apt);
+                      return (
+                        <div
+                          key={apt.id}
+                          onClick={() => openAppointment(apt)}
+                          style={{
+                            position: "absolute",
+                            top: style.top,
+                            left: 4,
+                            right: 4,
+                            height: style.height - 4,
+                            backgroundColor: style.bgColor,
+                            borderLeft: `4px solid ${style.borderColor}`,
+                            borderRadius: 6,
+                            padding: "6px 10px",
+                            cursor: "pointer",
+                            overflow: "hidden",
+                            zIndex: 10,
+                          }}
+                        >
+                          <div style={{ fontSize: 13, fontWeight: 600, color: style.textColor }}>{apt.customerName}</div>
+                          <div style={{ fontSize: 12, color: style.textColor, opacity: 0.8 }}>{apt.service.name}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
           </div>
-
-          {staffList.filter(function(s) { return s.name; }).map(function(staff) {
-            const avail = staffAvailability[staff.id];
-            const isOff = avail && !avail.available;
-            
-            return (
-              <div key={staff.id} style={{ flex: 1, position: "relative", borderRight: "1px solid #e2e8f0" }}>
-                {hours.map(function(hour) {
-                  const inWorkingHours = isHourInWorkingTime(hour, staff.id);
-                  let bgColor = "#fff";
-
-                  if (isOff) {
-                    bgColor = "#fef2f2";
-                  } else if (!inWorkingHours) {
-                    bgColor = "#f1f5f9";
-                  } else if (hour % 2 !== 0) {
-                    bgColor = "#fafafa";
-                  }
-
-                  const canClick = !isOff && inWorkingHours && !isPastDate(selectedDate);
-
-                  return (
-                    <div
-                      key={hour}
-                      style={{
-                        height: 60,
-                        borderBottom: "1px solid #f1f5f9",
-                        background: bgColor,
-                        position: "relative",
-                        display: "flex",
-                        flexDirection: "column"
-                      }}
-                    >
-                      {isOff && hour === 12 && (
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                          <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 600 }}>OFF</span>
-                        </div>
-                      )}
-                      {/* Clickable 15-min slots */}
-                      {canClick && [0, 15, 30, 45].map(function(minute) {
-                        return (
-                          <div
-                            key={minute}
-                            onClick={function() { handleTimeSlotClick(staff.id, hour, minute); }}
-                            style={{
-                              flex: 1,
-                              cursor: "pointer",
-                              borderBottom: minute < 45 ? "1px dashed #e2e8f0" : "none",
-                              transition: "background-color 0.15s"
-                            }}
-                            onMouseEnter={function(e) { e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.1)"; }}
-                            onMouseLeave={function(e) { e.currentTarget.style.backgroundColor = "transparent"; }}
-                            title={"Click to book " + hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0")}
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-                
-                {!isOff && avail && avail.startTime && avail.endTime && (
-                  <div style={{
-                    position: "absolute",
-                    top: (parseInt(avail.startTime.split(":")[0]) - 8) * 60,
-                    left: 0,
-                    right: 0,
-                    height: (parseInt(avail.endTime.split(":")[0]) - parseInt(avail.startTime.split(":")[0])) * 60,
-                    border: "2px solid #10b981",
-                    borderRadius: 4,
-                    pointerEvents: "none",
-                    opacity: 0.3
-                  }} />
-                )}
-                
-                {activeAppointments.filter(function(apt) { return apt.staff.id === staff.id; }).map(function(apt) {
-                  const style = getAppointmentStyle(apt);
-                  return (
-                    <div
-                      key={apt.id}
-                      onClick={function() { openAppointment(apt); }}
-                      style={{
-                        position: "absolute", top: style.top, left: 4, right: 4, height: style.height - 4,
-                        backgroundColor: style.bgColor, borderLeft: "4px solid " + style.borderColor,
-                        borderRadius: 8, padding: "8px 10px", cursor: "pointer", overflow: "hidden",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "transform 0.1s", zIndex: 10
-                      }}
-                      onMouseEnter={function(e) { e.currentTarget.style.transform = "scale(1.02)"; }}
-                      onMouseLeave={function(e) { e.currentTarget.style.transform = "scale(1)"; }}
-                    >
-                      <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{formatTime(apt.startTime)}</div>
-                      <div style={{ color: "#fff", fontSize: 12, opacity: 0.95, fontWeight: 500, marginTop: 2 }}>{apt.service.name}</div>
-                      <div style={{ color: "#fff", fontSize: 11, opacity: 0.85, marginTop: 2 }}>{apt.customerName}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
         </div>
       </div>
 
-      {/* Legend */}
-      <div style={{ marginTop: 16, display: "flex", gap: 20, fontSize: 13, color: "#64748b", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#6366f1" }}></div> Confirmed</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#ef4444" }}></div> No-Show</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#94a3b8" }}></div> Cancelled</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#fef2f2", border: "1px solid #fca5a5" }}></div> Day Off</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#f1f5f9", border: "1px solid #e2e8f0" }}></div> Outside Hours</div>
-      </div>
+      {/* Current Time Display */}
+      {showTimeIndicator && (
+        <div style={{
+          position: "fixed",
+          left: 280 + 260 + 20,
+          top: 60 + 16 + currentTimePosition + 60,
+          backgroundColor: "#1A1A1A",
+          color: "#FFFFFF",
+          padding: "2px 8px",
+          borderRadius: 4,
+          fontSize: 12,
+          fontWeight: 500,
+          zIndex: 100,
+        }}>
+          {currentTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+        </div>
+      )}
 
       {/* Add Booking Modal */}
       {showAddModal && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 500, maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb", background: "linear-gradient(135deg, #10b981, #059669)" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0, color: "#fff" }}>+ Add Walk-in Booking</h2>
-              <button onClick={closeAddModal} style={{ width: 32, height: 32, border: "none", background: "rgba(255,255,255,0.2)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "#fff" }}>×</button>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, width: 440, maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #E8E8E8", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1A1A1A" }}>Add Walk-in Booking</h2>
+              <button onClick={closeAddModal} style={{ width: 32, height: 32, border: "none", background: "#F5F5F5", borderRadius: 8, cursor: "pointer", fontSize: 18 }}>×</button>
             </div>
 
             {message && (
-              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#d1fae5" : "#fee2e2", color: message.type === "success" ? "#065f46" : "#991b1b", fontSize: 14 }}>
+              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#E8F5E9" : "#FFEBEE", color: message.type === "success" ? "#2E7D32" : "#C62828", fontSize: 14 }}>
                 {message.text}
               </div>
             )}
 
             <div style={{ padding: 24 }}>
-              {/* Customer Info */}
-              <div style={{ marginBottom: 20, padding: 16, background: "#f8fafc", borderRadius: 12 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, color: "#374151", margin: "0 0 12px" }}>Customer Information</h3>
-                
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Name *</label>
-                  <input 
-                    type="text" 
-                    value={addData.customerName} 
-                    onChange={function(e) { setAddData({ ...addData, customerName: e.target.value }); }}
-                    placeholder="Customer name"
-                    style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Phone *</label>
-                  <input 
-                    type="tel" 
-                    value={addData.customerPhone} 
-                    onChange={function(e) { setAddData({ ...addData, customerPhone: e.target.value }); }}
-                    placeholder="Phone number"
-                    style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Email (optional)</label>
-                  <input 
-                    type="email" 
-                    value={addData.customerEmail} 
-                    onChange={function(e) { setAddData({ ...addData, customerEmail: e.target.value }); }}
-                    placeholder="Email address"
-                    style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }}
-                  />
-                </div>
-              </div>
-
-              {/* Service */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                <select 
-                  value={addData.serviceId} 
-                  onChange={function(e) { setAddData({ ...addData, serviceId: e.target.value, time: "" }); }} 
-                  style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-                >
-                  {services.map(function(s) { 
-                    return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; 
-                  })}
-                </select>
-              </div>
-
-              {/* Staff */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
-                <select 
-                  value={addData.staffId} 
-                  onChange={function(e) { setAddData({ ...addData, staffId: e.target.value, time: "" }); }} 
-                  style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-                >
-                  {staffList.map(function(s) { 
-                    return <option key={s.id} value={s.id}>{s.name}</option>; 
-                  })}
-                </select>
-              </div>
-
-              {/* Date */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                <input 
-                  type="date" 
-                  value={addData.date} 
-                  min={new Date().toISOString().split("T")[0]}
-                  onChange={function(e) { setAddData({ ...addData, date: e.target.value, time: "" }); }} 
-                  style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} 
-                />
-                {isPastDate(addData.date) && (
-                  <p style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>Cannot book for past dates</p>
-                )}
-              </div>
-
-              {/* Time */}
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                {isPastDate(addData.date) ? (
-                  <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
-                    Cannot book for past dates. Please select today or a future date.
-                  </div>
-                ) : loadingAddAvailability ? (
-                  <p style={{ color: "#64748b", fontSize: 14 }}>Loading available times...</p>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Customer Name *</label>
+                <input
+                  type="text"
+                  value={addData.customerName}
+                  onChange={(e) => setAddData({ ...addData, customerName: e.target.value })}
+                  placeholder="Enter name"
+                  style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Phone *</label>
+                <input
+                  type="tel"
+                  value={addData.customerPhone}
+                  onChange={(e) => setAddData({ ...addData, customerPhone: e.target.value })}
+                  placeholder="Phone number"
+                  style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Service</label>
+                <select
+                  value={addData.serviceId}
+                  onChange={(e) => setAddData({ ...addData, serviceId: e.target.value, time: "" })}
+                  style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                >
+                  {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes}min - £{s.price})</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Staff</label>
+                <select
+                  value={addData.staffId}
+                  onChange={(e) => setAddData({ ...addData, staffId: e.target.value, time: "" })}
+                  style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                >
+                  {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Date</label>
+                <input
+                  type="date"
+                  value={addData.date}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setAddData({ ...addData, date: e.target.value, time: "" })}
+                  style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Time</label>
+                {loadingAddAvailability ? (
+                  <p style={{ color: "#666" }}>Loading...</p>
                 ) : !addAvailability?.available ? (
-                  <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
-                    Staff is not available on this date {addAvailability?.reason ? "(" + addAvailability.reason + ")" : ""}
+                  <div style={{ padding: 16, background: "#FFF5F5", borderRadius: 8, color: "#C62828", fontSize: 14 }}>
+                    Staff not available on this date
                   </div>
                 ) : addTimeSlots.length === 0 ? (
-                  <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>
-                    No available time slots. All times are booked or have passed.
+                  <div style={{ padding: 16, background: "#FFF8E1", borderRadius: 8, color: "#F57C00", fontSize: 14 }}>
+                    No available times
                   </div>
                 ) : (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                      {addTimeSlots.map(function(t) {
-                        return (
-                          <button
-                            key={t}
-                            onClick={function() { setAddData({ ...addData, time: t }); }}
-                            style={{
-                              padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer",
-                              border: addData.time === t ? "2px solid #10b981" : "1px solid #e2e8f0",
-                              background: addData.time === t ? "#10b981" : "#fff",
-                              color: addData.time === t ? "#fff" : "#374151",
-                            }}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
-                      Working: {addAvailability.startTime} - {addAvailability.endTime}
-                    </p>
-                  </>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                    {addTimeSlots.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setAddData({ ...addData, time: t })}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          fontSize: 14,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          border: addData.time === t ? "2px solid #1A1A1A" : "1px solid #E8E8E8",
+                          background: addData.time === t ? "#1A1A1A" : "#FFFFFF",
+                          color: addData.time === t ? "#FFFFFF" : "#1A1A1A",
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Buttons */}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button 
-                  onClick={closeAddModal} 
-                  style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}
-                >
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={closeAddModal} style={{ flex: 1, padding: 14, border: "1px solid #E8E8E8", borderRadius: 25, background: "#FFFFFF", color: "#666", fontSize: 15, cursor: "pointer" }}>
                   Cancel
                 </button>
-                <button 
-                  onClick={handleAddBooking} 
-                  disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone || !addAvailability?.available || isPastDate(addData.date)} 
-                  style={{ 
-                    flex: 1, padding: 14, border: "none", borderRadius: 10, 
-                    background: addData.time && addData.customerName && addData.customerPhone && addAvailability?.available && !isPastDate(addData.date) ? "linear-gradient(135deg, #10b981, #059669)" : "#e2e8f0", 
-                    color: addData.time && addData.customerName && addData.customerPhone && !isPastDate(addData.date) ? "#fff" : "#94a3b8", 
-                    fontSize: 15, fontWeight: 600, cursor: addData.time && !isPastDate(addData.date) ? "pointer" : "not-allowed" 
+                <button
+                  onClick={handleAddBooking}
+                  disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone}
+                  style={{
+                    flex: 1,
+                    padding: 14,
+                    border: "none",
+                    borderRadius: 25,
+                    background: addData.time && addData.customerName && addData.customerPhone ? "#1A1A1A" : "#E8E8E8",
+                    color: addData.time && addData.customerName && addData.customerPhone ? "#FFFFFF" : "#999",
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: addData.time ? "pointer" : "not-allowed",
                   }}
                 >
                   {saving ? "Creating..." : "Create Booking"}
@@ -954,30 +1144,33 @@ export default function CalendarPage() {
 
       {/* View/Edit Appointment Modal */}
       {selectedAppointment && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{modalMode === "edit" ? "Edit Appointment" : "Appointment Details"}</h2>
-              <button onClick={closeModal} style={{ width: 32, height: 32, border: "none", background: "#f3f4f6", borderRadius: 8, fontSize: 18, cursor: "pointer" }}>×</button>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, width: 440, maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #E8E8E8", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1A1A1A" }}>
+                {modalMode === "edit" ? "Edit Appointment" : "Appointment Details"}
+              </h2>
+              <button onClick={closeModal} style={{ width: 32, height: 32, border: "none", background: "#F5F5F5", borderRadius: 8, cursor: "pointer", fontSize: 18 }}>×</button>
             </div>
 
             {message && (
-              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#d1fae5" : "#fee2e2", color: message.type === "success" ? "#065f46" : "#991b1b", fontSize: 14 }}>
+              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#E8F5E9" : "#FFEBEE", color: message.type === "success" ? "#2E7D32" : "#C62828", fontSize: 14 }}>
                 {message.text}
               </div>
             )}
 
             {confirmAction && (
-              <div style={{ margin: "16px 24px", padding: 16, backgroundColor: "#fef3c7", borderRadius: 12, border: "1px solid #fcd34d" }}>
-                <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#92400e" }}>
+              <div style={{ margin: "16px 24px", padding: 16, backgroundColor: "#FFF8E1", borderRadius: 12, border: "1px solid #FFE082" }}>
+                <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#F57C00" }}>
                   {confirmAction === "cancel" ? "Cancel this appointment?" : confirmAction === "noshow" ? "Mark as No-Show?" : "Permanently delete?"}
                 </p>
-                <p style={{ margin: "0 0 16px", fontSize: 13, color: "#a16207" }}>
-                  {confirmAction === "cancel" ? "The time slot will become available." : confirmAction === "noshow" ? "This counts toward no-show record. 3 = blocked." : "This cannot be undone."}
-                </p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={function() { setConfirmAction(null); }} style={{ flex: 1, padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", cursor: "pointer" }}>Back</button>
-                  <button onClick={function() { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }} disabled={saving} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#dc2626" : "#f59e0b", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: 10, border: "1px solid #E8E8E8", borderRadius: 20, background: "#FFFFFF", cursor: "pointer" }}>Back</button>
+                  <button
+                    onClick={() => { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }}
+                    disabled={saving}
+                    style={{ flex: 1, padding: 10, border: "none", borderRadius: 20, background: confirmAction === "delete" ? "#C62828" : "#F57C00", color: "#FFFFFF", fontWeight: 600, cursor: "pointer" }}
+                  >
                     {saving ? "..." : "Confirm"}
                   </button>
                 </div>
@@ -989,147 +1182,139 @@ export default function CalendarPage() {
                 <>
                   <div style={{ marginBottom: 20 }}>
                     <span style={{
-                      padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600,
-                      backgroundColor: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#d1fae5" : selectedAppointment.status === "cancelled" ? "#f3f4f6" : selectedAppointment.status === "no-show" ? "#fee2e2" : "#e0e7ff",
-                      color: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#065f46" : selectedAppointment.status === "cancelled" ? "#64748b" : selectedAppointment.status === "no-show" ? "#991b1b" : "#3730a3",
+                      padding: "6px 14px",
+                      borderRadius: 20,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      backgroundColor: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#E8F5E9" : selectedAppointment.status === "cancelled" ? "#F5F5F5" : "#FFEBEE",
+                      color: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#2E7D32" : selectedAppointment.status === "cancelled" ? "#666" : "#C62828",
                     }}>
                       {selectedAppointment.status === "booked" ? "Confirmed" : selectedAppointment.status.charAt(0).toUpperCase() + selectedAppointment.status.slice(1)}
                     </span>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Service</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.service.name}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.service.durationMinutes} mins - £{selectedAppointment.service.price}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#999", textTransform: "uppercase", marginBottom: 4 }}>Service</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#1A1A1A" }}>{selectedAppointment.service.name}</div>
+                    <div style={{ fontSize: 14, color: "#666" }}>{selectedAppointment.service.durationMinutes} mins - £{selectedAppointment.service.price}</div>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Date & Time</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatDateLong(selectedAppointment.startTime)}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{formatTime(selectedAppointment.startTime)} - {formatTime(selectedAppointment.endTime)}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#999", textTransform: "uppercase", marginBottom: 4 }}>Date & Time</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#1A1A1A" }}>{formatDateLong(selectedAppointment.startTime)}</div>
+                    <div style={{ fontSize: 14, color: "#666" }}>{formatTime(selectedAppointment.startTime)} - {formatTime(selectedAppointment.endTime)}</div>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Staff</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.staff.name}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#999", textTransform: "uppercase", marginBottom: 4 }}>Staff</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#1A1A1A" }}>{selectedAppointment.staff.name}</div>
                   </div>
 
                   <div style={{ marginBottom: 24 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Customer</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.customerName}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.customerPhone}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.customerEmail}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#999", textTransform: "uppercase", marginBottom: 4 }}>Customer</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#1A1A1A" }}>{selectedAppointment.customerName}</div>
+                    <div style={{ fontSize: 14, color: "#666" }}>{selectedAppointment.customerPhone}</div>
+                    <div style={{ fontSize: 14, color: "#666" }}>{selectedAppointment.customerEmail}</div>
                   </div>
 
                   {!confirmAction && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {(selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked") && (
                         <>
-                          <button onClick={startEdit} style={{ padding: 14, border: "none", borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Edit Appointment</button>
+                          <button onClick={startEdit} style={{ padding: 14, border: "none", borderRadius: 25, background: "#1A1A1A", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Edit Appointment</button>
                           <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={function() { setConfirmAction("cancel"); }} style={{ flex: 1, padding: 12, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Cancel</button>
-                            <button onClick={function() { setConfirmAction("noshow"); }} style={{ flex: 1, padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fef2f2", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>No-Show</button>
+                            <button onClick={() => setConfirmAction("cancel")} style={{ flex: 1, padding: 12, border: "1px solid #E8E8E8", borderRadius: 25, background: "#FFFFFF", color: "#666", fontSize: 14, cursor: "pointer" }}>Cancel</button>
+                            <button onClick={() => setConfirmAction("noshow")} style={{ flex: 1, padding: 12, border: "1px solid #FFCDD2", borderRadius: 25, background: "#FFF5F5", color: "#C62828", fontSize: 14, cursor: "pointer" }}>No-Show</button>
                           </div>
                         </>
                       )}
                       
                       {(selectedAppointment.status === "cancelled" || selectedAppointment.status === "no-show") && (
                         <>
-                          <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 10, background: "#10b981", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Restore</button>
-                          <button onClick={function() { setConfirmAction("delete"); }} style={{ padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fff", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Delete</button>
+                          <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 25, background: "#2E7D32", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Restore</button>
+                          <button onClick={() => setConfirmAction("delete")} style={{ padding: 12, border: "1px solid #FFCDD2", borderRadius: 25, background: "#FFFFFF", color: "#C62828", fontSize: 14, cursor: "pointer" }}>Delete Permanently</button>
                         </>
                       )}
 
-                      <button onClick={closeModal} style={{ padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer", marginTop: 8 }}>Close</button>
+                      <button onClick={closeModal} style={{ padding: 14, border: "1px solid #E8E8E8", borderRadius: 25, background: "#FFFFFF", color: "#666", fontSize: 15, cursor: "pointer", marginTop: 8 }}>Close</button>
                     </div>
                   )}
                 </>
               ) : (
                 <>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                    <select value={editData.serviceId} onChange={function(e) { setEditData({ ...editData, serviceId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                      {services.map(function(s) { return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; })}
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Service</label>
+                    <select value={editData.serviceId} onChange={(e) => setEditData({ ...editData, serviceId: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}>
+                      {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes}min - £{s.price})</option>)}
                     </select>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
-                    <select value={editData.staffId} onChange={function(e) { setEditData({ ...editData, staffId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                      {staffList.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Staff</label>
+                    <select value={editData.staffId} onChange={(e) => setEditData({ ...editData, staffId: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}>
+                      {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                    <input 
-                      type="date" 
-                      value={editData.date} 
-                      min={new Date().toISOString().split("T")[0]}
-                      onChange={function(e) { setEditData({ ...editData, date: e.target.value, time: "" }); }} 
-                      style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} 
-                    />
-                    {isPastDate(editData.date) && (
-                      <p style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>Cannot reschedule to past dates</p>
-                    )}
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Date</label>
+                    <input type="date" value={editData.date} min={new Date().toISOString().split("T")[0]} onChange={(e) => setEditData({ ...editData, date: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #E8E8E8", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
                   </div>
 
                   <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                    {isPastDate(editData.date) ? (
-                      <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
-                        Cannot reschedule to past dates. Please select today or a future date.
-                      </div>
-                    ) : loadingAvailability ? (
-                      <p style={{ color: "#64748b", fontSize: 14 }}>Loading...</p>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#1A1A1A" }}>Time</label>
+                    {loadingAvailability ? (
+                      <p style={{ color: "#666" }}>Loading...</p>
                     ) : !editAvailability?.available ? (
-                      <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>
-                        Staff is not available on this date {editAvailability?.reason ? "(" + editAvailability.reason + ")" : ""}
+                      <div style={{ padding: 16, background: "#FFF5F5", borderRadius: 8, color: "#C62828", fontSize: 14 }}>
+                        Staff not available on this date
                       </div>
                     ) : editTimeSlots.length === 0 ? (
-                      <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>
-                        No available time slots
+                      <div style={{ padding: 16, background: "#FFF8E1", borderRadius: 8, color: "#F57C00", fontSize: 14 }}>
+                        No available times
                       </div>
                     ) : (
-                      <>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                          {editTimeSlots.map(function(t) {
-                            return (
-                              <button
-                                key={t}
-                                onClick={function() { setEditData({ ...editData, time: t }); }}
-                                style={{
-                                  padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer",
-                                  border: editData.time === t ? "2px solid #6366f1" : "1px solid #e2e8f0",
-                                  background: editData.time === t ? "#6366f1" : "#fff",
-                                  color: editData.time === t ? "#fff" : "#374151",
-                                }}
-                              >
-                                {t}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
-                          Working: {editAvailability.startTime} - {editAvailability.endTime}
-                        </p>
-                      </>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                        {editTimeSlots.map(t => (
+                          <button
+                            key={t}
+                            onClick={() => setEditData({ ...editData, time: t })}
+                            style={{
+                              padding: 10,
+                              borderRadius: 8,
+                              fontSize: 14,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              border: editData.time === t ? "2px solid #1A1A1A" : "1px solid #E8E8E8",
+                              background: editData.time === t ? "#1A1A1A" : "#FFFFFF",
+                              color: editData.time === t ? "#FFFFFF" : "#1A1A1A",
+                            }}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={function() { setModalMode("view"); }} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
-                    <button 
-                      onClick={handleSaveEdit} 
-                      disabled={saving || !editData.time || !editAvailability?.available || isPastDate(editData.date)} 
-                      style={{ 
-                        flex: 1, padding: 14, border: "none", borderRadius: 10, 
-                        background: editData.time && editAvailability?.available && !isPastDate(editData.date) ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", 
-                        color: editData.time && editAvailability?.available && !isPastDate(editData.date) ? "#fff" : "#94a3b8", 
-                        fontSize: 15, fontWeight: 600, cursor: editData.time && !isPastDate(editData.date) ? "pointer" : "not-allowed" 
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button onClick={() => setModalMode("view")} style={{ flex: 1, padding: 14, border: "1px solid #E8E8E8", borderRadius: 25, background: "#FFFFFF", color: "#666", fontSize: 15, cursor: "pointer" }}>Cancel</button>
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={saving || !editData.time || !editAvailability?.available}
+                      style={{
+                        flex: 1,
+                        padding: 14,
+                        border: "none",
+                        borderRadius: 25,
+                        background: editData.time && editAvailability?.available ? "#1A1A1A" : "#E8E8E8",
+                        color: editData.time && editAvailability?.available ? "#FFFFFF" : "#999",
+                        fontSize: 15,
+                        fontWeight: 600,
+                        cursor: editData.time ? "pointer" : "not-allowed",
                       }}
                     >
-                      {saving ? "Saving..." : "Save"}
+                      {saving ? "Saving..." : "Save Changes"}
                     </button>
                   </div>
                 </>
