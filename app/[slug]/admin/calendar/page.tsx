@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 
 type Appointment = {
   id: string;
@@ -17,24 +16,23 @@ type Appointment = {
 
 type Staff = { id: string; name: string; role?: string };
 type Service = { id: string; name: string; durationMinutes: number; price: number };
-type StaffAvailability = {
-  available: boolean;
-  reason?: string;
-  startTime?: string;
+type StaffAvailability = { 
+  available: boolean; 
+  reason?: string; 
+  startTime?: string; 
   endTime?: string;
 };
 
-export default function SalonCalendarPage() {
-  const params = useParams();
-  const slug = params.slug as string;
-
+export default function CalendarPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [staffAvailability, setStaffAvailability] = useState<Record<string, StaffAvailability>>({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(true);
-
+  const [visibleStaff, setVisibleStaff] = useState<Set<string>>(new Set());
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
   const [editData, setEditData] = useState({ serviceId: "", staffId: "", date: "", time: "" });
@@ -60,6 +58,12 @@ export default function SalonCalendarPage() {
   const [editBookedSlots, setEditBookedSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(function() { loadData(); }, [selectedDate]);
   useEffect(function() { loadStaffAndServices(); }, []);
 
@@ -77,11 +81,14 @@ export default function SalonCalendarPage() {
 
   async function loadStaffAndServices() {
     try {
-      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff", { credentials: "include" }), fetch("/api/services", { credentials: "include" })]);
+      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
+      if (!staffRes.ok || !servicesRes.ok) return;
       const staffData = await staffRes.json();
       const servicesData = await servicesRes.json();
       setStaffList(Array.isArray(staffData) ? staffData : []);
       setServices(Array.isArray(servicesData) ? servicesData : []);
+      // Initialize all staff as visible
+      setVisibleStaff(new Set(staffData.map((s: Staff) => s.id)));
     } catch (err) { console.error(err); }
   }
 
@@ -89,9 +96,10 @@ export default function SalonCalendarPage() {
     setLoading(true);
     try {
       const [aptsRes, staffRes] = await Promise.all([
-        fetch("/api/appointments?date=" + selectedDate, { credentials: "include" }),
-        fetch("/api/staff", { credentials: "include" }),
+        fetch("/api/appointments?date=" + selectedDate),
+        fetch("/api/staff"),
       ]);
+      if (!aptsRes.ok || !staffRes.ok) return;
       const apts = await aptsRes.json();
       const staffData = await staffRes.json();
       setAppointments(Array.isArray(apts) ? apts : []);
@@ -99,12 +107,12 @@ export default function SalonCalendarPage() {
 
       const availabilityMap: Record<string, StaffAvailability> = {};
       await Promise.all(
-        (Array.isArray(staffData) ? staffData : []).map(async function(staff: Staff) {
+        staffData.map(async function(staff: Staff) {
           try {
-            const res = await fetch("/api/staff-availability?staffId=" + staff.id + "&date=" + selectedDate);
+            const res = await fetch("/api/staff-availability?staffId=" + staff.id + "&date=" + selectedDate, { credentials: "include" });
             availabilityMap[staff.id] = await res.json();
           } catch (err) {
-            availabilityMap[staff.id] = { available: true, startTime: "09:00", endTime: "18:00" };
+            availabilityMap[staff.id] = { available: true, startTime: "10:00", endTime: "19:00" };
           }
         })
       );
@@ -117,12 +125,16 @@ export default function SalonCalendarPage() {
     setLoadingAvailability(true);
     try {
       const availRes = await fetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date, { credentials: "include" });
-      const avail = await availRes.json();
-      setEditAvailability(avail);
+      if (!availRes.ok) {
+        setEditAvailability({ available: true, startTime: "10:00", endTime: "19:00" });
+      } else {
+        const avail = await availRes.json();
+        setEditAvailability(avail);
+      }
 
       const aptsRes = await fetch("/api/appointments?date=" + editData.date, { credentials: "include" });
-      const apts: Appointment[] = await aptsRes.json();
-      const booked = (Array.isArray(apts) ? apts : [])
+      const apts: Appointment[] = aptsRes.ok ? await aptsRes.json() : [];
+      const booked = apts
         .filter(function(a) { return a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id; })
         .map(function(a) { return { startTime: a.startTime, endTime: a.endTime }; });
       setEditBookedSlots(booked);
@@ -137,12 +149,16 @@ export default function SalonCalendarPage() {
     setLoadingAddAvailability(true);
     try {
       const availRes = await fetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date, { credentials: "include" });
-      const avail = await availRes.json();
-      setAddAvailability(avail);
+      if (!availRes.ok) {
+        setAddAvailability({ available: true, startTime: "10:00", endTime: "19:00" });
+      } else {
+        const avail = await availRes.json();
+        setAddAvailability(avail);
+      }
 
       const aptsRes = await fetch("/api/appointments?date=" + addData.date, { credentials: "include" });
-      const apts: Appointment[] = await aptsRes.json();
-      const booked = (Array.isArray(apts) ? apts : [])
+      const apts: Appointment[] = aptsRes.ok ? await aptsRes.json() : [];
+      const booked = apts
         .filter(function(a) { return a.staff.id === addData.staffId && a.status !== "cancelled" && a.status !== "no-show"; })
         .map(function(a) { return { startTime: a.startTime, endTime: a.endTime }; });
       setAddBookedSlots(booked);
@@ -154,58 +170,62 @@ export default function SalonCalendarPage() {
   }
 
   function generateTimeSlots(
-    availability: StaffAvailability | null,
-    bookedSlots: { startTime: string; endTime: string }[],
-    serviceId: string,
+    availability: StaffAvailability | null, 
+    bookedSlots: { startTime: string; endTime: string }[], 
+    serviceId: string, 
     date: string,
     checkPastTime: boolean = true
   ): string[] {
     if (!availability?.available) return [];
-
-    const startTime = availability.startTime || "09:00";
-    const endTime = availability.endTime || "17:00";
+    
+    const startTime = availability.startTime || "10:00";
+    const endTime = availability.endTime || "19:00";
     const [startH, startM] = startTime.split(":").map(Number);
     const [endH, endM] = endTime.split(":").map(Number);
-
+    
     const selectedService = services.find(function(s) { return s.id === serviceId; });
     const duration = selectedService?.durationMinutes || 60;
     const closingTimeMinutes = endH * 60 + endM;
+    
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
-
+    
     const slots: string[] = [];
     for (let h = startH, m = startM; h < endH || (h === endH && m < endM); ) {
       const timeStr = h.toString().padStart(2, "0") + ":" + m.toString().padStart(2, "0");
+      
       const slotStart = new Date(date + "T" + timeStr + ":00");
       const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+      
       const slotEndHour = slotEnd.getHours();
       const slotEndMinute = slotEnd.getMinutes();
       const slotEndMinutes = slotEndHour * 60 + slotEndMinute;
+      
       const exceedsClosingTime = slotEndMinutes > closingTimeMinutes;
-
+      
       let isPastTime = false;
       if (checkPastTime && date === today) {
         const slotMinutes = h * 60 + m;
         const currentMinutes = currentHour * 60 + currentMinute;
         isPastTime = slotMinutes <= currentMinutes;
       }
-
+      
       const hasConflict = bookedSlots.some(function(booked) {
         const bookedStart = new Date(booked.startTime);
         const bookedEnd = new Date(booked.endTime);
         return slotStart < bookedEnd && slotEnd > bookedStart;
       });
-
+      
       if (!exceedsClosingTime && !isPastTime && !hasConflict) {
         slots.push(timeStr);
       }
-
+      
       m += 15;
       if (m >= 60) { m = 0; h++; }
     }
-
+    
     return slots;
   }
 
@@ -239,8 +259,9 @@ export default function SalonCalendarPage() {
     if (!avail?.available) return;
 
     const timeStr = hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0");
-    const startTime = avail.startTime || "09:00";
-    const endTime = avail.endTime || "18:00";
+
+    const startTime = avail.startTime || "10:00";
+    const endTime = avail.endTime || "19:00";
     const [startH, startM] = startTime.split(":").map(Number);
     const [endH, endM] = endTime.split(":").map(Number);
     const slotMinutes = hour * 60 + minute;
@@ -265,6 +286,7 @@ export default function SalonCalendarPage() {
     });
 
     if (hasBooking) return;
+
     openAddModal(staffId, timeStr);
   }
 
@@ -281,15 +303,19 @@ export default function SalonCalendarPage() {
       setMessage({ type: "error", text: "Please fill in all required fields" });
       return;
     }
+
     if (isPastDate(addData.date)) {
       setMessage({ type: "error", text: "Cannot book for past dates" });
       return;
     }
+
     setSaving(true);
     setMessage(null);
+
     try {
       const startTime = new Date(addData.date + "T" + addData.time + ":00").toISOString();
-      const res = await fetch("/api/appointments", { credentials: "include",
+      
+      const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -301,10 +327,12 @@ export default function SalonCalendarPage() {
           startTime: startTime,
         }),
       });
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to create booking");
       }
+
       setMessage({ type: "success", text: "Booking created successfully!" });
       loadData();
       setTimeout(function() { closeAddModal(); }, 1500);
@@ -332,13 +360,8 @@ export default function SalonCalendarPage() {
   }
 
   function formatDateDisplay(dateStr: string) {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-    if (dateStr === today.toISOString().split("T")[0]) return "Today";
-    if (dateStr === tomorrow.toISOString().split("T")[0]) return "Tomorrow";
-    if (dateStr === yesterday.toISOString().split("T")[0]) return "Yesterday";
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
@@ -376,10 +399,12 @@ export default function SalonCalendarPage() {
       setMessage({ type: "error", text: "Please select a time" });
       return;
     }
+    
     if (isPastDate(editData.date)) {
       setMessage({ type: "error", text: "Cannot reschedule to past dates" });
       return;
     }
+    
     setSaving(true);
     setMessage(null);
     try {
@@ -489,32 +514,57 @@ export default function SalonCalendarPage() {
     }
   }
 
-  const hours = Array.from({ length: 13 }, function(_, i) { return i + 8; });
+  const toggleStaffVisibility = (staffId: string) => {
+    setVisibleStaff(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(staffId)) {
+        newSet.delete(staffId);
+      } else {
+        newSet.add(staffId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllStaff = () => {
+    if (visibleStaff.size === staffList.length) {
+      setVisibleStaff(new Set());
+    } else {
+      setVisibleStaff(new Set(staffList.map(s => s.id)));
+    }
+  };
+
+  const hours = Array.from({ length: 12 }, function(_, i) { return i + 8; }); // 8 AM to 7 PM
 
   function getAppointmentStyle(apt: Appointment) {
     const start = new Date(apt.startTime);
     const end = new Date(apt.endTime);
     const startHour = start.getHours() + start.getMinutes() / 60;
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    const top = (startHour - 8) * 60;
-    const height = Math.max(duration * 60, 30);
-
-    let bgColor = "#6366f1";
-    let borderColor = "#4f46e5";
-    if (apt.status === "cancelled") { bgColor = "#94a3b8"; borderColor = "#64748b"; }
-    if (apt.status === "no-show") { bgColor = "#ef4444"; borderColor = "#dc2626"; }
-    if (apt.status === "completed") { bgColor = "#10b981"; borderColor = "#059669"; }
-
-    return { top: top, height: height, bgColor: bgColor, borderColor: borderColor };
+    const top = (startHour - 8) * 80; // 80px per hour
+    const height = Math.max(duration * 80, 40);
+    
+    // Fresha-style warm coral/salmon color for appointments
+    let bgColor = "#7C6BF0"; // Purple/violet for regular appointments (like in reference)
+    let borderColor = "#6B5CE0";
+    let textColor = "#FFFFFF";
+    
+    if (apt.status === "cancelled") { bgColor = "#E8E8E8"; borderColor = "#CCCCCC"; textColor = "#888888"; }
+    if (apt.status === "no-show") { bgColor = "#FFCDD2"; borderColor = "#EF9A9A"; textColor = "#C62828"; }
+    if (apt.status === "completed") { bgColor = "#C8E6C9"; borderColor = "#A5D6A7"; textColor = "#2E7D32"; }
+    
+    return { top, height, bgColor, borderColor, textColor };
   }
 
   function isHourInWorkingTime(hour: number, staffId: string): boolean {
     const avail = staffAvailability[staffId];
     if (!avail || !avail.available) return false;
-    const startTime = avail.startTime || "09:00";
-    const endTime = avail.endTime || "18:00";
+    
+    const startTime = avail.startTime || "10:00";
+    const endTime = avail.endTime || "19:00";
     const [startH] = startTime.split(":").map(Number);
     const [endH] = endTime.split(":").map(Number);
+    
     return hour >= startH && hour < endH;
   }
 
@@ -526,320 +576,456 @@ export default function SalonCalendarPage() {
     return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   }
 
+  const visibleStaffList = staffList.filter(s => visibleStaff.has(s.id));
   const activeAppointments = appointments.filter(function(a) { return a.status !== "cancelled"; });
-  const confirmedCount = appointments.filter(function(a) { return a.status === "confirmed" || a.status === "booked"; }).length;
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
+  
   const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date, !isPastDate(editData.date));
   const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date, true);
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <p style={{ color: "#64748b" }}>Loading calendar...</p>
-      </div>
-    );
-  }
+  // Current time position for the indicator
+  const currentHour = currentTime.getHours();
+  const currentMinute = currentTime.getMinutes();
+  const currentTimePosition = (currentHour - 8) * 80 + (currentMinute / 60) * 80;
+  const showTimeIndicator = isToday && currentHour >= 8 && currentHour < 20;
+
+  // Count confirmed appointments
+  const confirmedCount = appointments.filter(a => a.status === "confirmed" || a.status === "booked").length;
+  const totalCount = appointments.length;
+
+  // Staff avatar colors (warm pink/coral like Fresha)
+  const staffColors = ["#F8A5A5", "#F5B7B1", "#F9CACA", "#FAD4D4", "#FBE0E0"];
 
   return (
-    <div style={{ maxWidth: 1400 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: "#F5F7FA", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 20 }}>
-        {/* Left: Title + Date Navigation */}
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: 0 }}>Calendar</h1>
+      <div style={{ padding: "20px 32px", backgroundColor: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: "#111827", margin: 0 }}>
+            {formatDateDisplay(selectedDate)}
+          </h1>
+          <button 
+            onClick={() => openAddModal()}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#10B981",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            + Add Booking
+          </button>
+        </div>
 
-          {/* Date Display - Clean Design */}
-          <div style={{ marginTop: 16 }}>
-            {/* Current Date - Large */}
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 12 }}>
-              {new Date(selectedDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-            </div>
-
-            {/* Navigation: < > Today */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button
-                onClick={goToPreviousDay}
-                style={{
-                  width: 44, height: 44, border: "none", borderRadius: 10,
-                  background: "#f1f5f9", fontSize: 20, cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#475569", fontWeight: 600
-                }}
-              >
-                ‹
-              </button>
-              <button
-                onClick={goToNextDay}
-                style={{
-                  width: 44, height: 44, border: "none", borderRadius: 10,
-                  background: "#f1f5f9", fontSize: 20, cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#475569", fontWeight: 600
-                }}
-              >
-                ›
-              </button>
-              <button
-                onClick={goToToday}
-                style={{
-                  padding: "10px 20px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                  border: "none",
-                  background: isToday ? "#6366f1" : "#f1f5f9",
-                  color: isToday ? "#fff" : "#475569",
-                  marginLeft: 4
-                }}
-              >
-                Today
-              </button>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={function(e) { setSelectedDate(e.target.value); }}
-                style={{ padding: "10px 14px", border: "none", borderRadius: 10, fontSize: 14, cursor: "pointer", background: "#f1f5f9", color: "#475569", marginLeft: 4 }}
-              />
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={goToPreviousDay} style={{
+              width: 36,
+              height: 36,
+              border: "1px solid #E5E7EB",
+              borderRadius: 8,
+              background: "#FFFFFF",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <button onClick={goToNextDay} style={{
+              width: 36,
+              height: 36,
+              border: "1px solid #E5E7EB",
+              borderRadius: 8,
+              background: "#FFFFFF",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
           </div>
+
+          <button onClick={goToToday} style={{
+            padding: "8px 16px",
+            border: "1px solid #E5E7EB",
+            borderRadius: 8,
+            background: "#FFFFFF",
+            color: "#374151",
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: "pointer",
+          }}>
+            Today
+          </button>
+
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{
+              padding: "8px 12px",
+              border: "1px solid #E5E7EB",
+              borderRadius: 8,
+              fontSize: 14,
+              color: "#374151",
+            }}
+          />
         </div>
 
-        {/* Right: Add Booking Button */}
-        <button onClick={function() { openAddModal(); }} style={{ padding: "14px 28px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)" }}>
-          + Add Booking
-        </button>
-      </div>
-
-      {/* Stats Bar */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-        <div style={{ padding: "12px 20px", background: "#f0fdf4", borderRadius: 10, border: "1px solid #bbf7d0" }}>
-          <span style={{ color: "#15803d", fontSize: 14 }}>Confirmed: <strong>{confirmedCount}</strong></span>
-        </div>
-        <div style={{ padding: "12px 20px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-          <span style={{ color: "#64748b", fontSize: 14 }}>Total: <strong>{activeAppointments.length}</strong></span>
+        {/* Stats */}
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+          <div style={{
+            padding: "8px 16px",
+            backgroundColor: "#ECFDF5",
+            borderRadius: 20,
+            border: "1px solid #A7F3D0",
+          }}>
+            <span style={{ color: "#059669", fontWeight: 600, fontSize: 14 }}>Confirmed: {confirmedCount}</span>
+          </div>
+          <div style={{
+            padding: "8px 16px",
+            backgroundColor: "#F3F4F6",
+            borderRadius: 20,
+          }}>
+            <span style={{ color: "#6B7280", fontWeight: 500, fontSize: 14 }}>Total: {totalCount}</span>
+          </div>
         </div>
       </div>
 
       {/* Calendar Grid */}
-      <div style={{ backgroundColor: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-        {/* Staff Headers */}
-        <div style={{ display: "flex", borderBottom: "2px solid #e2e8f0", backgroundColor: "#f8fafc" }}>
-          <div style={{ width: 70, padding: 16, borderRight: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 12, color: "#64748b" }}>Time</span>
+      <div style={{ flex: 1, overflow: "auto", padding: "0 24px 24px" }}>
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: `80px repeat(${visibleStaffList.length}, minmax(180px, 1fr))`,
+          backgroundColor: "#FFFFFF",
+          borderRadius: 16,
+          border: "1px solid #E5E7EB",
+          marginTop: 24,
+          overflow: "hidden",
+        }}>
+          {/* Header Row - Time + Staff */}
+          <div style={{ 
+            padding: "16px 12px", 
+            borderBottom: "1px solid #E5E7EB",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#9CA3AF",
+            fontSize: 12,
+            fontWeight: 500,
+          }}>
+            Time
           </div>
-          {staffList.filter(function(s) { return s.name; }).map(function(staff) {
+          {visibleStaffList.map((staff, idx) => {
             const avail = staffAvailability[staff.id];
             const isOff = avail && !avail.available;
+            const bgColor = staffColors[idx % staffColors.length];
+            
             return (
-              <div key={staff.id} style={{ flex: 1, padding: 16, textAlign: "center", borderRight: "1px solid #e2e8f0", background: isOff ? "#fef2f2" : "transparent" }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: isOff ? "#fca5a5" : "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontWeight: 600, fontSize: 18 }}>
-                  {staff.name.charAt(0)}
+              <div key={staff.id} style={{
+                padding: "16px",
+                borderBottom: "1px solid #E5E7EB",
+                borderLeft: "1px solid #E5E7EB",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  backgroundColor: bgColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#BE3A3A",
+                  fontWeight: 600,
+                  fontSize: 18,
+                  textTransform: "lowercase",
+                }}>
+                  {staff.name.charAt(0).toLowerCase()}
                 </div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: isOff ? "#dc2626" : "#0f172a" }}>{staff.name}</div>
-                <div style={{ color: "#64748b", fontSize: 12 }}>{staff.role || "Staff"}</div>
+                <span style={{ 
+                  fontSize: 14, 
+                  fontWeight: 600, 
+                  color: isOff ? "#EF4444" : "#BE3A3A",
+                }}>
+                  {staff.name}
+                </span>
+                <span style={{ fontSize: 12, color: "#9CA3AF" }}>
+                  {staff.role || "Nail Technician"}
+                </span>
                 {isOff && (
-                  <div style={{ marginTop: 4, padding: "2px 8px", background: "#dc2626", color: "#fff", borderRadius: 10, fontSize: 10, fontWeight: 600, display: "inline-block" }}>
-                    {avail.reason === "day-off" ? "DAY OFF" : avail.reason === "holiday" ? "HOLIDAY" : "OFF"}
-                  </div>
-                )}
-                {!isOff && avail && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>
-                    {avail.startTime} - {avail.endTime}
-                  </div>
+                  <span style={{
+                    padding: "4px 12px",
+                    backgroundColor: "#FEE2E2",
+                    color: "#DC2626",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 12,
+                    textTransform: "uppercase",
+                  }}>
+                    OFF
+                  </span>
                 )}
               </div>
             );
           })}
-        </div>
 
-        {/* Time Grid */}
-        <div style={{ display: "flex", position: "relative" }}>
-          <div style={{ width: 70, borderRight: "1px solid #e2e8f0", background: "#fafafa" }}>
-            {hours.map(function(hour) {
-              return (
-                <div key={hour} style={{ height: 60, padding: "4px 12px", fontSize: 13, color: "#64748b", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", fontWeight: 500 }}>
-                  {hour}:00
-                </div>
-              );
-            })}
-          </div>
-
-          {staffList.filter(function(s) { return s.name; }).map(function(staff) {
-            const avail = staffAvailability[staff.id];
-            const isOff = avail && !avail.available;
-
-            return (
-              <div key={staff.id} style={{ flex: 1, position: "relative", borderRight: "1px solid #e2e8f0" }}>
-                {hours.map(function(hour) {
-                  const inWorkingHours = isHourInWorkingTime(hour, staff.id);
-                  let bgColor = "#fff";
-                  if (isOff) { bgColor = "#fef2f2"; }
-                  else if (!inWorkingHours) { bgColor = "#f1f5f9"; }
-                  else if (hour % 2 !== 0) { bgColor = "#fafafa"; }
-                  const canClick = !isOff && inWorkingHours && !isPastDate(selectedDate);
-
-                  return (
-                    <div key={hour} style={{ height: 60, borderBottom: "1px solid #f1f5f9", background: bgColor, position: "relative", display: "flex", flexDirection: "column" }}>
-                      {isOff && hour === 12 && (
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                          <span style={{ color: "#fca5a5", fontSize: 11, fontWeight: 600 }}>OFF</span>
-                        </div>
-                      )}
-                      {canClick && [0, 15, 30, 45].map(function(minute) {
-                        return (
+          {/* Time Rows */}
+          {hours.map(hour => (
+            <>
+              {/* Time Label */}
+              <div key={`time-${hour}`} style={{
+                padding: "8px 12px",
+                borderBottom: "1px solid #F3F4F6",
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "flex-end",
+                color: "#6B7280",
+                fontSize: 13,
+                fontWeight: 500,
+                height: 80,
+                boxSizing: "border-box",
+              }}>
+                {hour.toString().padStart(2, "0")}:00
+              </div>
+              
+              {/* Staff Columns */}
+              {visibleStaffList.map(staff => {
+                const avail = staffAvailability[staff.id];
+                const isOff = avail && !avail.available;
+                const inWorkingHours = isHourInWorkingTime(hour, staff.id);
+                
+                // Get appointments for this staff member that overlap with this hour
+                const hourAppointments = activeAppointments.filter(apt => {
+                  if (apt.staff.id !== staff.id) return false;
+                  const start = new Date(apt.startTime);
+                  const end = new Date(apt.endTime);
+                  const hourStart = new Date(selectedDate + `T${hour.toString().padStart(2, "0")}:00:00`);
+                  const hourEnd = new Date(selectedDate + `T${(hour + 1).toString().padStart(2, "0")}:00:00`);
+                  return start < hourEnd && end > hourStart;
+                });
+                
+                return (
+                  <div
+                    key={`${staff.id}-${hour}`}
+                    style={{
+                      height: 80,
+                      borderBottom: "1px solid #F3F4F6",
+                      borderLeft: "1px solid #E5E7EB",
+                      backgroundColor: isOff ? "#FEF2F2" : inWorkingHours ? "#FFFFFF" : "#FAFAFA",
+                      position: "relative",
+                    }}
+                  >
+                    {!isOff && inWorkingHours && !isPastDate(selectedDate) && (
+                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                        {[0, 15, 30, 45].map(minute => (
                           <div
                             key={minute}
-                            onClick={function() { handleTimeSlotClick(staff.id, hour, minute); }}
-                            style={{ flex: 1, cursor: "pointer", borderBottom: minute < 45 ? "1px dashed #e2e8f0" : "none", transition: "background-color 0.15s" }}
-                            onMouseEnter={function(e) { e.currentTarget.style.backgroundColor = "rgba(99, 102, 241, 0.1)"; }}
-                            onMouseLeave={function(e) { e.currentTarget.style.backgroundColor = "transparent"; }}
-                            title={"Click to book " + hour.toString().padStart(2, "0") + ":" + minute.toString().padStart(2, "0")}
+                            onClick={() => handleTimeSlotClick(staff.id, hour, minute)}
+                            style={{
+                              flex: 1,
+                              cursor: "pointer",
+                              borderBottom: minute < 45 ? "1px dashed #F3F4F6" : "none",
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(16, 185, 129, 0.05)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                           />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-
-                {!isOff && avail && avail.startTime && avail.endTime && (
-                  <div style={{
-                    position: "absolute",
-                    top: (parseInt(avail.startTime.split(":")[0]) - 8) * 60,
-                    left: 0,
-                    right: 0,
-                    height: (parseInt(avail.endTime.split(":")[0]) - parseInt(avail.startTime.split(":")[0])) * 60,
-                    border: "2px solid #10b981",
-                    borderRadius: 4,
-                    pointerEvents: "none",
-                    opacity: 0.3
-                  }} />
-                )}
-
-                {activeAppointments.filter(function(apt) { return apt.staff.id === staff.id; }).map(function(apt) {
-                  const style = getAppointmentStyle(apt);
-                  return (
-                    <div
-                      key={apt.id}
-                      onClick={function() { openAppointment(apt); }}
-                      style={{
-                        position: "absolute", top: style.top, left: 4, right: 4, height: style.height - 4,
-                        backgroundColor: style.bgColor, borderLeft: "5px solid " + style.borderColor,
-                        borderRadius: 10, padding: "6px 10px", cursor: "pointer", overflow: "hidden",
-                        boxShadow: "0 3px 8px rgba(0,0,0,0.15)", transition: "transform 0.1s, box-shadow 0.1s", zIndex: 10
-                      }}
-                      onMouseEnter={function(e) { e.currentTarget.style.transform = "scale(1.02)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)"; }}
-                      onMouseLeave={function(e) { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.15)"; }}
-                    >
-                      {/* Customer Name - Most prominent */}
-                      <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {apt.customerName}
+                        ))}
                       </div>
-                      {/* Service Name */}
-                      <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 11, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {apt.service.name}
+                    )}
+                    
+                    {isOff && hour === 12 && (
+                      <div style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        color: "#F87171",
+                        fontSize: 12,
+                        fontWeight: 500,
+                      }}>
+                        OFF
                       </div>
-                      {/* Time */}
-                      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 10, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ fontWeight: 600 }}>{formatTime(apt.startTime)}</span>
-                        <span>-</span>
-                        <span>{formatTime(apt.endTime)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                    )}
+                    
+                    {/* Appointments */}
+                    {hour === 8 && activeAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
+                      const style = getAppointmentStyle(apt);
+                      return (
+                        <div
+                          key={apt.id}
+                          onClick={() => openAppointment(apt)}
+                          style={{
+                            position: "absolute",
+                            top: style.top,
+                            left: 4,
+                            right: 4,
+                            height: style.height - 4,
+                            backgroundColor: style.bgColor,
+                            borderRadius: 8,
+                            padding: "8px 12px",
+                            cursor: "pointer",
+                            overflow: "hidden",
+                            zIndex: 10,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          <div style={{ fontSize: 13, fontWeight: 600, color: style.textColor, marginBottom: 2 }}>
+                            {apt.customerName}
+                          </div>
+                          <div style={{ fontSize: 12, color: style.textColor, opacity: 0.9 }}>
+                            {apt.service.name}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </>
+          ))}
         </div>
-      </div>
-
-      {/* Legend */}
-      <div style={{ marginTop: 16, display: "flex", gap: 20, fontSize: 13, color: "#64748b", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#6366f1" }}></div> Confirmed</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#ef4444" }}></div> No-Show</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#94a3b8" }}></div> Cancelled</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#fef2f2", border: "1px solid #fca5a5" }}></div> Day Off</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: "#f1f5f9", border: "1px solid #e2e8f0" }}></div> Outside Hours</div>
       </div>
 
       {/* Add Booking Modal */}
       {showAddModal && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 500, maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb", background: "linear-gradient(135deg, #10b981, #059669)" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0, color: "#fff" }}>+ Add Walk-in Booking</h2>
-              <button onClick={closeAddModal} style={{ width: 32, height: 32, border: "none", background: "rgba(255,255,255,0.2)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "#fff" }}>×</button>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, width: 440, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#111827" }}>Add Walk-in Booking</h2>
+              <button onClick={closeAddModal} style={{ width: 32, height: 32, border: "none", background: "#F3F4F6", borderRadius: 8, cursor: "pointer", fontSize: 18, color: "#6B7280" }}>×</button>
             </div>
 
             {message && (
-              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#d1fae5" : "#fee2e2", color: message.type === "success" ? "#065f46" : "#991b1b", fontSize: 14 }}>
+              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#ECFDF5" : "#FEF2F2", color: message.type === "success" ? "#059669" : "#DC2626", fontSize: 14 }}>
                 {message.text}
               </div>
             )}
 
             <div style={{ padding: 24 }}>
-              <div style={{ marginBottom: 20, padding: 16, background: "#f8fafc", borderRadius: 12 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, color: "#374151", margin: "0 0 12px" }}>Customer Information</h3>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Name *</label>
-                  <input type="text" value={addData.customerName} onChange={function(e) { setAddData({ ...addData, customerName: e.target.value }); }} placeholder="Customer name" style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }} />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Phone *</label>
-                  <input type="tel" value={addData.customerPhone} onChange={function(e) { setAddData({ ...addData, customerPhone: e.target.value }); }} placeholder="Phone number" style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }} />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 4, color: "#374151" }}>Email (optional)</label>
-                  <input type="email" value={addData.customerEmail} onChange={function(e) { setAddData({ ...addData, customerEmail: e.target.value }); }} placeholder="Email address" style={{ width: "100%", padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14 }} />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                <select value={addData.serviceId} onChange={function(e) { setAddData({ ...addData, serviceId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                  {services.map(function(s) { return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; })}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
-                <select value={addData.staffId} onChange={function(e) { setAddData({ ...addData, staffId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                  {staffList.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                <input type="date" value={addData.date} min={new Date().toISOString().split("T")[0]} onChange={function(e) { setAddData({ ...addData, date: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} />
-                {isPastDate(addData.date) && (<p style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>Cannot book for past dates</p>)}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Customer Name *</label>
+                <input
+                  type="text"
+                  value={addData.customerName}
+                  onChange={(e) => setAddData({ ...addData, customerName: e.target.value })}
+                  placeholder="Enter name"
+                  style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                />
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                {isPastDate(addData.date) ? (
-                  <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>Cannot book for past dates.</div>
-                ) : loadingAddAvailability ? (
-                  <p style={{ color: "#64748b", fontSize: 14 }}>Loading available times...</p>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Phone *</label>
+                <input
+                  type="tel"
+                  value={addData.customerPhone}
+                  onChange={(e) => setAddData({ ...addData, customerPhone: e.target.value })}
+                  placeholder="Phone number"
+                  style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Service</label>
+                <select
+                  value={addData.serviceId}
+                  onChange={(e) => setAddData({ ...addData, serviceId: e.target.value, time: "" })}
+                  style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                >
+                  {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes}min - £{s.price})</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Staff</label>
+                <select
+                  value={addData.staffId}
+                  onChange={(e) => setAddData({ ...addData, staffId: e.target.value, time: "" })}
+                  style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                >
+                  {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Date</label>
+                <input
+                  type="date"
+                  value={addData.date}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setAddData({ ...addData, date: e.target.value, time: "" })}
+                  style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Time</label>
+                {loadingAddAvailability ? (
+                  <p style={{ color: "#6B7280" }}>Loading...</p>
                 ) : !addAvailability?.available ? (
-                  <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>Staff is not available on this date</div>
+                  <div style={{ padding: 16, background: "#FEF2F2", borderRadius: 8, color: "#DC2626", fontSize: 14 }}>
+                    Staff not available on this date
+                  </div>
                 ) : addTimeSlots.length === 0 ? (
-                  <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>No available time slots.</div>
+                  <div style={{ padding: 16, background: "#FEF3C7", borderRadius: 8, color: "#D97706", fontSize: 14 }}>
+                    No available times
+                  </div>
                 ) : (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                      {addTimeSlots.map(function(t) {
-                        return (
-                          <button key={t} onClick={function() { setAddData({ ...addData, time: t }); }} style={{ padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer", border: addData.time === t ? "2px solid #10b981" : "1px solid #e2e8f0", background: addData.time === t ? "#10b981" : "#fff", color: addData.time === t ? "#fff" : "#374151" }}>
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>Working: {addAvailability.startTime} - {addAvailability.endTime}</p>
-                  </>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                    {addTimeSlots.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setAddData({ ...addData, time: t })}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          fontSize: 14,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          border: addData.time === t ? "2px solid #10B981" : "1px solid #E5E7EB",
+                          background: addData.time === t ? "#ECFDF5" : "#FFFFFF",
+                          color: addData.time === t ? "#059669" : "#374151",
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={closeAddModal} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
-                <button onClick={handleAddBooking} disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone || !addAvailability?.available || isPastDate(addData.date)} style={{ flex: 1, padding: 14, border: "none", borderRadius: 10, background: addData.time && addData.customerName && addData.customerPhone && addAvailability?.available && !isPastDate(addData.date) ? "linear-gradient(135deg, #10b981, #059669)" : "#e2e8f0", color: addData.time && addData.customerName && addData.customerPhone && !isPastDate(addData.date) ? "#fff" : "#94a3b8", fontSize: 15, fontWeight: 600, cursor: addData.time && !isPastDate(addData.date) ? "pointer" : "not-allowed" }}>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={closeAddModal} style={{ flex: 1, padding: 14, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 15, cursor: "pointer" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddBooking}
+                  disabled={saving || !addData.time || !addData.customerName || !addData.customerPhone}
+                  style={{
+                    flex: 1,
+                    padding: 14,
+                    border: "none",
+                    borderRadius: 8,
+                    background: addData.time && addData.customerName && addData.customerPhone ? "#10B981" : "#E5E7EB",
+                    color: addData.time && addData.customerName && addData.customerPhone ? "#FFFFFF" : "#9CA3AF",
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: addData.time ? "pointer" : "not-allowed",
+                  }}
+                >
                   {saving ? "Creating..." : "Create Booking"}
                 </button>
               </div>
@@ -848,29 +1034,35 @@ export default function SalonCalendarPage() {
         </div>
       )}
 
-      {/* View/Edit Modal */}
+      {/* View/Edit Appointment Modal */}
       {selectedAppointment && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div style={{ backgroundColor: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid #e5e7eb" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>{modalMode === "edit" ? "Edit Appointment" : "Appointment Details"}</h2>
-              <button onClick={closeModal} style={{ width: 32, height: 32, border: "none", background: "#f3f4f6", borderRadius: 8, fontSize: 18, cursor: "pointer" }}>×</button>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, width: 440, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#111827" }}>
+                {modalMode === "edit" ? "Edit Appointment" : "Appointment Details"}
+              </h2>
+              <button onClick={closeModal} style={{ width: 32, height: 32, border: "none", background: "#F3F4F6", borderRadius: 8, cursor: "pointer", fontSize: 18, color: "#6B7280" }}>×</button>
             </div>
 
             {message && (
-              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#d1fae5" : "#fee2e2", color: message.type === "success" ? "#065f46" : "#991b1b", fontSize: 14 }}>
+              <div style={{ margin: "16px 24px 0", padding: 12, borderRadius: 8, backgroundColor: message.type === "success" ? "#ECFDF5" : "#FEF2F2", color: message.type === "success" ? "#059669" : "#DC2626", fontSize: 14 }}>
                 {message.text}
               </div>
             )}
 
             {confirmAction && (
-              <div style={{ margin: "16px 24px", padding: 16, backgroundColor: "#fef3c7", borderRadius: 12, border: "1px solid #fcd34d" }}>
-                <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#92400e" }}>
+              <div style={{ margin: "16px 24px", padding: 16, backgroundColor: "#FEF3C7", borderRadius: 12, border: "1px solid #FCD34D" }}>
+                <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#D97706" }}>
                   {confirmAction === "cancel" ? "Cancel this appointment?" : confirmAction === "noshow" ? "Mark as No-Show?" : "Permanently delete?"}
                 </p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={function() { setConfirmAction(null); }} style={{ flex: 1, padding: 10, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", cursor: "pointer" }}>Back</button>
-                  <button onClick={function() { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }} disabled={saving} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#dc2626" : "#f59e0b", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={() => setConfirmAction(null)} style={{ flex: 1, padding: 10, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", cursor: "pointer" }}>Back</button>
+                  <button
+                    onClick={() => { if (confirmAction === "cancel") handleCancel(); if (confirmAction === "noshow") handleNoShow(); if (confirmAction === "delete") handleDelete(); }}
+                    disabled={saving}
+                    style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: confirmAction === "delete" ? "#DC2626" : "#D97706", color: "#FFFFFF", fontWeight: 600, cursor: "pointer" }}
+                  >
                     {saving ? "..." : "Confirm"}
                   </button>
                 </div>
@@ -881,95 +1073,140 @@ export default function SalonCalendarPage() {
               {modalMode === "view" ? (
                 <>
                   <div style={{ marginBottom: 20 }}>
-                    <span style={{ padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600, backgroundColor: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#d1fae5" : selectedAppointment.status === "cancelled" ? "#f3f4f6" : selectedAppointment.status === "no-show" ? "#fee2e2" : "#e0e7ff", color: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#065f46" : selectedAppointment.status === "cancelled" ? "#64748b" : selectedAppointment.status === "no-show" ? "#991b1b" : "#3730a3" }}>
+                    <span style={{
+                      padding: "6px 14px",
+                      borderRadius: 20,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      backgroundColor: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#ECFDF5" : selectedAppointment.status === "cancelled" ? "#F3F4F6" : "#FEF2F2",
+                      color: selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked" ? "#059669" : selectedAppointment.status === "cancelled" ? "#6B7280" : "#DC2626",
+                    }}>
                       {selectedAppointment.status === "booked" ? "Confirmed" : selectedAppointment.status.charAt(0).toUpperCase() + selectedAppointment.status.slice(1)}
                     </span>
                   </div>
+
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Service</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.service.name}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.service.durationMinutes} mins - £{selectedAppointment.service.price}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Service</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>{selectedAppointment.service.name}</div>
+                    <div style={{ fontSize: 14, color: "#6B7280" }}>{selectedAppointment.service.durationMinutes} mins - £{selectedAppointment.service.price}</div>
                   </div>
+
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Date & Time</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{formatDateLong(selectedAppointment.startTime)}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{formatTime(selectedAppointment.startTime)} - {formatTime(selectedAppointment.endTime)}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Date & Time</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>{formatDateLong(selectedAppointment.startTime)}</div>
+                    <div style={{ fontSize: 14, color: "#6B7280" }}>{formatTime(selectedAppointment.startTime)} - {formatTime(selectedAppointment.endTime)}</div>
                   </div>
+
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Staff</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.staff.name}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Staff</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>{selectedAppointment.staff.name}</div>
                   </div>
+
                   <div style={{ marginBottom: 24 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>Customer</div>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedAppointment.customerName}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.customerPhone}</div>
-                    <div style={{ fontSize: 14, color: "#64748b" }}>{selectedAppointment.customerEmail}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", marginBottom: 4 }}>Customer</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>{selectedAppointment.customerName}</div>
+                    <div style={{ fontSize: 14, color: "#6B7280" }}>{selectedAppointment.customerPhone}</div>
+                    <div style={{ fontSize: 14, color: "#6B7280" }}>{selectedAppointment.customerEmail}</div>
                   </div>
+
                   {!confirmAction && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {(selectedAppointment.status === "confirmed" || selectedAppointment.status === "booked") && (
                         <>
-                          <button onClick={startEdit} style={{ padding: 14, border: "none", borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Edit Appointment</button>
+                          <button onClick={startEdit} style={{ padding: 14, border: "none", borderRadius: 8, background: "#111827", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Edit Appointment</button>
                           <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={function() { setConfirmAction("cancel"); }} style={{ flex: 1, padding: 12, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Cancel</button>
-                            <button onClick={function() { setConfirmAction("noshow"); }} style={{ flex: 1, padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fef2f2", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>No-Show</button>
+                            <button onClick={() => setConfirmAction("cancel")} style={{ flex: 1, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 14, cursor: "pointer" }}>Cancel</button>
+                            <button onClick={() => setConfirmAction("noshow")} style={{ flex: 1, padding: 12, border: "1px solid #FEE2E2", borderRadius: 8, background: "#FEF2F2", color: "#DC2626", fontSize: 14, cursor: "pointer" }}>No-Show</button>
                           </div>
                         </>
                       )}
+                      
                       {(selectedAppointment.status === "cancelled" || selectedAppointment.status === "no-show") && (
                         <>
-                          <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 10, background: "#10b981", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Restore</button>
-                          <button onClick={function() { setConfirmAction("delete"); }} style={{ padding: 12, border: "1px solid #fecaca", borderRadius: 10, background: "#fff", color: "#dc2626", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>Delete</button>
+                          <button onClick={handleRestore} disabled={saving} style={{ padding: 14, border: "none", borderRadius: 8, background: "#059669", color: "#FFFFFF", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Restore</button>
+                          <button onClick={() => setConfirmAction("delete")} style={{ padding: 12, border: "1px solid #FEE2E2", borderRadius: 8, background: "#FFFFFF", color: "#DC2626", fontSize: 14, cursor: "pointer" }}>Delete Permanently</button>
                         </>
                       )}
-                      <button onClick={closeModal} style={{ padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer", marginTop: 8 }}>Close</button>
+
+                      <button onClick={closeModal} style={{ padding: 14, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 15, cursor: "pointer", marginTop: 8 }}>Close</button>
                     </div>
                   )}
                 </>
               ) : (
                 <>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Service</label>
-                    <select value={editData.serviceId} onChange={function(e) { setEditData({ ...editData, serviceId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                      {services.map(function(s) { return <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes} min - £{s.price})</option>; })}
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Service</label>
+                    <select value={editData.serviceId} onChange={(e) => setEditData({ ...editData, serviceId: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}>
+                      {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.durationMinutes}min - £{s.price})</option>)}
                     </select>
                   </div>
+
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Staff</label>
-                    <select value={editData.staffId} onChange={function(e) { setEditData({ ...editData, staffId: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}>
-                      {staffList.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Staff</label>
+                    <select value={editData.staffId} onChange={(e) => setEditData({ ...editData, staffId: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }}>
+                      {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                   </div>
+
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                    <input type="date" value={editData.date} min={new Date().toISOString().split("T")[0]} onChange={function(e) { setEditData({ ...editData, date: e.target.value, time: "" }); }} style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }} />
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Date</label>
+                    <input type="date" value={editData.date} min={new Date().toISOString().split("T")[0]} onChange={(e) => setEditData({ ...editData, date: e.target.value, time: "" })} style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
                   </div>
+
                   <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Time</label>
-                    {isPastDate(editData.date) ? (
-                      <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>Cannot reschedule to past dates.</div>
-                    ) : loadingAvailability ? (
-                      <p style={{ color: "#64748b", fontSize: 14 }}>Loading...</p>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "#374151" }}>Time</label>
+                    {loadingAvailability ? (
+                      <p style={{ color: "#6B7280" }}>Loading...</p>
                     ) : !editAvailability?.available ? (
-                      <div style={{ padding: 16, background: "#fef2f2", borderRadius: 10, color: "#dc2626", fontSize: 14 }}>Staff is not available</div>
+                      <div style={{ padding: 16, background: "#FEF2F2", borderRadius: 8, color: "#DC2626", fontSize: 14 }}>
+                        Staff not available on this date
+                      </div>
                     ) : editTimeSlots.length === 0 ? (
-                      <div style={{ padding: 16, background: "#fef3c7", borderRadius: 10, color: "#92400e", fontSize: 14 }}>No available time slots</div>
+                      <div style={{ padding: 16, background: "#FEF3C7", borderRadius: 8, color: "#D97706", fontSize: 14 }}>
+                        No available times
+                      </div>
                     ) : (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                        {editTimeSlots.map(function(t) {
-                          return (
-                            <button key={t} onClick={function() { setEditData({ ...editData, time: t }); }} style={{ padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer", border: editData.time === t ? "2px solid #6366f1" : "1px solid #e2e8f0", background: editData.time === t ? "#6366f1" : "#fff", color: editData.time === t ? "#fff" : "#374151" }}>
-                              {t}
-                            </button>
-                          );
-                        })}
+                        {editTimeSlots.map(t => (
+                          <button
+                            key={t}
+                            onClick={() => setEditData({ ...editData, time: t })}
+                            style={{
+                              padding: 10,
+                              borderRadius: 8,
+                              fontSize: 14,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              border: editData.time === t ? "2px solid #10B981" : "1px solid #E5E7EB",
+                              background: editData.time === t ? "#ECFDF5" : "#FFFFFF",
+                              color: editData.time === t ? "#059669" : "#374151",
+                            }}
+                          >
+                            {t}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={function() { setModalMode("view"); }} style={{ flex: 1, padding: 14, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
-                    <button onClick={handleSaveEdit} disabled={saving || !editData.time || !editAvailability?.available || isPastDate(editData.date)} style={{ flex: 1, padding: 14, border: "none", borderRadius: 10, background: editData.time && editAvailability?.available && !isPastDate(editData.date) ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", color: editData.time && editAvailability?.available && !isPastDate(editData.date) ? "#fff" : "#94a3b8", fontSize: 15, fontWeight: 600, cursor: editData.time && !isPastDate(editData.date) ? "pointer" : "not-allowed" }}>
-                      {saving ? "Saving..." : "Save"}
+
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button onClick={() => setModalMode("view")} style={{ flex: 1, padding: 14, border: "1px solid #E5E7EB", borderRadius: 8, background: "#FFFFFF", color: "#6B7280", fontSize: 15, cursor: "pointer" }}>Cancel</button>
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={saving || !editData.time || !editAvailability?.available}
+                      style={{
+                        flex: 1,
+                        padding: 14,
+                        border: "none",
+                        borderRadius: 8,
+                        background: editData.time && editAvailability?.available ? "#10B981" : "#E5E7EB",
+                        color: editData.time && editAvailability?.available ? "#FFFFFF" : "#9CA3AF",
+                        fontSize: 15,
+                        fontWeight: 600,
+                        cursor: editData.time ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
                     </button>
                   </div>
                 </>
