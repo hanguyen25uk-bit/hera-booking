@@ -28,7 +28,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
-    const dayOfWeek = new Date(date).getDay();
+    // Parse date correctly - use local date parts to get day of week
+    const [year, month, day] = date.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+    const dayOfWeek = localDate.getDay();
     
     // Create date object at midnight UTC for exact match
     const targetDate = new Date(date + "T00:00:00.000Z");
@@ -72,11 +75,14 @@ export async function GET(req: NextRequest) {
     });
     
     if (!workingHours) {
+      // No working hours set - default to working 10:00-19:00 on weekdays
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       return NextResponse.json({
-        available: true,
+        available: !isWeekend,
         startTime: "10:00",
         endTime: "19:00",
         isDefault: true,
+        reason: isWeekend ? "weekend" : undefined,
       });
     }
     
@@ -89,8 +95,8 @@ export async function GET(req: NextRequest) {
     
     return NextResponse.json({
       available: true,
-      startTime: workingHours.startTime,
-      endTime: workingHours.endTime,
+      startTime: workingHours.startTime || "10:00",
+      endTime: workingHours.endTime || "19:00",
     });
   } catch (error) {
     console.error("Check availability error:", error);
