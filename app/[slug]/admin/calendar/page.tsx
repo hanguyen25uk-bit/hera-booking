@@ -543,27 +543,68 @@ export default function SalonCalendarPage() {
   return (
     <div style={{ maxWidth: 1400 }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 20 }}>
+        {/* Left: Title + Date Navigation */}
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: 0 }}>Calendar</h1>
-          <p style={{ color: "#64748b", margin: "4px 0 0" }}>Manage appointments</p>
+
+          {/* Date Display - Clean Design */}
+          <div style={{ marginTop: 16 }}>
+            {/* Current Date - Large */}
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b", marginBottom: 12 }}>
+              {new Date(selectedDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+            </div>
+
+            {/* Navigation: < > Today */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={goToPreviousDay}
+                style={{
+                  width: 44, height: 44, border: "none", borderRadius: 10,
+                  background: "#f1f5f9", fontSize: 20, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#475569", fontWeight: 600
+                }}
+              >
+                ‹
+              </button>
+              <button
+                onClick={goToNextDay}
+                style={{
+                  width: 44, height: 44, border: "none", borderRadius: 10,
+                  background: "#f1f5f9", fontSize: 20, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#475569", fontWeight: 600
+                }}
+              >
+                ›
+              </button>
+              <button
+                onClick={goToToday}
+                style={{
+                  padding: "10px 20px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  border: "none",
+                  background: isToday ? "#6366f1" : "#f1f5f9",
+                  color: isToday ? "#fff" : "#475569",
+                  marginLeft: 4
+                }}
+              >
+                Today
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={function(e) { setSelectedDate(e.target.value); }}
+                style={{ padding: "10px 14px", border: "none", borderRadius: 10, fontSize: 14, cursor: "pointer", background: "#f1f5f9", color: "#475569", marginLeft: 4 }}
+              />
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={function() { openAddModal(); }} style={{ padding: "10px 20px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            + Add Booking
-          </button>
-          <div style={{ width: 1, height: 30, background: "#e2e8f0", margin: "0 8px" }}></div>
-          <button onClick={goToPreviousDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#f8fafc", borderRadius: 8, minWidth: 200, justifyContent: "center" }}>
-            <span style={{ fontSize: 16, fontWeight: 600, color: "#0f172a" }}>{formatDateDisplay(selectedDate)}</span>
-          </div>
-          <button onClick={goToNextDay} style={{ width: 40, height: 40, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
-          {!isToday && (
-            <button onClick={goToToday} style={{ padding: "8px 16px", border: "1px solid #6366f1", borderRadius: 8, background: "#fff", color: "#6366f1", fontSize: 14, fontWeight: 500, cursor: "pointer", marginLeft: 8 }}>Today</button>
-          )}
-          <input type="date" value={selectedDate} onChange={function(e) { setSelectedDate(e.target.value); }} style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, marginLeft: 8 }} />
-        </div>
+        {/* Right: Add Booking Button */}
+        <button onClick={function() { openAddModal(); }} style={{ padding: "14px 28px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)" }}>
+          + Add Booking
+        </button>
       </div>
 
       {/* Stats Bar */}
@@ -679,16 +720,27 @@ export default function SalonCalendarPage() {
                       onClick={function() { openAppointment(apt); }}
                       style={{
                         position: "absolute", top: style.top, left: 4, right: 4, height: style.height - 4,
-                        backgroundColor: style.bgColor, borderLeft: "4px solid " + style.borderColor,
-                        borderRadius: 8, padding: "8px 10px", cursor: "pointer", overflow: "hidden",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "transform 0.1s", zIndex: 10
+                        backgroundColor: style.bgColor, borderLeft: "5px solid " + style.borderColor,
+                        borderRadius: 10, padding: "6px 10px", cursor: "pointer", overflow: "hidden",
+                        boxShadow: "0 3px 8px rgba(0,0,0,0.15)", transition: "transform 0.1s, box-shadow 0.1s", zIndex: 10
                       }}
-                      onMouseEnter={function(e) { e.currentTarget.style.transform = "scale(1.02)"; }}
-                      onMouseLeave={function(e) { e.currentTarget.style.transform = "scale(1)"; }}
+                      onMouseEnter={function(e) { e.currentTarget.style.transform = "scale(1.02)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)"; }}
+                      onMouseLeave={function(e) { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.15)"; }}
                     >
-                      <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{formatTime(apt.startTime)}</div>
-                      <div style={{ color: "#fff", fontSize: 12, opacity: 0.95, fontWeight: 500, marginTop: 2 }}>{apt.service.name}</div>
-                      <div style={{ color: "#fff", fontSize: 11, opacity: 0.85, marginTop: 2 }}>{apt.customerName}</div>
+                      {/* Customer Name - Most prominent */}
+                      <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {apt.customerName}
+                      </div>
+                      {/* Service Name */}
+                      <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 11, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {apt.service.name}
+                      </div>
+                      {/* Time */}
+                      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 10, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontWeight: 600 }}>{formatTime(apt.startTime)}</span>
+                        <span>-</span>
+                        <span>{formatTime(apt.endTime)}</span>
+                      </div>
                     </div>
                   );
                 })}

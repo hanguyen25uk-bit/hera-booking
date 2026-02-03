@@ -58,7 +58,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const salonId = await getDefaultSalonId();
+  // Use auth salonId if logged in (admin walk-in), otherwise fall back to default (public booking)
+  const authPayload = await getAuthPayload();
+  const salonId = authPayload?.salonId || await getDefaultSalonId();
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   try {
