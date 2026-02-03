@@ -132,10 +132,7 @@ export async function PUT(
     const updateData: any = {};
 
     if (serviceId) {
-      // Verify service belongs to the same salon as the appointment
-      const service = await prisma.service.findFirst({ 
-        where: { id: serviceId, salonId: appointment.salonId } 
-      });
+      const service = await prisma.service.findUnique({ where: { id: serviceId } });
       if (!service) {
         return NextResponse.json({ error: "Service not found" }, { status: 404 });
       }
@@ -164,7 +161,7 @@ export async function PUT(
       updateData.endTime = end;
     }
 
-    // Check for conflicts within the same salon
+    // Check for conflicts
     if (updateData.startTime || updateData.staffId) {
       const checkStaffId = updateData.staffId || appointment.staffId;
       const checkStart = updateData.startTime || appointment.startTime;
@@ -173,7 +170,6 @@ export async function PUT(
       const conflict = await prisma.appointment.findFirst({
         where: {
           id: { not: id },
-          salonId: appointment.salonId,
           staffId: checkStaffId,
           status: { notIn: ["cancelled", "no-show"] },
           OR: [
@@ -208,14 +204,6 @@ export async function DELETE(
   const { id } = await params;
   
   try {
-    // Verify appointment exists before deleting
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-    });
-    if (!appointment) {
-      return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
-    }
-
     await prisma.appointment.delete({
       where: { id },
     });

@@ -26,10 +26,9 @@ export async function POST(req: NextRequest) {
     const endDateTime = new Date(endTime);
     const expiresAt = new Date(Date.now() + RESERVATION_MINUTES * 60 * 1000);
 
-    // Clean up expired reservations for this salon
+    // Clean up expired reservations first
     await prisma.slotReservation.deleteMany({
       where: {
-        salonId,
         expiresAt: { lt: new Date() },
       },
     });
@@ -37,7 +36,6 @@ export async function POST(req: NextRequest) {
     // Check if slot is already reserved by someone else
     const existingReservation = await prisma.slotReservation.findFirst({
       where: {
-        salonId,
         staffId,
         startTime: startDateTime,
         sessionId: { not: sessionId },
@@ -55,7 +53,6 @@ export async function POST(req: NextRequest) {
     // Check if there's an actual appointment
     const existingAppointment = await prisma.appointment.findFirst({
       where: {
-        salonId,
         staffId,
         status: { not: "cancelled" },
         OR: [
@@ -158,15 +155,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const salonId = await getDefaultSalonId();
-    if (!salonId) {
-      return NextResponse.json({ error: "No salon found" }, { status: 404 });
-    }
-
-    // Clean up expired reservations for this salon only
+    // Clean up expired reservations
     await prisma.slotReservation.deleteMany({
       where: {
-        salonId,
         expiresAt: { lt: new Date() },
       },
     });
@@ -177,7 +168,6 @@ export async function GET(req: NextRequest) {
     // Get all reservations for this staff on this date (excluding current session)
     const reservations = await prisma.slotReservation.findMany({
       where: {
-        salonId,
         staffId,
         startTime: { gte: startOfDay, lte: endOfDay },
         expiresAt: { gt: new Date() },
@@ -188,7 +178,6 @@ export async function GET(req: NextRequest) {
     // Get all appointments for this staff on this date
     const appointments = await prisma.appointment.findMany({
       where: {
-        salonId,
         staffId,
         status: { not: "cancelled" },
         startTime: { gte: startOfDay, lte: endOfDay },

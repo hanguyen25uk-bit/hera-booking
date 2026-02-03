@@ -23,9 +23,10 @@ export async function GET(
   }
 
   try {
-    // Use UTC dates for consistent date handling across timezones
-    const startOfDay = new Date(date + "T00:00:00.000Z");
-    const endOfDay = new Date(date + "T23:59:59.999Z");
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
 
     // Clean expired reservations
     await prisma.slotReservation.deleteMany({

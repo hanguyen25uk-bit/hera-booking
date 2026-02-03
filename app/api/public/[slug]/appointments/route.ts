@@ -73,10 +73,9 @@ export async function POST(
       );
     }
 
-    // 3. Check if customer is blocked (normalize email to lowercase)
-    const normalizedEmail = customerEmail.toLowerCase();
+    // 3. Check if customer is blocked
     const existingCustomer = await prisma.customer.findUnique({
-      where: { salonId_email: { salonId: salon.id, email: normalizedEmail } },
+      where: { salonId_email: { salonId: salon.id, email: customerEmail } },
     });
 
     if (existingCustomer?.isBlocked) {
@@ -132,7 +131,7 @@ export async function POST(
       customer = await prisma.customer.create({
         data: {
           salonId: salon.id,
-          email: normalizedEmail,
+          email: customerEmail,
           name: customerName,
           phone: customerPhone,
         },
@@ -148,7 +147,7 @@ export async function POST(
         customerId: customer.id,
         customerName,
         customerPhone,
-        customerEmail: normalizedEmail,
+        customerEmail,
         startTime: start,
         endTime: end,
         manageToken,
@@ -165,7 +164,7 @@ export async function POST(
     // 11. Send confirmation email with salon info
     try {
       await sendBookingConfirmation({
-        customerEmail: normalizedEmail,
+        customerEmail,
         customerName,
         serviceName: service.name,
         staffName: staff.name,
