@@ -60,7 +60,11 @@ export default function ReceiptsPage() {
 
       if (settingsRes.ok) {
         const data = await settingsRes.json();
-        setSalonInfo({ name: data.name || "Salon", address: data.address, phone: data.phone });
+        setSalonInfo({
+          name: data.salonName || "Salon",
+          address: data.salonAddress,
+          phone: data.salonPhone
+        });
       }
     } catch (err) {
       console.error(err);
