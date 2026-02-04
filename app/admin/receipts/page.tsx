@@ -478,40 +478,77 @@ export default function ReceiptsPage() {
             </button>
           </div>
 
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1E293B", marginBottom: 12 }}>Add Custom Item</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1E293B", marginBottom: 12 }}>Add Extra / Custom Item</h3>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            <input
-              type="text"
-              placeholder="Item name"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              style={{ flex: 1, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
-            />
-            <input
-              type="number"
-              placeholder="Price"
-              value={newItemPrice}
-              onChange={(e) => setNewItemPrice(e.target.value)}
-              style={{ width: 100, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
-              min="0"
-              step="0.01"
-            />
-            <button
-              onClick={addCustomItem}
-              disabled={!newItemName.trim() || !newItemPrice}
-              style={{
-                padding: "12px 20px",
-                border: "none",
-                borderRadius: 8,
-                background: newItemName.trim() && newItemPrice ? "#10B981" : "#E5E7EB",
-                color: newItemName.trim() && newItemPrice ? "#FFFFFF" : "#9CA3AF",
-                fontWeight: 600,
-                cursor: newItemName.trim() && newItemPrice ? "pointer" : "not-allowed",
+          {/* Quick Add Recommended Items */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "block", fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Quick Add Extras</label>
+            <select
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value) return;
+                const [name, price] = value.split("|");
+                setReceiptItems(prev => {
+                  const existing = prev.find(item => item.name === name);
+                  if (existing) {
+                    return prev.map(item => item.name === name ? { ...item, quantity: item.quantity + 1 } : item);
+                  }
+                  return [...prev, { id: `extra-${Date.now()}`, name, price: parseFloat(price), quantity: 1 }];
+                });
+                e.target.value = "";
               }}
+              style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
             >
-              Add
-            </button>
+              <option value="">Select an extra...</option>
+              <option value="Chrome|8">Chrome - £8</option>
+              <option value="Cat Eyes|10">Cat Eyes - £10</option>
+              <option value="Nail Art (per nail)|5">Nail Art (per nail) - £5</option>
+              <option value="Ombre / Spray|12">Ombre / Spray - £12</option>
+              <option value="French Tips|8">French Tips - £8</option>
+              <option value="Glitter|5">Glitter - £5</option>
+              <option value="Gems / Stones|3">Gems / Stones - £3</option>
+              <option value="Nail Repair|5">Nail Repair - £5</option>
+              <option value="Nail Extension (per nail)|3">Nail Extension (per nail) - £3</option>
+              <option value="Soak Off|5">Soak Off - £5</option>
+            </select>
+          </div>
+
+          {/* Custom Item Input */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Or Add Custom Item</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Item name"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                style={{ flex: 1, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+              />
+              <input
+                type="number"
+                placeholder="Price"
+                value={newItemPrice}
+                onChange={(e) => setNewItemPrice(e.target.value)}
+                style={{ width: 100, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+                min="0"
+                step="0.01"
+              />
+              <button
+                onClick={addCustomItem}
+                disabled={!newItemName.trim() || !newItemPrice}
+                style={{
+                  padding: "12px 20px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: newItemName.trim() && newItemPrice ? "#10B981" : "#E5E7EB",
+                  color: newItemName.trim() && newItemPrice ? "#FFFFFF" : "#9CA3AF",
+                  fontWeight: 600,
+                  cursor: newItemName.trim() && newItemPrice ? "pointer" : "not-allowed",
+                }}
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
 
