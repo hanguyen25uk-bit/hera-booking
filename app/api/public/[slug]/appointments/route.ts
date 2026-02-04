@@ -62,6 +62,9 @@ export async function POST(
 
     const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.sanitized!;
 
+    // Extract optional discount info from the request
+    const { originalPrice, discountedPrice, discountName } = body;
+
     // 2. Rate limiting
     const clientIP = getClientIP(req);
     const rateLimitResult = checkBookingRateLimit(clientIP, customerEmail);
@@ -161,7 +164,7 @@ export async function POST(
       where: { salonId: salon.id, staffId, startTime: start },
     });
 
-    // 11. Send confirmation email with salon info
+    // 11. Send confirmation email with salon info and pricing
     try {
       await sendBookingConfirmation({
         customerEmail,
@@ -176,6 +179,9 @@ export async function POST(
         salonPhone: salon.phone || "",
         salonAddress: salon.address || "",
         salonSlug: salon.slug,
+        originalPrice: originalPrice !== undefined ? Number(originalPrice) : service.price,
+        discountedPrice: discountedPrice !== undefined ? Number(discountedPrice) : undefined,
+        discountName: discountName || undefined,
       });
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);

@@ -401,9 +401,24 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     if (!reservationExpiry || reservationExpiry < new Date()) { setError("Reservation expired. Go back and select a time."); return; }
     setSubmitting(true);
     try {
+      // Get current discount for the selected slot
+      const slotDiscount = getApplicableDiscount(selectedServiceId, selectedDate, selectedTime, finalStaffId);
+      const originalPrice = currentService?.price || 0;
+      const discountedPrice = slotDiscount ? getDiscountedPrice(originalPrice, slotDiscount) : undefined;
+
       const res = await fetch(`${apiBase}/appointments`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serviceId: selectedServiceId, staffId: finalStaffId, customerName, customerPhone, customerEmail, startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString() }),
+        body: JSON.stringify({
+          serviceId: selectedServiceId,
+          staffId: finalStaffId,
+          customerName,
+          customerPhone,
+          customerEmail,
+          startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+          originalPrice,
+          discountedPrice: slotDiscount ? discountedPrice : undefined,
+          discountName: slotDiscount?.name || undefined,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
       const apt = await res.json();

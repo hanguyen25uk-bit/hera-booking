@@ -17,6 +17,9 @@ type BookingEmailData = {
   salonPhone?: string;
   salonAddress?: string;
   salonSlug?: string;
+  originalPrice?: number;
+  discountedPrice?: number;
+  discountName?: string;
 };
 
 export async function sendBookingConfirmation(data: BookingEmailData) {
@@ -33,7 +36,12 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     salonPhone = "",
     salonAddress = "",
     salonSlug = "",
+    originalPrice,
+    discountedPrice,
+    discountName,
   } = data;
+
+  const hasDiscount = originalPrice !== undefined && discountedPrice !== undefined && discountedPrice < originalPrice;
 
   const formattedDate = startTime.toLocaleDateString("en-GB", {
     weekday: "long",
@@ -109,11 +117,27 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px 16px;">
+                  <td style="padding: 12px 16px;${originalPrice !== undefined ? ' border-bottom: 1px solid #e2e8f0;' : ''}">
                     <span style="color: #64748b; font-size: 13px;">Time</span><br>
                     <strong style="color: #1e293b; font-size: 15px;">${formattedStartTime} - ${formattedEndTime}</strong>
                   </td>
                 </tr>
+                ${originalPrice !== undefined ? `
+                <tr>
+                  <td style="padding: 12px 16px;">
+                    <span style="color: #64748b; font-size: 13px;">Price</span><br>
+                    ${hasDiscount ? `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">OFF-PEAK</span>
+                      <span style="color: #94a3b8; text-decoration: line-through; font-size: 13px;">£${originalPrice.toFixed(2)}</span>
+                      <strong style="color: #16a34a; font-size: 15px;">£${discountedPrice?.toFixed(2)}</strong>
+                    </div>
+                    ` : `
+                    <strong style="color: #1e293b; font-size: 15px;">£${originalPrice.toFixed(2)}</strong>
+                    `}
+                  </td>
+                </tr>
+                ` : ''}
               </table>
             </td>
           </tr>
