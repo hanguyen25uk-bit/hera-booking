@@ -38,6 +38,8 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [visibleStaff, setVisibleStaff] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileFilterStaff, setMobileFilterStaff] = useState<string>("all");
   
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
@@ -80,6 +82,14 @@ export default function CalendarPage() {
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   useEffect(function() { loadData(); }, [selectedDate]);
@@ -1001,23 +1011,23 @@ export default function CalendarPage() {
 
   const hours = Array.from({ length: 12 }, function(_, i) { return i + 8; }); // 8 AM to 7 PM
 
-  function getAppointmentStyle(apt: Appointment) {
+  function getAppointmentStyle(apt: Appointment, cellHeight: number = 80) {
     const start = new Date(apt.startTime);
     const end = new Date(apt.endTime);
     const startHour = start.getHours() + start.getMinutes() / 60;
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    const top = (startHour - 8) * 80; // 80px per hour
-    const height = Math.max(duration * 80, 40);
-    
+    const top = (startHour - 8) * cellHeight;
+    const height = Math.max(duration * cellHeight, cellHeight / 2);
+
     // Fresha-style warm coral/salmon color for appointments
     let bgColor = "#7C6BF0"; // Purple/violet for regular appointments (like in reference)
     let borderColor = "#6B5CE0";
     let textColor = "#FFFFFF";
-    
+
     if (apt.status === "cancelled") { bgColor = "#E8E8E8"; borderColor = "#CCCCCC"; textColor = "#888888"; }
     if (apt.status === "no-show") { bgColor = "#FFCDD2"; borderColor = "#EF9A9A"; textColor = "#C62828"; }
     if (apt.status === "completed") { bgColor = "#C8E6C9"; borderColor = "#A5D6A7"; textColor = "#2E7D32"; }
-    
+
     return { top, height, bgColor, borderColor, textColor };
   }
 
@@ -1061,32 +1071,42 @@ export default function CalendarPage() {
   // Staff avatar colors (warm pink/coral like Fresha)
   const staffColors = ["#F8A5A5", "#F5B7B1", "#F9CACA", "#FAD4D4", "#FBE0E0"];
 
+  // Filter appointments for mobile view
+  const mobileFilteredAppointments = mobileFilterStaff === "all"
+    ? activeAppointments
+    : activeAppointments.filter(a => a.staff.id === mobileFilterStaff);
+
+  // Sort appointments by time for mobile list view
+  const sortedMobileAppointments = [...mobileFilteredAppointments].sort((a, b) =>
+    new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: "#F5F7FA", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      {/* Header */}
-      <div style={{ padding: "20px 32px", backgroundColor: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: "#111827", margin: 0 }}>
+      {/* Header - Responsive */}
+      <div style={{ padding: isMobile ? "16px" : "20px 32px", backgroundColor: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <h1 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 600, color: "#111827", margin: 0 }}>
             {formatDateDisplay(selectedDate)}
           </h1>
-          <button 
+          <button
             onClick={() => openAddModal()}
             style={{
-              padding: "10px 20px",
+              padding: isMobile ? "8px 12px" : "10px 20px",
               backgroundColor: "#10B981",
               color: "#FFFFFF",
               border: "none",
               borderRadius: 8,
-              fontSize: 14,
+              fontSize: isMobile ? 13 : 14,
               fontWeight: 600,
               cursor: "pointer",
             }}
           >
-            + Add Booking
+            + {isMobile ? "Add" : "Add Booking"}
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={goToPreviousDay} style={{
               width: 36,
@@ -1133,61 +1153,82 @@ export default function CalendarPage() {
             Today
           </button>
 
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              border: "1px solid #E5E7EB",
-              borderRadius: 8,
-              fontSize: 14,
-              color: "#374151",
-            }}
-          />
+          {!isMobile && (
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                border: "1px solid #E5E7EB",
+                borderRadius: 8,
+                fontSize: 14,
+                color: "#374151",
+              }}
+            />
+          )}
         </div>
 
         {/* Stats */}
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           <div style={{
-            padding: "8px 16px",
+            padding: "6px 12px",
             backgroundColor: "#ECFDF5",
             borderRadius: 20,
             border: "1px solid #A7F3D0",
           }}>
-            <span style={{ color: "#059669", fontWeight: 600, fontSize: 14 }}>Confirmed: {confirmedCount}</span>
+            <span style={{ color: "#059669", fontWeight: 600, fontSize: 13 }}>Confirmed: {confirmedCount}</span>
           </div>
           <div style={{
-            padding: "8px 16px",
+            padding: "6px 12px",
             backgroundColor: "#F3F4F6",
             borderRadius: 20,
           }}>
-            <span style={{ color: "#6B7280", fontWeight: 500, fontSize: 14 }}>Total: {totalCount}</span>
+            <span style={{ color: "#6B7280", fontWeight: 500, fontSize: 13 }}>Total: {totalCount}</span>
           </div>
         </div>
+
+        {/* Mobile scroll hint */}
+        {isMobile && staffList.length > 3 && (
+          <div style={{
+            marginTop: 8,
+            fontSize: 11,
+            color: "#9CA3AF",
+            textAlign: "center",
+          }}>
+            Swipe left/right to see all {staffList.length} staff
+          </div>
+        )}
       </div>
 
-      {/* Calendar Grid */}
-      <div style={{ flex: 1, overflow: "auto", padding: "0 24px 24px" }}>
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: `80px repeat(${visibleStaffList.length}, minmax(180px, 1fr))`,
+      {/* Calendar Grid - Responsive */}
+      <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "8px" : "0 24px 24px", WebkitOverflowScrolling: "touch" }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile
+            ? `50px repeat(${visibleStaffList.length}, 100px)`
+            : `80px repeat(${visibleStaffList.length}, minmax(180px, 1fr))`,
           backgroundColor: "#FFFFFF",
-          borderRadius: 16,
+          borderRadius: isMobile ? 12 : 16,
           border: "1px solid #E5E7EB",
-          marginTop: 24,
-          overflow: "hidden",
+          marginTop: isMobile ? 8 : 24,
+          overflow: "visible",
+          minWidth: isMobile ? `${50 + visibleStaffList.length * 100}px` : "auto",
         }}>
           {/* Header Row - Time + Staff */}
-          <div style={{ 
-            padding: "16px 12px", 
+          <div style={{
+            padding: isMobile ? "8px 4px" : "16px 12px",
             borderBottom: "1px solid #E5E7EB",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "#9CA3AF",
-            fontSize: 12,
+            fontSize: isMobile ? 10 : 12,
             fontWeight: 500,
+            position: "sticky",
+            left: 0,
+            backgroundColor: "#FFFFFF",
+            zIndex: 20,
           }}>
             Time
           </div>
@@ -1195,20 +1236,20 @@ export default function CalendarPage() {
             const avail = staffAvailability[staff.id];
             const isOff = avail && !avail.available;
             const bgColor = staffColors[idx % staffColors.length];
-            
+
             return (
               <div key={staff.id} style={{
-                padding: "16px",
+                padding: isMobile ? "8px 4px" : "16px",
                 borderBottom: "1px solid #E5E7EB",
                 borderLeft: "1px solid #E5E7EB",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 8,
+                gap: isMobile ? 4 : 8,
               }}>
                 <div style={{
-                  width: 48,
-                  height: 48,
+                  width: isMobile ? 32 : 48,
+                  height: isMobile ? 32 : 48,
                   borderRadius: "50%",
                   backgroundColor: bgColor,
                   display: "flex",
@@ -1216,27 +1257,35 @@ export default function CalendarPage() {
                   justifyContent: "center",
                   color: "#BE3A3A",
                   fontWeight: 600,
-                  fontSize: 18,
+                  fontSize: isMobile ? 12 : 18,
                   textTransform: "lowercase",
                 }}>
                   {staff.name.charAt(0).toLowerCase()}
                 </div>
-                <span style={{ 
-                  fontSize: 14, 
-                  fontWeight: 600, 
+                <span style={{
+                  fontSize: isMobile ? 10 : 14,
+                  fontWeight: 600,
                   color: isOff ? "#EF4444" : "#BE3A3A",
+                  textAlign: "center",
+                  lineHeight: 1.2,
+                  maxWidth: isMobile ? 90 : "auto",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: isMobile ? "nowrap" : "normal",
                 }}>
                   {staff.name}
                 </span>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>
-                  {staff.role || "Nail Technician"}
-                </span>
+                {!isMobile && (
+                  <span style={{ fontSize: 12, color: "#9CA3AF" }}>
+                    {staff.role || "Nail Technician"}
+                  </span>
+                )}
                 {isOff && (
                   <span style={{
-                    padding: "4px 12px",
+                    padding: isMobile ? "2px 6px" : "4px 12px",
                     backgroundColor: "#FEE2E2",
                     color: "#DC2626",
-                    fontSize: 11,
+                    fontSize: isMobile ? 8 : 11,
                     fontWeight: 600,
                     borderRadius: 12,
                     textTransform: "uppercase",
@@ -1253,16 +1302,20 @@ export default function CalendarPage() {
             <>
               {/* Time Label */}
               <div key={`time-${hour}`} style={{
-                padding: "8px 12px",
+                padding: isMobile ? "4px" : "8px 12px",
                 borderBottom: "1px solid #F3F4F6",
                 display: "flex",
                 alignItems: "flex-start",
-                justifyContent: "flex-end",
+                justifyContent: isMobile ? "center" : "flex-end",
                 color: "#6B7280",
-                fontSize: 13,
+                fontSize: isMobile ? 10 : 13,
                 fontWeight: 500,
-                height: 80,
+                height: isMobile ? 60 : 80,
                 boxSizing: "border-box",
+                position: "sticky",
+                left: 0,
+                backgroundColor: "#FFFFFF",
+                zIndex: 10,
               }}>
                 {hour.toString().padStart(2, "0")}:00
               </div>
@@ -1272,7 +1325,7 @@ export default function CalendarPage() {
                 const avail = staffAvailability[staff.id];
                 const isOff = avail && !avail.available;
                 const inWorkingHours = isHourInWorkingTime(hour, staff.id);
-                
+
                 // Get appointments for this staff member that overlap with this hour
                 const hourAppointments = activeAppointments.filter(apt => {
                   if (apt.staff.id !== staff.id) return false;
@@ -1282,12 +1335,12 @@ export default function CalendarPage() {
                   const hourEnd = new Date(selectedDate + `T${(hour + 1).toString().padStart(2, "0")}:00:00`);
                   return start < hourEnd && end > hourStart;
                 });
-                
+
                 return (
                   <div
                     key={`${staff.id}-${hour}`}
                     style={{
-                      height: 80,
+                      height: isMobile ? 60 : 80,
                       borderBottom: "1px solid #F3F4F6",
                       borderLeft: "1px solid #E5E7EB",
                       backgroundColor: isOff ? "#FEF2F2" : inWorkingHours ? "#FFFFFF" : "#FAFAFA",
@@ -1328,7 +1381,8 @@ export default function CalendarPage() {
                     
                     {/* Appointments */}
                     {hour === 8 && activeAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
-                      const style = getAppointmentStyle(apt);
+                      const cellHeight = isMobile ? 60 : 80;
+                      const style = getAppointmentStyle(apt, cellHeight);
                       return (
                         <div
                           key={apt.id}
@@ -1336,24 +1390,34 @@ export default function CalendarPage() {
                           style={{
                             position: "absolute",
                             top: style.top,
-                            left: 4,
-                            right: 4,
+                            left: isMobile ? 2 : 4,
+                            right: isMobile ? 2 : 4,
                             height: style.height - 4,
                             backgroundColor: style.bgColor,
-                            borderRadius: 8,
-                            padding: "8px 12px",
+                            borderRadius: isMobile ? 4 : 8,
+                            padding: isMobile ? "4px 6px" : "8px 12px",
                             cursor: "pointer",
                             overflow: "hidden",
                             zIndex: 10,
                             boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                           }}
                         >
-                          <div style={{ fontSize: 13, fontWeight: 600, color: style.textColor, marginBottom: 2 }}>
+                          <div style={{
+                            fontSize: isMobile ? 9 : 13,
+                            fontWeight: 600,
+                            color: style.textColor,
+                            marginBottom: isMobile ? 1 : 2,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}>
                             {apt.customerName}
                           </div>
-                          <div style={{ fontSize: 12, color: style.textColor, opacity: 0.9 }}>
-                            {apt.service.name}
-                          </div>
+                          {!isMobile && (
+                            <div style={{ fontSize: 12, color: style.textColor, opacity: 0.9 }}>
+                              {apt.service.name}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
