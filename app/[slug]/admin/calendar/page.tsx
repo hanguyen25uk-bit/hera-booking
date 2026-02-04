@@ -144,7 +144,11 @@ export default function CalendarPage() {
       const res = await fetch("/api/settings", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setSalonInfo({ name: data.name || "Hera Nail Spa", address: data.address, phone: data.phone });
+        setSalonInfo({
+          name: data.salonName || "Salon",
+          address: data.salonAddress,
+          phone: data.salonPhone
+        });
       }
     } catch (err) { console.error(err); }
   }
