@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendReceiptPdf } from "@/lib/email";
-import { getAuthPayload } from "@/lib/admin-auth";
+import { getAuthPayload, checkAdminAuth } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin is logged in
+    // Verify admin is logged in (support both new and legacy auth)
     const auth = await getAuthPayload();
-    if (!auth?.salonId) {
+    const isLegacyAuth = await checkAdminAuth();
+
+    if (!auth?.salonId && !isLegacyAuth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get salon name
-    const salon = await prisma.salon.findUnique({
-      where: { id: auth.salonId },
-      select: { name: true },
-    });
+    // Get salon - either from auth token or default salon for legacy auth
+    let salon;
+    if (auth?.salonId) {
+      salon = await prisma.salon.findUnique({
+        where: { id: auth.salonId },
+        select: { name: true },
+      });
+    } else {
+      // Legacy auth - get default salon
+      salon = await prisma.salon.findFirst({
+        select: { name: true },
+      });
+    }
 
     const body = await req.json();
     const { customerEmail, customerName, pdfBase64, receiptNumber } = body;
