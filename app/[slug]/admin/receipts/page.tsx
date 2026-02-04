@@ -21,6 +21,12 @@ type Staff = {
   name: string;
 };
 
+type Extra = {
+  id: string;
+  name: string;
+  price: number;
+};
+
 export default function ReceiptsPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -30,6 +36,7 @@ export default function ReceiptsPage() {
   const [newItemPrice, setNewItemPrice] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [extras, setExtras] = useState<Extra[]>([]);
   const [salonInfo, setSalonInfo] = useState<{ name: string; address?: string; phone?: string } | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,10 +48,11 @@ export default function ReceiptsPage() {
 
   async function loadData() {
     try {
-      const [servicesRes, staffRes, settingsRes] = await Promise.all([
+      const [servicesRes, staffRes, settingsRes, extrasRes] = await Promise.all([
         fetch("/api/services"),
         fetch("/api/staff"),
         fetch("/api/settings", { credentials: "include" }),
+        fetch("/api/extras"),
       ]);
 
       if (servicesRes.ok) {
@@ -65,6 +73,11 @@ export default function ReceiptsPage() {
           address: data.salonAddress,
           phone: data.salonPhone
         });
+      }
+
+      if (extrasRes.ok) {
+        const data = await extrasRes.json();
+        setExtras(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error(err);
@@ -480,38 +493,35 @@ export default function ReceiptsPage() {
 
           <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1E293B", marginBottom: 12 }}>Add Extra / Custom Item</h3>
 
-          {/* Quick Add Recommended Items */}
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Quick Add Extras</label>
-            <select
-              onChange={(e) => {
-                const value = e.target.value;
-                if (!value) return;
-                const [name, price] = value.split("|");
-                setReceiptItems(prev => {
-                  const existing = prev.find(item => item.name === name);
-                  if (existing) {
-                    return prev.map(item => item.name === name ? { ...item, quantity: item.quantity + 1 } : item);
-                  }
-                  return [...prev, { id: `extra-${Date.now()}`, name, price: parseFloat(price), quantity: 1 }];
-                });
-                e.target.value = "";
-              }}
-              style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
-            >
-              <option value="">Select an extra...</option>
-              <option value="Chrome|8">Chrome - £8</option>
-              <option value="Cat Eyes|10">Cat Eyes - £10</option>
-              <option value="Nail Art (per nail)|5">Nail Art (per nail) - £5</option>
-              <option value="Ombre / Spray|12">Ombre / Spray - £12</option>
-              <option value="French Tips|8">French Tips - £8</option>
-              <option value="Glitter|5">Glitter - £5</option>
-              <option value="Gems / Stones|3">Gems / Stones - £3</option>
-              <option value="Nail Repair|5">Nail Repair - £5</option>
-              <option value="Nail Extension (per nail)|3">Nail Extension (per nail) - £3</option>
-              <option value="Soak Off|5">Soak Off - £5</option>
-            </select>
-          </div>
+          {/* Quick Add Extras from Database */}
+          {extras.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Quick Add Extras</label>
+              <select
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value) return;
+                  const [name, price] = value.split("|");
+                  setReceiptItems(prev => {
+                    const existing = prev.find(item => item.name === name);
+                    if (existing) {
+                      return prev.map(item => item.name === name ? { ...item, quantity: item.quantity + 1 } : item);
+                    }
+                    return [...prev, { id: `extra-${Date.now()}`, name, price: parseFloat(price), quantity: 1 }];
+                  });
+                  e.target.value = "";
+                }}
+                style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+              >
+                <option value="">Select an extra...</option>
+                {extras.map(extra => (
+                  <option key={extra.id} value={`${extra.name}|${extra.price}`}>
+                    {extra.name} - £{extra.price.toFixed(2)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Custom Item Input */}
           <div style={{ marginBottom: 16 }}>

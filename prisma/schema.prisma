@@ -57,6 +57,7 @@ model Salon {
   bookingPolicy BookingPolicy?
   salonWorkingHours SalonWorkingHours[]
   discounts     Discount[]
+  extras        Extra[]
 }
 
 // ============ SERVICES ============
@@ -278,6 +279,24 @@ model SalonWorkingHours {
   updatedAt DateTime @updatedAt
 
   @@unique([salonId, dayOfWeek])
+}
+
+// ============ EXTRAS ============
+
+model Extra {
+  id        String   @id @default(cuid())
+  name      String   // e.g., "Chrome", "Cat Eyes"
+  price     Float    // e.g., 8.00
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  salonId   String
+  salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salonId])
 }
 
 // ============ DISCOUNTS ============
