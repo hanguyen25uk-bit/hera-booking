@@ -1204,98 +1204,114 @@ export default function CalendarPage() {
       {/* Calendar Grid - Responsive */}
       <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "8px" : "0 24px 24px", WebkitOverflowScrolling: "touch" }}>
         <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile
-            ? `50px repeat(${visibleStaffList.length}, 100px)`
-            : `80px repeat(${visibleStaffList.length}, minmax(180px, 1fr))`,
           backgroundColor: "#FFFFFF",
           borderRadius: isMobile ? 12 : 16,
           border: "1px solid #E5E7EB",
           marginTop: isMobile ? 8 : 24,
-          overflow: "visible",
           minWidth: isMobile ? `${50 + visibleStaffList.length * 100}px` : "auto",
         }}>
-          {/* Header Row - Time + Staff */}
+          {/* Sticky Header Row - Time + Staff Names */}
           <div style={{
-            padding: isMobile ? "8px 4px" : "16px 12px",
-            borderBottom: "1px solid #E5E7EB",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#9CA3AF",
-            fontSize: isMobile ? 10 : 12,
-            fontWeight: 500,
+            display: "grid",
+            gridTemplateColumns: isMobile
+              ? `50px repeat(${visibleStaffList.length}, 100px)`
+              : `80px repeat(${visibleStaffList.length}, minmax(180px, 1fr))`,
             position: "sticky",
-            left: 0,
+            top: 0,
             backgroundColor: "#FFFFFF",
-            zIndex: 20,
+            zIndex: 30,
+            borderBottom: "2px solid #E5E7EB",
           }}>
-            Time
-          </div>
-          {visibleStaffList.map((staff, idx) => {
-            const avail = staffAvailability[staff.id];
-            const isOff = avail && !avail.available;
-            const bgColor = staffColors[idx % staffColors.length];
+            {/* Time Header */}
+            <div style={{
+              padding: isMobile ? "8px 4px" : "16px 12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#9CA3AF",
+              fontSize: isMobile ? 10 : 12,
+              fontWeight: 500,
+              position: "sticky",
+              left: 0,
+              backgroundColor: "#FFFFFF",
+              zIndex: 40,
+            }}>
+              Time
+            </div>
+            {/* Staff Headers */}
+            {visibleStaffList.map((staff, idx) => {
+              const avail = staffAvailability[staff.id];
+              const isOff = avail && !avail.available;
+              const bgColor = staffColors[idx % staffColors.length];
 
-            return (
-              <div key={staff.id} style={{
-                padding: isMobile ? "8px 4px" : "16px",
-                borderBottom: "1px solid #E5E7EB",
-                borderLeft: "1px solid #E5E7EB",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: isMobile ? 4 : 8,
-              }}>
-                <div style={{
-                  width: isMobile ? 32 : 48,
-                  height: isMobile ? 32 : 48,
-                  borderRadius: "50%",
-                  backgroundColor: bgColor,
+              return (
+                <div key={staff.id} style={{
+                  padding: isMobile ? "8px 4px" : "16px",
+                  borderLeft: "1px solid #E5E7EB",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  color: "#BE3A3A",
-                  fontWeight: 600,
-                  fontSize: isMobile ? 12 : 18,
-                  textTransform: "lowercase",
+                  gap: isMobile ? 4 : 8,
+                  backgroundColor: "#FFFFFF",
                 }}>
-                  {staff.name.charAt(0).toLowerCase()}
-                </div>
-                <span style={{
-                  fontSize: isMobile ? 10 : 14,
-                  fontWeight: 600,
-                  color: isOff ? "#EF4444" : "#BE3A3A",
-                  textAlign: "center",
-                  lineHeight: 1.2,
-                  maxWidth: isMobile ? 90 : "auto",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: isMobile ? "nowrap" : "normal",
-                }}>
-                  {staff.name}
-                </span>
-                {!isMobile && (
-                  <span style={{ fontSize: 12, color: "#9CA3AF" }}>
-                    {staff.role || "Nail Technician"}
-                  </span>
-                )}
-                {isOff && (
-                  <span style={{
-                    padding: isMobile ? "2px 6px" : "4px 12px",
-                    backgroundColor: "#FEE2E2",
-                    color: "#DC2626",
-                    fontSize: isMobile ? 8 : 11,
-                    fontWeight: 600,
-                    borderRadius: 12,
+                  <div style={{
+                    width: isMobile ? 32 : 48,
+                    height: isMobile ? 32 : 48,
+                    borderRadius: "50%",
+                    backgroundColor: bgColor,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#FFFFFF",
+                    fontWeight: 700,
+                    fontSize: isMobile ? 12 : 18,
                     textTransform: "uppercase",
                   }}>
-                    OFF
+                    {staff.name.charAt(0)}
+                  </div>
+                  <span style={{
+                    fontSize: isMobile ? 11 : 14,
+                    fontWeight: 700,
+                    color: isOff ? "#EF4444" : "#111827",
+                    textAlign: "center",
+                    lineHeight: 1.2,
+                    maxWidth: isMobile ? 90 : "auto",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: isMobile ? "nowrap" : "normal",
+                  }}>
+                    {staff.name}
                   </span>
-                )}
-              </div>
-            );
-          })}
+                  {!isMobile && (
+                    <span style={{ fontSize: 12, color: "#9CA3AF" }}>
+                      {staff.role || "Nail Technician"}
+                    </span>
+                  )}
+                  {isOff && (
+                    <span style={{
+                      padding: isMobile ? "2px 6px" : "4px 12px",
+                      backgroundColor: "#FEE2E2",
+                      color: "#DC2626",
+                      fontSize: isMobile ? 8 : 11,
+                      fontWeight: 600,
+                      borderRadius: 12,
+                      textTransform: "uppercase",
+                    }}>
+                      OFF
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Time Grid Body */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile
+              ? `50px repeat(${visibleStaffList.length}, 100px)`
+              : `80px repeat(${visibleStaffList.length}, minmax(180px, 1fr))`,
+          }}>
 
           {/* Time Rows */}
           {hours.map(hour => (
@@ -1303,23 +1319,23 @@ export default function CalendarPage() {
               {/* Time Label */}
               <div key={`time-${hour}`} style={{
                 padding: isMobile ? "4px" : "8px 12px",
-                borderBottom: "1px solid #F3F4F6",
+                borderBottom: "2px solid #D1D5DB",
                 display: "flex",
                 alignItems: "flex-start",
                 justifyContent: isMobile ? "center" : "flex-end",
-                color: "#6B7280",
+                color: "#374151",
                 fontSize: isMobile ? 10 : 13,
-                fontWeight: 500,
+                fontWeight: 600,
                 height: isMobile ? 60 : 80,
                 boxSizing: "border-box",
                 position: "sticky",
                 left: 0,
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "#F9FAFB",
                 zIndex: 10,
               }}>
                 {hour.toString().padStart(2, "0")}:00
               </div>
-              
+
               {/* Staff Columns */}
               {visibleStaffList.map(staff => {
                 const avail = staffAvailability[staff.id];
@@ -1341,9 +1357,9 @@ export default function CalendarPage() {
                     key={`${staff.id}-${hour}`}
                     style={{
                       height: isMobile ? 60 : 80,
-                      borderBottom: "1px solid #F3F4F6",
+                      borderBottom: "2px solid #D1D5DB",
                       borderLeft: "1px solid #E5E7EB",
-                      backgroundColor: isOff ? "#FEF2F2" : inWorkingHours ? "#FFFFFF" : "#FAFAFA",
+                      backgroundColor: isOff ? "#FECACA" : inWorkingHours ? "#ECFDF5" : "#F3F4F6",
                       position: "relative",
                     }}
                   >
@@ -1356,9 +1372,9 @@ export default function CalendarPage() {
                             style={{
                               flex: 1,
                               cursor: "pointer",
-                              borderBottom: minute < 45 ? "1px dashed #F3F4F6" : "none",
+                              borderBottom: minute < 45 ? "1px dashed #A7F3D0" : "none",
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(16, 185, 129, 0.05)"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(16, 185, 129, 0.15)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                           />
                         ))}
@@ -1426,6 +1442,7 @@ export default function CalendarPage() {
               })}
             </>
           ))}
+          </div>
         </div>
       </div>
 
