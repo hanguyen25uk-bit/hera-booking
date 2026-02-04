@@ -70,7 +70,21 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
   const filteredServices = selectedCategoryId ? services.filter(s => s.categoryId === selectedCategoryId) : services;
 
-  // Get applicable discount for a service
+  // Helper to convert time string to minutes for proper comparison
+  function timeToMinutes(time: string): number {
+    const [hours, mins] = time.split(':').map(Number);
+    return hours * 60 + mins;
+  }
+
+  // Check if time is within range (proper numeric comparison)
+  function isTimeInRange(time: string, startTime: string, endTime: string): boolean {
+    const timeMinutes = timeToMinutes(time);
+    const startMinutes = timeToMinutes(startTime);
+    const endMinutes = timeToMinutes(endTime);
+    return timeMinutes >= startMinutes && timeMinutes < endMinutes;
+  }
+
+  // Get applicable discount for a service (returns BEST discount, not just first)
   function getApplicableDiscount(serviceId: string, date?: string, time?: string, staffId?: string): Discount | null {
     if (!discounts.length) return null;
 
@@ -79,6 +93,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     const dayOfWeek = checkDate.getDay();
     const checkTime = time || new Date().toTimeString().slice(0, 5);
 
+    let bestDiscount: Discount | null = null;
+
     for (const discount of discounts) {
       // Check if service is included
       if (!discount.serviceIds.includes(serviceId)) continue;
@@ -86,20 +102,27 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       // Check if day is included
       if (!discount.daysOfWeek.includes(dayOfWeek)) continue;
 
-      // Check if time is within range
-      if (checkTime < discount.startTime || checkTime >= discount.endTime) continue;
+      // Check if time is within range (use proper numeric comparison)
+      if (!isTimeInRange(checkTime, discount.startTime, discount.endTime)) continue;
 
       // Check if staff matches (empty staffIds means all staff)
       if (staffId && discount.staffIds.length > 0 && !discount.staffIds.includes(staffId)) continue;
 
-      return discount;
+      // Keep the best (highest) discount
+      if (!bestDiscount || discount.discountPercent > bestDiscount.discountPercent) {
+        bestDiscount = discount;
+      }
     }
-    return null;
+    return bestDiscount;
   }
 
-  // Calculate discounted price
+  // Calculate discounted price with validation
   function getDiscountedPrice(originalPrice: number, discount: Discount | null): number {
     if (!discount) return originalPrice;
+    // Validate discount percent is between 0 and 100
+    if (discount.discountPercent < 0 || discount.discountPercent > 100) {
+      return originalPrice;
+    }
     return originalPrice * (1 - discount.discountPercent / 100);
   }
 
