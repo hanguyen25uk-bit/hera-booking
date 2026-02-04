@@ -12,6 +12,9 @@ type Appointment = {
   customerEmail: string;
   manageToken: string;
   status: string;
+  originalPrice?: number;
+  discountedPrice?: number;
+  discountName?: string;
   service: {
     id: string;
     name: string;
@@ -236,7 +239,32 @@ function ManageBookingContent() {
           </div>
           <div style={styles.detailCard}>
             <div style={styles.detailCardLabel}>Price</div>
-            <div style={styles.detailCardValue}>£{appointment.service.price}</div>
+            {appointment.discountedPrice && appointment.originalPrice && appointment.discountedPrice < appointment.originalPrice ? (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{
+                    background: "#22c55e",
+                    color: "#fff",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}>OFF-PEAK</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: 14 }}>
+                    £{appointment.originalPrice.toFixed(2)}
+                  </span>
+                  <span style={{ ...styles.detailCardValue, color: "#16a34a" }}>
+                    £{appointment.discountedPrice.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div style={styles.detailCardValue}>
+                £{appointment.originalPrice?.toFixed(2) || appointment.service.price.toFixed(2)}
+              </div>
+            )}
           </div>
         </div>
 

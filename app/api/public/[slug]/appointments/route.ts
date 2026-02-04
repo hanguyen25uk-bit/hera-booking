@@ -141,7 +141,7 @@ export async function POST(
       });
     }
 
-    // 9. Create appointment
+    // 9. Create appointment with discount info
     const appointment = await prisma.appointment.create({
       data: {
         salonId: salon.id,
@@ -155,6 +155,9 @@ export async function POST(
         endTime: end,
         manageToken,
         status: "confirmed",
+        originalPrice: originalPrice !== undefined ? Number(originalPrice) : service.price,
+        discountedPrice: discountedPrice !== undefined ? Number(discountedPrice) : null,
+        discountName: discountName || null,
       },
       include: { service: true, staff: true },
     });

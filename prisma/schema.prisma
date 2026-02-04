@@ -183,11 +183,16 @@ model Appointment {
   startTime     DateTime
   endTime       DateTime
   status        String   @default("confirmed")
-  
+
   customerName  String
   customerPhone String
   customerEmail String
-  
+
+  // Price at time of booking
+  originalPrice   Float?
+  discountedPrice Float?
+  discountName    String?
+
   manageToken   String   @unique @default(cuid())
   
   salonId       String
