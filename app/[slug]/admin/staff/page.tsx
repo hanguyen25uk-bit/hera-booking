@@ -7,6 +7,7 @@ type Staff = {
   name: string;
   role: string | null;
   active: boolean;
+  serviceIds?: string[];
 };
 
 type Service = {
@@ -71,6 +72,7 @@ export default function StaffPage() {
       });
       if (!res.ok) throw new Error("Failed to save");
       setShowServiceModal(false);
+      loadData(); // Reload to show updated services
     } catch (err) {
       alert("Error saving services");
     } finally {
@@ -221,9 +223,44 @@ export default function StaffPage() {
                   </span>
                 </td>
                 <td style={styles.td}>
-                  <button style={styles.btnServices} onClick={() => openServiceModal(s)}>
-                    Manage Services
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {s.serviceIds && s.serviceIds.length > 0 ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {s.serviceIds.slice(0, 3).map(serviceId => {
+                          const service = services.find(svc => svc.id === serviceId);
+                          return service ? (
+                            <span key={serviceId} style={{
+                              padding: "3px 8px",
+                              backgroundColor: "#f0fdf4",
+                              color: "#15803d",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 500,
+                            }}>
+                              {service.name}
+                            </span>
+                          ) : null;
+                        })}
+                        {s.serviceIds.length > 3 && (
+                          <span style={{
+                            padding: "3px 8px",
+                            backgroundColor: "#f1f5f9",
+                            color: "#64748b",
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 500,
+                          }}>
+                            +{s.serviceIds.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: "#94a3b8", fontSize: 12 }}>No services assigned</span>
+                    )}
+                    <button style={styles.btnServices} onClick={() => openServiceModal(s)}>
+                      Manage Services
+                    </button>
+                  </div>
                 </td>
                 <td style={{...styles.td, textAlign: "right"}}>
                   <div style={styles.actions}>
