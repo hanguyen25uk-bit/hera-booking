@@ -577,7 +577,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <>
                     <span style={{ color: "#10b981", fontWeight: 600 }}>£{finalPrice.toFixed(2)}</span>
                     <span style={{ color: "#64748b", textDecoration: "line-through", fontSize: 12 }}>£{currentService.price}</span>
-                    <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>OFF-PEAK</span>
+                    <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
                   </>
                 ) : (
                   <span>£{currentService.price}</span>
@@ -791,7 +791,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                               }}>
                                 {time}
                               </span>
-                              {isOffPeak && !isSelected && (
+                              {isOffPeak && !isSelected && slotDiscount && (
                                 <span style={{
                                   padding: "3px 8px",
                                   borderRadius: 4,
@@ -800,7 +800,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                   background: "#22c55e",
                                   color: "#fff",
                                 }}>
-                                  OFF-PEAK
+                                  {slotDiscount.discountPercent}% OFF
                                 </span>
                               )}
                             </div>
@@ -887,7 +887,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                       {currentDiscount ? (
                         <>
-                          <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>OFF-PEAK</span>
+                          <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
                           <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: 12 }}>£{currentService?.price}</span>
                           <span style={{ color: "#16a34a" }}>£{finalPrice.toFixed(2)}</span>
                         </>
