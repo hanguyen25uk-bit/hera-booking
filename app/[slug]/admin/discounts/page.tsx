@@ -15,7 +15,7 @@ type Discount = {
 };
 
 type Service = { id: string; name: string; price: number };
-type Staff = { id: string; name: string };
+type Staff = { id: string; name: string; serviceIds?: string[] };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -117,13 +117,32 @@ export default function DiscountsPage() {
   }
 
   function toggleService(serviceId: string) {
-    setFormData(prev => ({
-      ...prev,
-      serviceIds: prev.serviceIds.includes(serviceId)
+    setFormData(prev => {
+      const newServiceIds = prev.serviceIds.includes(serviceId)
         ? prev.serviceIds.filter(id => id !== serviceId)
-        : [...prev.serviceIds, serviceId],
-    }));
+        : [...prev.serviceIds, serviceId];
+
+      // Filter out staff who can't perform any of the selected services
+      const validStaffIds = prev.staffIds.filter(staffId => {
+        const staff = staffList.find(s => s.id === staffId);
+        if (!staff?.serviceIds) return false;
+        return newServiceIds.some(sId => staff.serviceIds?.includes(sId));
+      });
+
+      return {
+        ...prev,
+        serviceIds: newServiceIds,
+        staffIds: validStaffIds,
+      };
+    });
   }
+
+  // Get staff who can perform at least one of the selected services
+  const filteredStaff = formData.serviceIds.length > 0
+    ? staffList.filter(staff =>
+        staff.serviceIds?.some(sId => formData.serviceIds.includes(sId))
+      )
+    : staffList;
 
   function toggleStaff(staffId: string) {
     setFormData(prev => ({
@@ -612,42 +631,68 @@ export default function DiscountsPage() {
                 </div>
               </div>
 
-              {/* Staff (Optional) */}
+              {/* Staff (Optional) - filtered by selected services */}
               <div style={{ marginBottom: 24 }}>
                 <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>
-                  Staff (leave empty for all staff)
+                  Staff (leave empty for all staff who can do selected services)
                 </label>
-                <div style={{
-                  border: "1px solid #E5E7EB",
-                  borderRadius: 8,
-                  maxHeight: 150,
-                  overflow: "auto",
-                }}>
-                  {staffList.map(staff => (
-                    <label
-                      key={staff.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "10px 12px",
-                        borderBottom: "1px solid #F3F4F6",
-                        cursor: "pointer",
-                        backgroundColor: formData.staffIds.includes(staff.id) ? "#F0FDF4" : "transparent",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.staffIds.includes(staff.id)}
-                        onChange={() => toggleStaff(staff.id)}
-                        style={{ width: 16, height: 16 }}
-                      />
-                      <span style={{ fontSize: 14, color: "#374151" }}>{staff.name}</span>
-                    </label>
-                  ))}
-                </div>
+                {formData.serviceIds.length === 0 ? (
+                  <div style={{
+                    padding: 16,
+                    border: "1px solid #E5E7EB",
+                    borderRadius: 8,
+                    backgroundColor: "#F9FAFB",
+                    color: "#64748B",
+                    fontSize: 14,
+                    textAlign: "center",
+                  }}>
+                    Please select services first to see available staff
+                  </div>
+                ) : filteredStaff.length === 0 ? (
+                  <div style={{
+                    padding: 16,
+                    border: "1px solid #FEE2E2",
+                    borderRadius: 8,
+                    backgroundColor: "#FEF2F2",
+                    color: "#DC2626",
+                    fontSize: 14,
+                    textAlign: "center",
+                  }}>
+                    No staff can perform the selected services
+                  </div>
+                ) : (
+                  <div style={{
+                    border: "1px solid #E5E7EB",
+                    borderRadius: 8,
+                    maxHeight: 150,
+                    overflow: "auto",
+                  }}>
+                    {filteredStaff.map(staff => (
+                      <label
+                        key={staff.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: "10px 12px",
+                          borderBottom: "1px solid #F3F4F6",
+                          cursor: "pointer",
+                          backgroundColor: formData.staffIds.includes(staff.id) ? "#F0FDF4" : "transparent",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.staffIds.includes(staff.id)}
+                          onChange={() => toggleStaff(staff.id)}
+                          style={{ width: 16, height: 16 }}
+                        />
+                        <span style={{ fontSize: 14, color: "#374151" }}>{staff.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
                 <p style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
-                  If no staff selected, discount applies to all staff members.
+                  Only showing staff who can perform the selected services. Leave empty for all eligible staff.
                 </p>
               </div>
 

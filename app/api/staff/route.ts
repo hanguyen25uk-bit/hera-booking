@@ -17,9 +17,20 @@ export async function GET() {
   const staff = await prisma.staff.findMany({
     where: { salonId },
     orderBy: { createdAt: "desc" },
+    include: {
+      staffServices: {
+        select: { serviceId: true },
+      },
+    },
   });
 
-  return NextResponse.json(staff);
+  // Transform to include serviceIds array
+  const staffWithServices = staff.map(s => ({
+    ...s,
+    serviceIds: s.staffServices.map(ss => ss.serviceId),
+  }));
+
+  return NextResponse.json(staffWithServices);
 }
 
 // CREATE staff
