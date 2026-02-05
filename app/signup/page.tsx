@@ -66,11 +66,7 @@ export default function SignupPage() {
         <div style={styles.logoContainer}>
           <svg width="44" height="44" viewBox="0 0 36 36" fill="none">
             <circle cx="18" cy="18" r="18" fill="#D97706"/>
-            <ellipse cx="18" cy="12" rx="3.5" ry="5" fill="white"/>
-            <ellipse cx="24" cy="18" rx="5" ry="3.5" fill="white"/>
-            <ellipse cx="18" cy="24" rx="3.5" ry="5" fill="white"/>
-            <ellipse cx="12" cy="18" rx="5" ry="3.5" fill="white"/>
-            <circle cx="18" cy="18" r="3" fill="#D97706"/>
+            <path d="M12 10V26M24 10V26M12 18H24" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
           </svg>
           <span style={styles.logoText}>hera</span>
         </div>
