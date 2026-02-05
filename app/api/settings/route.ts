@@ -1,14 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthPayload } from "@/lib/admin-auth";
 
-async function getDefaultSalonId() {
+async function getSalonId(): Promise<string | null> {
+  const auth = await getAuthPayload();
+  if (auth?.salonId) return auth.salonId;
+  // Fallback for legacy single-tenant
   const salon = await prisma.salon.findFirst();
-  return salon?.id;
+  return salon?.id || null;
 }
 
 export async function GET() {
   try {
-    const salonId = await getDefaultSalonId();
+    const salonId = await getSalonId();
     if (!salonId) {
       return NextResponse.json({ error: "No salon found" }, { status: 404 });
     }
@@ -32,7 +36,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const salonId = await getDefaultSalonId();
+    const salonId = await getSalonId();
     if (!salonId) {
       return NextResponse.json({ error: "No salon found" }, { status: 404 });
     }
