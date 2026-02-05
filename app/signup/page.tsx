@@ -64,10 +64,17 @@ export default function SignupPage() {
       <div style={styles.card}>
         {/* Logo */}
         <div style={styles.logoContainer}>
-          <div style={styles.logoIcon}>
-            <span style={styles.logoH}>H</span>
-          </div>
-          <span style={styles.logoText}>Hera</span>
+          <svg width="52" height="52" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="12" fill="url(#signupGradient)"/>
+            <path d="M12 12V28M28 12V28M12 20H28" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+            <defs>
+              <linearGradient id="signupGradient" x1="0" y1="0" x2="40" y2="40">
+                <stop stopColor="#8B5CF6"/>
+                <stop offset="1" stopColor="#6366F1"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span style={styles.logoText}>HERA</span>
         </div>
 
         {/* Header */}
@@ -199,23 +206,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "center",
     gap: 12,
     marginBottom: 32,
-  },
-  logoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
-  },
-  logoH: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: 800,
-    fontFamily: "'Georgia', serif",
-    letterSpacing: "-1px",
   },
   logoText: {
     fontSize: 28,

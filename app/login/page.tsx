@@ -44,10 +44,17 @@ export default function LoginPage() {
       <div style={styles.card}>
         {/* Logo */}
         <div style={styles.logoContainer}>
-          <div style={styles.logoIcon}>
-            <span style={styles.logoH}>H</span>
-          </div>
-          <span style={styles.logoText}>Hera</span>
+          <svg width="52" height="52" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="12" fill="url(#loginGradient)"/>
+            <path d="M12 12V28M28 12V28M12 20H28" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+            <defs>
+              <linearGradient id="loginGradient" x1="0" y1="0" x2="40" y2="40">
+                <stop stopColor="#8B5CF6"/>
+                <stop offset="1" stopColor="#6366F1"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span style={styles.logoText}>HERA</span>
         </div>
 
         {/* Header */}
