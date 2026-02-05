@@ -202,10 +202,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: 32,
   },
   logoText: {
-    fontSize: 28,
-    fontWeight: 700,
+    fontSize: 26,
+    fontWeight: 600,
     color: "#111827",
-    letterSpacing: "-0.5px",
+    letterSpacing: "0.5px",
+    fontFamily: "'Söhne', 'Helvetica Neue', Arial, sans-serif",
   },
   title: {
     fontSize: 24,

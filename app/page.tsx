@@ -170,10 +170,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: 12,
   },
   logoText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 600,
     color: "#111827",
-    letterSpacing: "-0.5px",
+    letterSpacing: "0.5px",
+    fontFamily: "'Söhne', 'Helvetica Neue', Arial, sans-serif",
   },
   navLinks: {
     display: "flex",
@@ -365,7 +366,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 16,
     fontWeight: 600,
     color: "#6B7280",
-    letterSpacing: "-0.3px",
+    letterSpacing: "0.3px",
+    fontFamily: "'Söhne', 'Helvetica Neue', Arial, sans-serif",
   },
   footerCopy: {
     fontSize: 14,
