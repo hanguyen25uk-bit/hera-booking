@@ -64,10 +64,6 @@ export default function SignupPage() {
       <div style={styles.card}>
         {/* Logo */}
         <div style={styles.logoContainer}>
-          <svg width="44" height="44" viewBox="0 0 36 36" fill="none">
-            <circle cx="18" cy="18" r="17" fill="white" stroke="#E5E7EB" strokeWidth="1"/>
-            <path d="M12 10V26M24 10V26M12 18H24" stroke="#111827" strokeWidth="3.5" strokeLinecap="round"/>
-          </svg>
           <span style={styles.logoText}>hera</span>
         </div>
 

@@ -7,10 +7,6 @@ export default function Home() {
       <nav style={styles.nav}>
         <div style={styles.navContainer}>
           <div style={styles.logoContainer}>
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <circle cx="18" cy="18" r="17" fill="white" stroke="#E5E7EB" strokeWidth="1"/>
-              <path d="M12 10V26M24 10V26M12 18H24" stroke="#111827" strokeWidth="3.5" strokeLinecap="round"/>
-            </svg>
             <span style={styles.logoText}>hera</span>
           </div>
           <div style={styles.navLinks}>
@@ -125,10 +121,6 @@ export default function Home() {
       <footer style={styles.footer}>
         <div style={styles.footerContent}>
           <div style={styles.footerLogo}>
-            <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
-              <circle cx="18" cy="18" r="17" fill="white" stroke="#E5E7EB" strokeWidth="1"/>
-              <path d="M12 10V26M24 10V26M12 18H24" stroke="#6B7280" strokeWidth="3.5" strokeLinecap="round"/>
-            </svg>
             <span style={styles.footerLogoText}>hera</span>
           </div>
           <p style={styles.footerCopy}>© 2026 Hera Booking. All rights reserved.</p>
