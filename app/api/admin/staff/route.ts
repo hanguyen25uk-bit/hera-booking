@@ -15,10 +15,17 @@ export async function GET() {
 
   const staff = await prisma.staff.findMany({
     where: { salonId },
-    include: { staffServices: { include: { service: true } } },
+    include: { staffServices: { select: { serviceId: true } } },
     orderBy: { name: "asc" },
   });
-  return NextResponse.json(staff);
+
+  // Transform to include serviceIds array
+  const staffWithServices = staff.map(s => ({
+    ...s,
+    serviceIds: s.staffServices.map(ss => ss.serviceId),
+  }));
+
+  return NextResponse.json(staffWithServices);
 }
 
 export async function POST(req: NextRequest) {
