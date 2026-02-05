@@ -169,7 +169,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     loadData();
   }, [apiBase, slug]);
 
-  // Load staff who can perform the selected service
+  // Load staff who can perform the selected service (filtered by discount eligibility)
   useEffect(() => {
     if (!selectedServiceId) return;
     // Reset staff and selections when service changes
@@ -180,11 +180,33 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     async function loadStaff() {
       try {
         const res = await fetch(`${apiBase}/staff?serviceId=${selectedServiceId}`);
-        setStaff(await res.json());
+        let staffList: Staff[] = await res.json();
+
+        // Check if there's a discount for this service with specific staff
+        const serviceDiscounts = discounts.filter(d => d.serviceIds.includes(selectedServiceId));
+        if (serviceDiscounts.length > 0) {
+          // Get all staff IDs that are eligible for any discount on this service
+          const discountStaffIds = new Set<string>();
+          let hasStaffRestriction = false;
+
+          for (const discount of serviceDiscounts) {
+            if (discount.staffIds.length > 0) {
+              hasStaffRestriction = true;
+              discount.staffIds.forEach(id => discountStaffIds.add(id));
+            }
+          }
+
+          // If any discount has staff restrictions, filter to only those staff
+          if (hasStaffRestriction && discountStaffIds.size > 0) {
+            staffList = staffList.filter(s => discountStaffIds.has(s.id));
+          }
+        }
+
+        setStaff(staffList);
       } catch (err) { console.error(err); }
     }
     loadStaff();
-  }, [selectedServiceId, apiBase]);
+  }, [selectedServiceId, apiBase, discounts]);
 
   // Set default date
   useEffect(() => { setSelectedDate(new Date().toISOString().split("T")[0]); }, []);
