@@ -7,17 +7,11 @@ export default function Home() {
       <nav style={styles.nav}>
         <div style={styles.navContainer}>
           <div style={styles.logoContainer}>
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="12" fill="url(#navGradient)"/>
-              <path d="M12 12V28M28 12V28M12 20H28" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-              <defs>
-                <linearGradient id="navGradient" x1="0" y1="0" x2="40" y2="40">
-                  <stop stopColor="#8B5CF6"/>
-                  <stop offset="1" stopColor="#6366F1"/>
-                </linearGradient>
-              </defs>
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <circle cx="18" cy="18" r="18" fill="#D97706"/>
+              <path d="M18 8L20.5 15.5L28 18L20.5 20.5L18 28L15.5 20.5L8 18L15.5 15.5L18 8Z" fill="white"/>
             </svg>
-            <span style={styles.logoText}>HERA</span>
+            <span style={styles.logoText}>hera</span>
           </div>
           <div style={styles.navLinks}>
             <Link href="/login" style={styles.navLink}>Login</Link>
@@ -131,11 +125,11 @@ export default function Home() {
       <footer style={styles.footer}>
         <div style={styles.footerContent}>
           <div style={styles.footerLogo}>
-            <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="12" fill="#9CA3AF"/>
-              <path d="M12 12V28M28 12V28M12 20H28" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+            <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
+              <circle cx="18" cy="18" r="18" fill="#9CA3AF"/>
+              <path d="M18 8L20.5 15.5L28 18L20.5 20.5L18 28L15.5 20.5L8 18L15.5 15.5L18 8Z" fill="white"/>
             </svg>
-            <span style={styles.footerLogoText}>HERA</span>
+            <span style={styles.footerLogoText}>hera</span>
           </div>
           <p style={styles.footerCopy}>© 2026 Hera Booking. All rights reserved.</p>
         </div>
@@ -177,10 +171,9 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   logoText: {
     fontSize: 24,
-    fontWeight: 800,
+    fontWeight: 600,
     color: "#111827",
-    letterSpacing: "3px",
-    fontFamily: "'Arial', sans-serif",
+    letterSpacing: "-0.5px",
   },
   navLinks: {
     display: "flex",
@@ -370,9 +363,9 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   footerLogoText: {
     fontSize: 16,
-    fontWeight: 700,
+    fontWeight: 600,
     color: "#6B7280",
-    letterSpacing: "2px",
+    letterSpacing: "-0.3px",
   },
   footerCopy: {
     fontSize: 14,
