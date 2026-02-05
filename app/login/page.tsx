@@ -46,7 +46,11 @@ export default function LoginPage() {
         <div style={styles.logoContainer}>
           <svg width="44" height="44" viewBox="0 0 36 36" fill="none">
             <circle cx="18" cy="18" r="18" fill="#D97706"/>
-            <path d="M18 8L20.5 15.5L28 18L20.5 20.5L18 28L15.5 20.5L8 18L15.5 15.5L18 8Z" fill="white"/>
+            <ellipse cx="18" cy="12" rx="3.5" ry="5" fill="white"/>
+            <ellipse cx="24" cy="18" rx="5" ry="3.5" fill="white"/>
+            <ellipse cx="18" cy="24" rx="3.5" ry="5" fill="white"/>
+            <ellipse cx="12" cy="18" rx="5" ry="3.5" fill="white"/>
+            <circle cx="18" cy="18" r="3" fill="#D97706"/>
           </svg>
           <span style={styles.logoText}>hera</span>
         </div>
