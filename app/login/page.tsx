@@ -42,42 +42,76 @@ export default function LoginPage() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <div style={styles.logo}>H</div>
-        <h1 style={styles.title}>Welcome Back</h1>
-        <p style={styles.subtitle}>Sign in to manage your salon</p>
+        {/* Logo */}
+        <div style={styles.logoContainer}>
+          <div style={styles.logoIcon}>
+            <span style={styles.logoH}>H</span>
+          </div>
+          <span style={styles.logoText}>Hera</span>
+        </div>
+
+        {/* Header */}
+        <h1 style={styles.title}>Welcome back</h1>
+        <p style={styles.subtitle}>Sign in to your dashboard</p>
+
+        {/* Error */}
+        {error && <div style={styles.error}>{error}</div>}
+
+        {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
-          {error && <div style={styles.error}>{error}</div>}
-          <div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
+              placeholder="you@example.com"
               style={styles.input}
               autoFocus
               required
             />
           </div>
-          <div style={styles.inputWrapper}>
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              style={styles.input}
-              required
-            />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-              {showPassword ? "🙈" : "👁"}
-            </button>
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Password</label>
+            <div style={styles.inputWrapper}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                style={styles.input}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+              >
+                {showPassword ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
+
           <button type="submit" style={styles.button} disabled={loading}>
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
-        <p style={styles.signupText}>
+
+        {/* Footer */}
+        <p style={styles.footerText}>
           Don't have an account?{" "}
-          <Link href="/signup" style={styles.signupLink}>
+          <Link href="/signup" style={styles.link}>
             Create one
           </Link>
         </p>
@@ -87,17 +121,139 @@ export default function LoginPage() {
 }
 
 const styles: { [key: string]: React.CSSProperties } = {
-  container: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", padding: 20 },
-  card: { backgroundColor: "#1e293b", borderRadius: 20, padding: 40, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)", width: "100%", maxWidth: 400, textAlign: "center" },
-  logo: { width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 28, fontWeight: 700, color: "#fff" },
-  title: { fontSize: 24, fontWeight: 700, color: "#fff", margin: "0 0 8px 0" },
-  subtitle: { fontSize: 14, color: "#94a3b8", margin: "0 0 32px 0" },
-  form: { display: "flex", flexDirection: "column", gap: 16 },
-  inputWrapper: { position: "relative" },
-  input: { width: "100%", padding: "16px", border: "2px solid #334155", borderRadius: 12, fontSize: 16, outline: "none", backgroundColor: "#f8fafc", color: "#0f172a", boxSizing: "border-box" },
-  eyeButton: { position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18 },
-  button: { padding: "16px 24px", background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", color: "#fff", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: "pointer", marginTop: 8 },
-  error: { backgroundColor: "#fef2f2", color: "#991b1b", padding: 12, borderRadius: 8, fontSize: 14 },
-  signupText: { marginTop: 24, color: "#94a3b8", fontSize: 14 },
-  signupLink: { color: "#6366f1", fontWeight: 600, textDecoration: "none" },
+  container: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 20,
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 48,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    width: "100%",
+    maxWidth: 400,
+  },
+  logoContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 32,
+  },
+  logoIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
+  },
+  logoH: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: 800,
+    fontFamily: "'Georgia', serif",
+    letterSpacing: "-1px",
+  },
+  logoText: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: "#111827",
+    letterSpacing: "-0.5px",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#111827",
+    margin: "0 0 8px 0",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    margin: "0 0 32px 0",
+    textAlign: "center",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 20,
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#111827",
+  },
+  inputWrapper: {
+    position: "relative",
+  },
+  input: {
+    width: "100%",
+    padding: "12px 16px",
+    border: "1px solid #E5E7EB",
+    borderRadius: 8,
+    fontSize: 15,
+    outline: "none",
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+    boxSizing: "border-box",
+    transition: "border-color 0.2s ease",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 4,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  button: {
+    padding: "14px 24px",
+    backgroundColor: "#111827",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: 10,
+    fontSize: 16,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background-color 0.2s ease",
+    marginTop: 8,
+  },
+  error: {
+    backgroundColor: "#FEF2F2",
+    color: "#DC2626",
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  footerText: {
+    marginTop: 24,
+    color: "#6B7280",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  link: {
+    color: "#6366F1",
+    fontWeight: 600,
+    textDecoration: "none",
+  },
 };

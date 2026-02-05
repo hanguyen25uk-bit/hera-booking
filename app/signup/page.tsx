@@ -15,6 +15,7 @@ export default function SignupPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,103 +60,113 @@ export default function SignupPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 440, backgroundColor: "#fff", borderRadius: 16, padding: 32 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "#fff", fontSize: 24, fontWeight: 700 }}>H</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 8px" }}>Create Your Salon</h1>
-          <p style={{ color: "#64748b", margin: 0 }}>Start managing your bookings today</p>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        {/* Logo */}
+        <div style={styles.logoContainer}>
+          <div style={styles.logoIcon}>
+            <span style={styles.logoH}>H</span>
+          </div>
+          <span style={styles.logoText}>Hera</span>
         </div>
 
-        {error && (
-          <div style={{ padding: 12, backgroundColor: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: 14, marginBottom: 20 }}>
-            {error}
-          </div>
-        )}
+        {/* Header */}
+        <h1 style={styles.title}>Create your salon</h1>
+        <p style={styles.subtitle}>Start managing bookings in minutes</p>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Your Name</label>
+        {/* Error */}
+        {error && <div style={styles.error}>{error}</div>}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Your Name</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="John Doe"
+              style={styles.input}
               required
-              style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
             />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Email</label>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email</label>
             <input
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="you@example.com"
+              style={styles.input}
               required
-              style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
             />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Salon Name</label>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Salon Name</label>
             <input
               type="text"
               value={formData.salonName}
               onChange={(e) => setFormData({ ...formData, salonName: e.target.value })}
               placeholder="Beauty Haven"
+              style={styles.input}
               required
-              style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
             />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Password</label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="At least 8 characters"
-              required
-              style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
-            />
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Password</label>
+            <div style={styles.inputWrapper}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="At least 8 characters"
+                style={styles.input}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+              >
+                {showPassword ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Confirm Password</label>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Confirm Password</label>
             <input
               type="password"
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               placeholder="Confirm your password"
+              style={styles.input}
               required
-              style={{ width: "100%", padding: 12, border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 15 }}
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: 14,
-              background: loading ? "#94a3b8" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
+          <button type="submit" style={styles.button} disabled={loading}>
             {loading ? "Creating..." : "Create Salon"}
           </button>
         </form>
 
-        <p style={{ textAlign: "center", marginTop: 24, color: "#64748b", fontSize: 14 }}>
+        {/* Footer */}
+        <p style={styles.footerText}>
           Already have an account?{" "}
-          <Link href="/login" style={{ color: "#6366f1", fontWeight: 600, textDecoration: "none" }}>
+          <Link href="/login" style={styles.link}>
             Sign in
           </Link>
         </p>
@@ -163,3 +174,141 @@ export default function SignupPage() {
     </div>
   );
 }
+
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 20,
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 48,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    width: "100%",
+    maxWidth: 440,
+  },
+  logoContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 32,
+  },
+  logoIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
+  },
+  logoH: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: 800,
+    fontFamily: "'Georgia', serif",
+    letterSpacing: "-1px",
+  },
+  logoText: {
+    fontSize: 28,
+    fontWeight: 700,
+    color: "#111827",
+    letterSpacing: "-0.5px",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#111827",
+    margin: "0 0 8px 0",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    margin: "0 0 32px 0",
+    textAlign: "center",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  inputGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: "#111827",
+  },
+  inputWrapper: {
+    position: "relative",
+  },
+  input: {
+    width: "100%",
+    padding: "12px 16px",
+    border: "1px solid #E5E7EB",
+    borderRadius: 8,
+    fontSize: 15,
+    outline: "none",
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+    boxSizing: "border-box",
+    transition: "border-color 0.2s ease",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 4,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  button: {
+    padding: "14px 24px",
+    backgroundColor: "#111827",
+    color: "#FFFFFF",
+    border: "none",
+    borderRadius: 10,
+    fontSize: 16,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background-color 0.2s ease",
+    marginTop: 8,
+  },
+  error: {
+    backgroundColor: "#FEF2F2",
+    color: "#DC2626",
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  footerText: {
+    marginTop: 24,
+    color: "#6B7280",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  link: {
+    color: "#6366F1",
+    fontWeight: 600,
+    textDecoration: "none",
+  },
+};
