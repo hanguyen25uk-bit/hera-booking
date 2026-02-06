@@ -159,8 +159,12 @@ export default function SettingsPage() {
               type="text"
               value={settings.salonSlug}
               onChange={(e) => {
-                // Convert to URL-safe slug format
-                const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+                // Convert to URL-safe slug format and strip leading/trailing hyphens
+                const slug = e.target.value
+                  .toLowerCase()
+                  .replace(/[^a-z0-9-]/g, '-')
+                  .replace(/-+/g, '-')
+                  .replace(/^-+|-+$/g, '');
                 setSettings({ ...settings, salonSlug: slug });
               }}
               placeholder="your-salon-name"
@@ -177,6 +181,11 @@ export default function SettingsPage() {
           <p style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
             This is your booking page URL. Use only lowercase letters, numbers, and hyphens.
           </p>
+          {settings.salonSlug && (
+            <p style={{ fontSize: 13, color: "#6366F1", marginTop: 4 }}>
+              Preview: herabooking.com/<strong>{settings.salonSlug}</strong>/booking
+            </p>
+          )}
         </div>
 
         <div style={{ marginBottom: 20 }}>

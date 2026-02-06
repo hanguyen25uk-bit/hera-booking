@@ -43,7 +43,9 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { salonName, salonSlug, salonPhone, salonAddress, cancelMinutesAdvance } = body;
+    const { salonName, salonPhone, salonAddress, cancelMinutesAdvance } = body;
+    // Clean up the slug - strip leading/trailing hyphens
+    const salonSlug = body.salonSlug?.replace(/^-+|-+$/g, '') || '';
 
     // If slug is being changed, validate uniqueness
     if (salonSlug) {
