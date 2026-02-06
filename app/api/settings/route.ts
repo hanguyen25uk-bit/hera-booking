@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthPayload } from "@/lib/admin-auth";
+import { getAuthPayload, generateSalonToken } from "@/lib/admin-auth";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -77,6 +77,10 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // Get current auth to check if slug is changing
+    const currentAuth = await getAuthPayload();
+    const slugIsChanging = salonSlug && currentAuth?.salonSlug !== salonSlug;
+
     const salon = await prisma.salon.update({
       where: { id: salonId },
       data: {
@@ -88,13 +92,32 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       salonName: salon.name,
       salonSlug: salon.slug,
       salonPhone: salon.phone,
       salonAddress: salon.address,
       cancelMinutesAdvance: salon.cancelMinutesAdvance,
     });
+
+    // If slug changed, regenerate auth token with new slug
+    if (slugIsChanging && currentAuth) {
+      const newToken = generateSalonToken({
+        salonId: currentAuth.salonId,
+        salonSlug: salon.slug,
+        userId: currentAuth.userId,
+      });
+
+      response.cookies.set("salon_auth", newToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: 60 * 60 * 8, // 8 hours
+        path: "/",
+      });
+    }
+
+    return response;
   } catch (error) {
     console.error("Failed to update settings:", error);
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
