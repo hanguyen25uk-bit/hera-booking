@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [originalSlug, setOriginalSlug] = useState<string>("");
 
   useEffect(() => {
     async function loadSettings() {
@@ -29,6 +30,7 @@ export default function SettingsPage() {
         const data = await res.json();
         if (data && !data.error) {
           setSettings(data);
+          setOriginalSlug(data.salonSlug || "");
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -54,7 +56,7 @@ export default function SettingsPage() {
 
       if (res.ok) {
         // If slug changed, redirect to the new URL
-        if (data.salonSlug && data.salonSlug !== settings.salonSlug) {
+        if (data.salonSlug && data.salonSlug !== originalSlug) {
           setMessage({ type: "success", text: "Settings saved! Redirecting to new URL..." });
           setTimeout(() => {
             window.location.href = `/${data.salonSlug}/admin/settings`;
