@@ -57,13 +57,13 @@ export default function SettingsPage() {
       if (res.ok) {
         // If slug changed, redirect to the new URL
         if (data.salonSlug && data.salonSlug !== originalSlug) {
-          setMessage({ type: "success", text: "Settings saved! Redirecting to new URL..." });
+          setMessage({ type: "success", text: `Saved! New URL: herabooking.com/${data.salonSlug}/booking - Redirecting...` });
           setTimeout(() => {
             window.location.href = `/${data.salonSlug}/admin/settings`;
-          }, 1500);
+          }, 2000);
           return;
         }
-        setMessage({ type: "success", text: "Settings saved successfully!" });
+        setMessage({ type: "success", text: `Settings saved! Booking URL: herabooking.com/${data.salonSlug}/booking` });
       } else {
         setMessage({ type: "error", text: data.error || "Failed to save settings" });
       }
