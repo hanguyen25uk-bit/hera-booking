@@ -139,11 +139,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, categoriesRes, policyRes, discountsRes] = await Promise.all([
+        const [servicesRes, categoriesRes, policyRes, discountsRes, salonRes] = await Promise.all([
           fetch(`${apiBase}/services`),
           fetch(`${apiBase}/categories`),
           fetch(`${apiBase}/booking-policy`),
-          fetch(`${apiBase}/discounts`)
+          fetch(`${apiBase}/discounts`),
+          fetch(`${apiBase}/salon`)
         ]);
 
         if (!servicesRes.ok) {
@@ -156,7 +157,15 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         const policyData = await policyRes.json();
         setPolicyTitle(policyData.title || "Our Booking Policy");
         setPolicyItems(policyData.policies || []);
-        setSalonName(slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+
+        // Get salon name from API, fallback to slug-based name
+        if (salonRes.ok) {
+          const salonData = await salonRes.json();
+          setSalonName(salonData.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+        } else {
+          setSalonName(slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+        }
+
         if (discountsRes.ok) {
           setDiscounts(await discountsRes.json());
         }
