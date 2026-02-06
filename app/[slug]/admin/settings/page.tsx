@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 
 type Settings = {
   salonName: string;
+  salonSlug: string;
   salonPhone: string;
   salonAddress: string;
   cancelMinutesAdvance: number;
@@ -12,6 +13,7 @@ type Settings = {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
     salonName: "Hera Nail Spa",
+    salonSlug: "",
     salonPhone: "020 1234 5678",
     salonAddress: "123 Example Street, London, SW11 1AA",
     cancelMinutesAdvance: 1440,
@@ -48,10 +50,20 @@ export default function SettingsPage() {
         body: JSON.stringify(settings),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
+        // If slug changed, redirect to the new URL
+        if (data.salonSlug && data.salonSlug !== settings.salonSlug) {
+          setMessage({ type: "success", text: "Settings saved! Redirecting to new URL..." });
+          setTimeout(() => {
+            window.location.href = `/${data.salonSlug}/admin/settings`;
+          }, 1500);
+          return;
+        }
         setMessage({ type: "success", text: "Settings saved successfully!" });
       } else {
-        setMessage({ type: "error", text: "Failed to save settings" });
+        setMessage({ type: "error", text: data.error || "Failed to save settings" });
       }
     } catch (error) {
       setMessage({ type: "error", text: "Failed to save settings" });
@@ -122,6 +134,47 @@ export default function SettingsPage() {
               boxSizing: "border-box",
             }}
           />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+            Booking URL
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+            <span style={{
+              padding: "12px 16px",
+              backgroundColor: "#F3F4F6",
+              border: "1px solid #D1D5DB",
+              borderRight: "none",
+              borderRadius: "8px 0 0 8px",
+              fontSize: 14,
+              color: "#6B7280",
+              whiteSpace: "nowrap",
+            }}>
+              herabooking.com/
+            </span>
+            <input
+              type="text"
+              value={settings.salonSlug}
+              onChange={(e) => {
+                // Convert to URL-safe slug format
+                const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+                setSettings({ ...settings, salonSlug: slug });
+              }}
+              placeholder="your-salon-name"
+              style={{
+                flex: 1,
+                padding: "12px 16px",
+                border: "1px solid #D1D5DB",
+                borderRadius: "0 8px 8px 0",
+                fontSize: 16,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <p style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
+            This is your booking page URL. Use only lowercase letters, numbers, and hyphens.
+          </p>
         </div>
 
         <div style={{ marginBottom: 20 }}>

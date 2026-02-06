@@ -24,6 +24,7 @@ export async function GET() {
     // Return settings in expected format
     return NextResponse.json({
       salonName: salon?.name,
+      salonSlug: salon?.slug,
       salonPhone: salon?.phone,
       salonAddress: salon?.address,
       cancelMinutesAdvance: salon?.cancelMinutesAdvance,
@@ -42,12 +43,45 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { salonName, salonPhone, salonAddress, cancelMinutesAdvance } = body;
+    const { salonName, salonSlug, salonPhone, salonAddress, cancelMinutesAdvance } = body;
+
+    // If slug is being changed, validate uniqueness
+    if (salonSlug) {
+      const existingSalon = await prisma.salon.findFirst({
+        where: {
+          slug: salonSlug,
+          NOT: { id: salonId },
+        },
+      });
+
+      if (existingSalon) {
+        return NextResponse.json(
+          { error: "This booking URL is already taken. Please choose a different one." },
+          { status: 400 }
+        );
+      }
+
+      // Validate slug format
+      if (!/^[a-z0-9-]+$/.test(salonSlug)) {
+        return NextResponse.json(
+          { error: "Booking URL can only contain lowercase letters, numbers, and hyphens." },
+          { status: 400 }
+        );
+      }
+
+      if (salonSlug.length < 3) {
+        return NextResponse.json(
+          { error: "Booking URL must be at least 3 characters long." },
+          { status: 400 }
+        );
+      }
+    }
 
     const salon = await prisma.salon.update({
       where: { id: salonId },
       data: {
         name: salonName,
+        slug: salonSlug || undefined,
         phone: salonPhone,
         address: salonAddress,
         cancelMinutesAdvance,
@@ -56,6 +90,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({
       salonName: salon.name,
+      salonSlug: salon.slug,
       salonPhone: salon.phone,
       salonAddress: salon.address,
       cancelMinutesAdvance: salon.cancelMinutesAdvance,
