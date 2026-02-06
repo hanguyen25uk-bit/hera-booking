@@ -653,7 +653,15 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                 </span>
                               )}
                             </div>
-                            {service.description && <div style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>{service.description.length > 60 ? service.description.slice(0, 60) + '...' : service.description}</div>}
+                            {service.description && (
+                              <div style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>
+                                {selectedServiceId === service.id
+                                  ? service.description
+                                  : service.description.length > 60
+                                    ? service.description.slice(0, 60) + '...'
+                                    : service.description}
+                              </div>
+                            )}
                             <div style={{ color: "#64748b", fontSize: 13 }}>{service.durationMinutes} min</div>
                           </div>
                           <div style={{ textAlign: "right" }}>
