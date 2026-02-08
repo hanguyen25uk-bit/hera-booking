@@ -520,7 +520,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "var(--ink)", fontFamily: "var(--font-body)" }}>
       <style>{`
         @media (max-width: 768px) {
           .desktop-sidebar { display: none !important; }
@@ -532,42 +532,66 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       `}</style>
 
       {/* Mobile Header */}
-      <div className="mobile-header" style={{ display: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", padding: "16px 20px", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
+      <div className="mobile-header" style={{ display: "none", background: "var(--ink)", padding: "16px 20px", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid rgba(251,248,244,0.1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>{salonName.charAt(0)}</div>
-          <span style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>{salonName}</span>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--rose)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>{salonName.charAt(0)}</div>
+          <span style={{ color: "var(--cream)", fontSize: 16, fontWeight: 600, fontFamily: "var(--font-heading)" }}>{salonName}</span>
         </div>
-        <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13 }}>Step {step} of 5</div>
+        <div style={{ color: "var(--cream)", opacity: 0.7, fontSize: 13 }}>Step {step} of 5</div>
       </div>
 
       <div style={{ display: "flex", minHeight: "100vh" }}>
         {/* Desktop Sidebar */}
-        <div className="desktop-sidebar" style={{ width: 360, backgroundColor: "#1e293b", padding: 32, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", overflowY: "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18 }}>{salonName.charAt(0)}</div>
-            <span style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>{salonName}</span>
+        <div className="desktop-sidebar" style={{
+          width: 360,
+          background: "linear-gradient(180deg, var(--ink) 0%, #2A2520 100%)",
+          padding: 32,
+          display: "flex",
+          flexDirection: "column",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100vh",
+          overflowY: "auto"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 40 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--rose)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18, fontFamily: "var(--font-heading)" }}>{salonName.charAt(0)}</div>
+            <span style={{ color: "var(--cream)", fontSize: 20, fontWeight: 600, fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>{salonName}</span>
           </div>
 
           {/* Progress */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
             {[{ n: 1, l: "Service" }, { n: 2, l: "Specialist" }, { n: 3, l: "Date & Time" }, { n: 4, l: "Your Info" }, { n: 5, l: "Confirmed" }].map((item) => (
-              <div key={item.n} style={{ display: "flex", alignItems: "center", gap: 12, opacity: step >= item.n ? 1 : 0.4 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: step > item.n ? "#10b981" : step === item.n ? "#6366f1" : "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 600 }}>{step > item.n ? "✓" : item.n}</div>
-                <span style={{ color: "#fff", fontSize: 13, fontWeight: step === item.n ? 600 : 400 }}>{item.l}</span>
+              <div key={item.n} style={{ display: "flex", alignItems: "center", gap: 14, opacity: step >= item.n ? 1 : 0.4 }}>
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: step > item.n ? "var(--sage)" : step === item.n ? "var(--rose)" : "rgba(251,248,244,0.1)",
+                  border: step === item.n ? "2px solid var(--rose-light)" : "2px solid transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: step >= item.n ? "#fff" : "var(--cream)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: "var(--font-heading)"
+                }}>{step > item.n ? "✓" : item.n}</div>
+                <span style={{ color: "var(--cream)", fontSize: 14, fontWeight: step === item.n ? 600 : 400 }}>{item.l}</span>
               </div>
             ))}
           </div>
 
           {/* Policy */}
           {policyItems.length > 0 && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
-              <h3 style={{ color: "#fff", fontSize: 14, fontWeight: 600, marginBottom: 12 }}>{policyTitle}</h3>
+            <div style={{ background: "rgba(251,248,244,0.05)", borderRadius: 16, padding: 20, marginBottom: 24, border: "1px solid rgba(251,248,244,0.08)" }}>
+              <h3 style={{ color: "var(--cream)", fontSize: 14, fontWeight: 600, marginBottom: 16, fontFamily: "var(--font-heading)" }}>{policyTitle}</h3>
               {policyItems.map((item, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                  <span>{item.icon}</span>
+                <div key={i} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                  <span style={{ fontSize: 16 }}>{item.icon}</span>
                   <div>
-                    <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{item.title}</div>
-                    <div style={{ color: "#94a3b8", fontSize: 11 }}>{item.description}</div>
+                    <div style={{ color: "var(--cream)", fontSize: 13, fontWeight: 600 }}>{item.title}</div>
+                    <div style={{ color: "var(--cream)", opacity: 0.6, fontSize: 12, lineHeight: 1.4 }}>{item.description}</div>
                   </div>
                 </div>
               ))}
@@ -576,48 +600,70 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
           {/* Selection Summary */}
           {currentService && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.1)" }}>
-              <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 12 }}>Your Selection</div>
-              <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>✨ {currentService.name}</div>
-              {currentStaff && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>👤 {currentStaff.name}</div>}
-              {selectedDate && selectedTime && <div style={{ color: "#fff", fontSize: 13, marginBottom: 8 }}>📅 {selectedDate} at {selectedTime}</div>}
-              <div style={{ color: "#fff", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-                💰 {currentDiscount ? (
+            <div style={{ background: "rgba(251,248,244,0.05)", borderRadius: 16, padding: 20, border: "1px solid rgba(251,248,244,0.08)" }}>
+              <div style={{ color: "var(--gold)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>Your Selection</div>
+              <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "var(--rose-light)" }}>✦</span> {currentService.name}
+              </div>
+              {currentStaff && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--sage-light)" }}>◉</span> {currentStaff.name}</div>}
+              {selectedDate && selectedTime && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--gold-light)" }}>◆</span> {selectedDate} at {selectedTime}</div>}
+              <div style={{ color: "var(--cream)", fontSize: 14, display: "flex", alignItems: "center", gap: 8, paddingTop: 12, borderTop: "1px solid rgba(251,248,244,0.1)", marginTop: 4 }}>
+                {currentDiscount ? (
                   <>
-                    <span style={{ color: "#10b981", fontWeight: 600 }}>£{finalPrice.toFixed(2)}</span>
-                    <span style={{ color: "#64748b", textDecoration: "line-through", fontSize: 12 }}>£{currentService.price}</span>
-                    <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
+                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>£{finalPrice.toFixed(2)}</span>
+                    <span style={{ color: "var(--cream)", opacity: 0.5, textDecoration: "line-through", fontSize: 13 }}>£{currentService.price}</span>
+                    <span style={{ background: "var(--gold)", color: "var(--ink)", padding: "3px 10px", borderRadius: 50, fontSize: 11, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
                   </>
                 ) : (
-                  <span>£{currentService.price}</span>
+                  <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>£{currentService.price}</span>
                 )}
               </div>
-              {reservationTimer > 0 && <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 600, marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>⏱️ Reserved for {formatTimer(reservationTimer)}</div>}
+              {reservationTimer > 0 && <div style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(251,248,244,0.1)" }}>⏱ Reserved for {formatTimer(reservationTimer)}</div>}
             </div>
           )}
         </div>
 
         {/* Main Content */}
-        <div className="main-content" style={{ flex: 1, marginLeft: 360, backgroundColor: "#fff", borderRadius: "24px 0 0 24px", padding: "32px 24px", minHeight: "100vh" }}>
-          <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            {error && <div style={{ padding: 16, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", fontSize: 14, marginBottom: 24 }}>{error}</div>}
+        <div className="main-content" style={{ flex: 1, marginLeft: 360, backgroundColor: "var(--cream)", borderRadius: "24px 0 0 24px", padding: "40px 32px", minHeight: "100vh" }}>
+          <div style={{ maxWidth: 580, margin: "0 auto" }}>
+            {error && <div style={{ padding: 16, background: "var(--rose-pale)", border: "1px solid var(--rose-light)", borderRadius: 12, color: "var(--rose)", fontSize: 14, marginBottom: 24 }}>{error}</div>}
 
             {/* Step 1: Service */}
             {step === 1 && (
               <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Service</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select the service you would like to book</p>
+                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Service</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Select the service you would like to book</p>
 
                 {/* Category Tabs */}
-                <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-                  <button onClick={() => setSelectedCategoryId(null)} style={{ padding: "8px 16px", borderRadius: 20, border: "none", background: !selectedCategoryId ? "#6366f1" : "#f1f5f9", color: !selectedCategoryId ? "#fff" : "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>All Services</button>
+                <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+                  <button onClick={() => setSelectedCategoryId(null)} style={{
+                    padding: "10px 20px",
+                    borderRadius: 50,
+                    border: "none",
+                    background: !selectedCategoryId ? "var(--ink)" : "var(--cream-dark)",
+                    color: !selectedCategoryId ? "var(--cream)" : "var(--ink-light)",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}>All Services</button>
                   {categories.map((cat) => (
-                    <button key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} style={{ padding: "8px 16px", borderRadius: 20, border: "none", background: selectedCategoryId === cat.id ? "#6366f1" : "#f1f5f9", color: selectedCategoryId === cat.id ? "#fff" : "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>{cat.name}</button>
+                    <button key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} style={{
+                      padding: "10px 20px",
+                      borderRadius: 50,
+                      border: "none",
+                      background: selectedCategoryId === cat.id ? "var(--ink)" : "var(--cream-dark)",
+                      color: selectedCategoryId === cat.id ? "var(--cream)" : "var(--ink-light)",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}>{cat.name}</button>
                   ))}
                 </div>
 
                 {/* Services */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   {filteredServices.map((service) => {
                     // Find the best discount available for this service
                     const serviceDiscounts = discounts.filter(d => d.serviceIds.includes(service.id));
@@ -630,31 +676,33 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
                     return (
                       <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{
-                        padding: 16,
-                        borderRadius: 12,
-                        border: `2px solid ${selectedServiceId === service.id ? "#6366f1" : "#e2e8f0"}`,
-                        background: selectedServiceId === service.id ? "#f5f3ff" : "#fff",
+                        padding: 20,
+                        borderRadius: 16,
+                        border: selectedServiceId === service.id ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                        background: selectedServiceId === service.id ? "var(--rose-pale)" : "var(--white)",
                         cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        boxShadow: selectedServiceId === service.id ? "var(--shadow-md)" : "none"
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                           <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                              <span style={{ fontWeight: 600, fontSize: 15 }}>{service.name}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                              <span style={{ fontWeight: 600, fontSize: 16, color: "var(--ink)" }}>{service.name}</span>
                               {bestDiscount && (
                                 <span style={{
-                                  padding: "3px 8px",
-                                  borderRadius: 4,
-                                  fontSize: 10,
+                                  padding: "4px 10px",
+                                  borderRadius: 50,
+                                  fontSize: 11,
                                   fontWeight: 600,
-                                  background: "#22c55e",
-                                  color: "#fff",
+                                  background: "var(--gold-light)",
+                                  color: "var(--gold)",
                                 }}>
                                   {bestDiscount.discountPercent}% OFF
                                 </span>
                               )}
                             </div>
                             {service.description && (
-                              <div style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>
+                              <div style={{ color: "var(--ink-light)", fontSize: 14, marginBottom: 8, lineHeight: 1.5 }}>
                                 {selectedServiceId === service.id
                                   ? service.description
                                   : service.description.length > 60
@@ -662,17 +710,24 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                     : service.description}
                               </div>
                             )}
-                            <div style={{ color: "#64748b", fontSize: 13 }}>{service.durationMinutes} min</div>
+                            <div style={{
+                              display: "inline-flex",
+                              padding: "4px 12px",
+                              background: "var(--cream)",
+                              borderRadius: 50,
+                              color: "var(--ink-muted)",
+                              fontSize: 13
+                            }}>{service.durationMinutes} min</div>
                           </div>
-                          <div style={{ textAlign: "right" }}>
+                          <div style={{ textAlign: "right", marginLeft: 16 }}>
                             {bestDiscount ? (
                               <>
-                                <div style={{ fontWeight: 700, fontSize: 16, color: "#16a34a" }}>
+                                <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }}>
                                   from £{discountedPrice.toFixed(2)}
                                 </div>
                                 <div style={{
-                                  fontSize: 12,
-                                  color: "#94a3b8",
+                                  fontSize: 13,
+                                  color: "var(--ink-muted)",
                                   textDecoration: "line-through",
                                   marginTop: 2
                                 }}>
@@ -680,7 +735,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                 </div>
                               </>
                             ) : (
-                              <div style={{ fontWeight: 700, fontSize: 16, color: "#1e293b" }}>£{service.price}</div>
+                              <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }}>£{service.price}</div>
                             )}
                           </div>
                         </div>
@@ -689,32 +744,68 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   })}
                 </div>
 
-                <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{ width: "100%", marginTop: 24, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Continue</button>
+                <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{
+                  width: "100%",
+                  marginTop: 32,
+                  padding: 16,
+                  background: "var(--rose)",
+                  color: "var(--white)",
+                  border: "none",
+                  borderRadius: 50,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}>Continue</button>
               </>
             )}
 
             {/* Step 2: Staff */}
             {step === 2 && (
               <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Choose a Specialist</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Select your preferred technician or let us assign one</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === "any" ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === "any" ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⭐</div>
-                    <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>Any Available</div><div style={{ color: "#64748b", fontSize: 13 }}>First available specialist</div></div>
-                    {selectedStaffId === "any" && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
+                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Specialist</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Select your preferred technician or let us assign one</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: 18,
+                    borderRadius: 16,
+                    border: selectedStaffId === "any" ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                    background: selectedStaffId === "any" ? "var(--rose-pale)" : "var(--white)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}>
+                    <div style={{ width: 50, height: 50, borderRadius: "50%", background: "var(--gold)", color: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✦</div>
+                    <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 16, color: "var(--ink)" }}>Any Available</div><div style={{ color: "var(--ink-muted)", fontSize: 14 }}>First available specialist</div></div>
+                    {selectedStaffId === "any" && <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--rose)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>✓</span>}
                   </div>
-                  {staff.map((m) => (
-                    <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, borderRadius: 12, border: `2px solid ${selectedStaffId === m.id ? "#6366f1" : "#e2e8f0"}`, background: selectedStaffId === m.id ? "#f5f3ff" : "#fff", cursor: "pointer" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{m.name.charAt(0)}</div>
-                      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>{m.name}</div><div style={{ color: "#64748b", fontSize: 13 }}>{m.role || "Nail Technician"}</div></div>
-                      {selectedStaffId === m.id && <span style={{ width: 22, height: 22, borderRadius: 6, background: "#6366f1", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✓</span>}
-                    </div>
-                  ))}
+                  {staff.map((m, index) => {
+                    const avatarColors = ["var(--rose)", "var(--sage)", "var(--gold)", "var(--ink)"];
+                    const avatarColor = avatarColors[index % avatarColors.length];
+                    return (
+                      <div key={m.id} onClick={() => { setSelectedStaffId(m.id); setAssignedStaffId(""); setSelectedTime(""); }} style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                        padding: 18,
+                        borderRadius: 16,
+                        border: selectedStaffId === m.id ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                        background: selectedStaffId === m.id ? "var(--rose-pale)" : "var(--white)",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease"
+                      }}>
+                        <div style={{ width: 50, height: 50, borderRadius: "50%", background: avatarColor, color: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-heading)" }}>{m.name.charAt(0)}</div>
+                        <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 16, color: "var(--ink)" }}>{m.name}</div><div style={{ color: "var(--ink-muted)", fontSize: 14 }}>{m.role || "Nail Technician"}</div></div>
+                        {selectedStaffId === m.id && <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--rose)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>✓</span>}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-                  <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
-                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Continue</button>
+                <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+                  <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
+                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 16, background: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
               </>
             )}
@@ -722,48 +813,57 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 3: Date & Time */}
             {step === 3 && (
               <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Pick Date & Time</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Choose when you would like to visit</p>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Date</label>
-                  <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} />
+                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Pick Date & Time</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Choose when you would like to visit</p>
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Date</label>
+                  <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{
+                    width: "100%",
+                    padding: 14,
+                    border: "1px solid var(--cream-dark)",
+                    borderRadius: 12,
+                    fontSize: 16,
+                    background: "var(--white)",
+                    color: "var(--ink)",
+                    fontFamily: "var(--font-body)"
+                  }} />
                 </div>
-                {loadingAvailability ? <p>Checking availability...</p> : isSelectedStaffOff ? (
-                  <div style={{ padding: 16, background: "#fef3c7", borderRadius: 12, marginBottom: 20 }}>
-                    <strong style={{ color: "#92400e" }}>{currentStaff?.name || "This specialist"} is not available on this date</strong>
-                    <p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 13 }}>Please select another date or choose a different specialist.</p>
+                {loadingAvailability ? <p style={{ color: "var(--ink-muted)" }}>Checking availability...</p> : isSelectedStaffOff ? (
+                  <div style={{ padding: 18, background: "var(--gold-light)", borderRadius: 16, marginBottom: 24 }}>
+                    <strong style={{ color: "var(--ink)" }}>{currentStaff?.name || "This specialist"} is not available on this date</strong>
+                    <p style={{ color: "var(--ink-light)", margin: "6px 0 0", fontSize: 14 }}>Please select another date or choose a different specialist.</p>
                   </div>
                 ) : noStaffAvailable ? (
-                  <div style={{ padding: 16, background: "#fef3c7", borderRadius: 12, marginBottom: 20 }}>
-                    <strong style={{ color: "#92400e" }}>No staff available on this date</strong>
-                    <p style={{ color: "#a16207", margin: "4px 0 0", fontSize: 13 }}>Please select another date.</p>
+                  <div style={{ padding: 18, background: "var(--gold-light)", borderRadius: 16, marginBottom: 24 }}>
+                    <strong style={{ color: "var(--ink)" }}>No staff available on this date</strong>
+                    <p style={{ color: "var(--ink-light)", margin: "6px 0 0", fontSize: 14 }}>Please select another date.</p>
                   </div>
                 ) : timeSlots.length === 0 ? (
-                  <div style={{ padding: 20, background: "#fef2f2", borderRadius: 10, color: "#dc2626", textAlign: "center", fontSize: 14 }}>No available times. Please select another date.</div>
+                  <div style={{ padding: 20, background: "var(--rose-pale)", borderRadius: 16, color: "var(--rose)", textAlign: "center", fontSize: 14 }}>No available times. Please select another date.</div>
                 ) : (
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Available Times</label>
+                  <div style={{ marginBottom: 24 }}>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 14, color: "var(--ink-light)" }}>Available Times</label>
 
                     {/* Off-Peak Info Banner */}
                     {discounts.length > 0 && currentService && discounts.some(d => d.serviceIds.includes(currentService.id)) && (
                       <div style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 8,
-                        padding: "10px 14px",
-                        background: "#f0fdf4",
-                        borderRadius: 8,
-                        marginBottom: 16,
-                        border: "1px solid #bbf7d0"
+                        gap: 10,
+                        padding: "12px 16px",
+                        background: "var(--gold-light)",
+                        borderRadius: 12,
+                        marginBottom: 20,
+                        border: "1px solid var(--gold)"
                       }}>
-                        <span style={{ fontSize: 16 }}>💚</span>
-                        <span style={{ fontSize: 13, color: "#15803d" }}>
-                          <strong>Off-Peak prices</strong> available - look for green slots to save!
+                        <span style={{ fontSize: 16 }}>✦</span>
+                        <span style={{ fontSize: 14, color: "var(--ink)" }}>
+                          <strong>Off-Peak prices</strong> available — look for gold slots to save!
                         </span>
                       </div>
                     )}
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {timeSlots.map((time) => {
                         const past = isTimeSlotPast(time);
                         const slotDiscount = currentService ? getApplicableDiscount(currentService.id, selectedDate, time, isAnyStaff ? undefined : selectedStaffId) : null;
@@ -789,33 +889,33 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
-                              padding: "14px 16px",
-                              borderRadius: 10,
-                              border: isSelected ? "2px solid #6366f1" : isOffPeak ? "2px solid #22c55e" : "2px solid #e2e8f0",
-                              background: isSelected ? "#6366f1" : past ? "#f8fafc" : isOffPeak ? "#f0fdf4" : "#fff",
+                              padding: "16px 18px",
+                              borderRadius: 12,
+                              border: isSelected ? "2px solid var(--rose)" : isOffPeak ? "1px solid var(--gold)" : "1px solid var(--cream-dark)",
+                              background: isSelected ? "var(--rose)" : past ? "var(--cream)" : isOffPeak ? "var(--gold-light)" : "var(--white)",
                               cursor: past || reserving ? "not-allowed" : "pointer",
                               opacity: past ? 0.5 : 1,
-                              transition: "all 0.15s ease",
+                              transition: "all 0.2s ease",
                               position: "relative",
                               zIndex: 1,
                             }}
                           >
                             <div style={{ display: "flex", alignItems: "center", gap: 12, pointerEvents: "none" }}>
                               <span style={{
-                                fontSize: 15,
+                                fontSize: 16,
                                 fontWeight: 600,
-                                color: isSelected ? "#fff" : "#1e293b"
+                                color: isSelected ? "var(--white)" : "var(--ink)"
                               }}>
                                 {time}
                               </span>
                               {isOffPeak && !isSelected && slotDiscount && (
                                 <span style={{
-                                  padding: "3px 8px",
-                                  borderRadius: 4,
+                                  padding: "4px 10px",
+                                  borderRadius: 50,
                                   fontSize: 11,
-                                  fontWeight: 700,
-                                  background: "#22c55e",
-                                  color: "#fff",
+                                  fontWeight: 600,
+                                  background: "var(--gold)",
+                                  color: "var(--white)",
                                 }}>
                                   {slotDiscount.discountPercent}% OFF
                                 </span>
@@ -826,24 +926,26 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                 <>
                                   <span style={{
                                     fontSize: 13,
-                                    color: isSelected ? "rgba(255,255,255,0.7)" : "#94a3b8",
+                                    color: isSelected ? "rgba(255,255,255,0.7)" : "var(--ink-muted)",
                                     textDecoration: "line-through"
                                   }}>
                                     £{originalPrice}
                                   </span>
                                   <span style={{
-                                    fontSize: 15,
-                                    fontWeight: 700,
-                                    color: isSelected ? "#fff" : "#16a34a"
+                                    fontSize: 16,
+                                    fontWeight: 600,
+                                    fontFamily: "var(--font-heading)",
+                                    color: isSelected ? "var(--white)" : "var(--ink)"
                                   }}>
                                     £{discountedPrice.toFixed(2)}
                                   </span>
                                 </>
                               ) : (
                                 <span style={{
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   fontWeight: 600,
-                                  color: isSelected ? "#fff" : "#64748b"
+                                  fontFamily: "var(--font-heading)",
+                                  color: isSelected ? "var(--white)" : "var(--ink-light)"
                                 }}>
                                   £{originalPrice}
                                 </span>
@@ -853,20 +955,20 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                         );
                       })}
                     </div>
-                    {reserving && <p style={{ color: "#6366f1", marginTop: 12, fontSize: 14 }}>Reserving...</p>}
+                    {reserving && <p style={{ color: "var(--rose)", marginTop: 14, fontSize: 14 }}>Reserving...</p>}
                   </div>
                 )}
-                {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 14, background: "#ecfdf5", borderRadius: 10, color: "#059669", marginBottom: 20, fontSize: 14 }}>✓ {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
-                {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
-                <div style={{ padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", marginBottom: 20 }}>
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 2, accentColor: "#6366f1" }} />
-                    <span style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>I have read and agree to the <strong>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
+                {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 16, background: "var(--sage-light)", borderRadius: 12, color: "var(--ink)", marginBottom: 24, fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: "var(--sage)" }}>✓</span> {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
+                {reservationTimer > 0 && <div style={{ padding: 16, background: "var(--gold-light)", borderRadius: 12, color: "var(--ink)", textAlign: "center", marginBottom: 24, fontSize: 14 }}>⏱ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
+                <div style={{ padding: 20, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", marginBottom: 24 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 14, cursor: "pointer" }}>
+                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 22, height: 22, marginTop: 2, accentColor: "var(--rose)" }} />
+                    <span style={{ fontSize: 14, color: "var(--ink-light)", lineHeight: 1.6 }}>I have read and agree to the <strong style={{ color: "var(--ink)" }}>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
                   </label>
                 </div>
                 <div style={{ display: "flex", gap: 12 }}>
-                  <button onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
-                  <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } if (!policyAgreed) { setError("Please agree to the booking policy"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 14, background: policyAgreed ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#e2e8f0", color: policyAgreed ? "#fff" : "#94a3b8", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed" }}>Continue</button>
+                  <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
+                  <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } if (!policyAgreed) { setError("Please agree to the booking policy"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 16, background: policyAgreed ? "var(--rose)" : "var(--cream-dark)", color: policyAgreed ? "var(--white)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
               </>
             )}
@@ -874,16 +976,52 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 4: Customer Info */}
             {step === 4 && (
               <>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Your Details</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>We will send your confirmation here</p>
-                {reservationTimer > 0 && <div style={{ padding: 14, background: "#fef3c7", borderRadius: 10, color: "#92400e", textAlign: "center", marginBottom: 20, fontSize: 14 }}>⏱️ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Full Name</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Phone</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div><label style={{ display: "block", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Email</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="you@example.com" required style={{ width: "100%", padding: 14, border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 16 }} /></div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                    <button type="button" onClick={goBack} style={{ padding: "14px 20px", background: "#fff", color: "#475569", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 15, cursor: "pointer" }}>Back</button>
-                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 14, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1 }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
+                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Your Details</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>We will send your confirmation here</p>
+                {reservationTimer > 0 && <div style={{ padding: 16, background: "var(--gold-light)", borderRadius: 12, color: "var(--ink)", textAlign: "center", marginBottom: 24, fontSize: 14 }}>⏱ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Full Name</label>
+                    <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{
+                      width: "100%",
+                      padding: 16,
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      fontSize: 16,
+                      background: "var(--white)",
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)"
+                    }} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Phone</label>
+                    <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{
+                      width: "100%",
+                      padding: 16,
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      fontSize: 16,
+                      background: "var(--white)",
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)"
+                    }} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Email</label>
+                    <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="you@example.com" required style={{
+                      width: "100%",
+                      padding: 16,
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      fontSize: 16,
+                      background: "var(--white)",
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)"
+                    }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                    <button type="button" onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
+                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1, transition: "all 0.2s ease" }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
                   </div>
                 </form>
               </>
@@ -891,32 +1029,32 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
             {/* Step 5: Confirmation */}
             {step === 5 && (
-              <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <div style={{ width: 70, height: 70, borderRadius: 16, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 32, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>✓</div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>You are all set!</h1>
-                <p style={{ color: "#64748b", marginBottom: 24, fontSize: 14 }}>Your appointment has been confirmed</p>
-                <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, textAlign: "left", marginBottom: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Service</span><span style={{ fontWeight: 600 }}>{currentService?.name}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Specialist</span><span style={{ fontWeight: 600 }}>{currentStaff?.name}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Date & Time</span><span style={{ fontWeight: 600 }}>{selectedDate} at {selectedTime}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #e2e8f0", fontSize: 14 }}>
-                    <span style={{ color: "#64748b" }}>Price</span>
-                    <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--sage)", color: "var(--white)", fontSize: 36, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>✓</div>
+                <h1 style={{ fontSize: 32, fontWeight: 600, marginBottom: 10, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>You are all set!</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 16 }}>Your appointment has been confirmed</p>
+                <div style={{ background: "var(--white)", borderRadius: 20, padding: 24, textAlign: "left", marginBottom: 24, border: "1px solid var(--cream-dark)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Service</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{currentService?.name}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Specialist</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{currentStaff?.name}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Date & Time</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedDate} at {selectedTime}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
+                    <span style={{ color: "var(--ink-muted)" }}>Price</span>
+                    <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
                       {currentDiscount ? (
                         <>
-                          <span style={{ background: "#22c55e", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
-                          <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: 12 }}>£{currentService?.price}</span>
-                          <span style={{ color: "#16a34a" }}>£{finalPrice.toFixed(2)}</span>
+                          <span style={{ background: "var(--gold)", color: "var(--white)", padding: "4px 10px", borderRadius: 50, fontSize: 11, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
+                          <span style={{ color: "var(--ink-muted)", textDecoration: "line-through", fontSize: 13 }}>£{currentService?.price}</span>
+                          <span style={{ color: "var(--ink)", fontFamily: "var(--font-heading)", fontSize: 18 }}>£{finalPrice.toFixed(2)}</span>
                         </>
                       ) : (
-                        <span>£{currentService?.price}</span>
+                        <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, color: "var(--ink)" }}>£{currentService?.price}</span>
                       )}
                     </span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", fontSize: 14 }}><span style={{ color: "#64748b" }}>Booking ID</span><span style={{ fontWeight: 600 }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Booking ID</span><span style={{ fontWeight: 600, color: "var(--ink)", fontFamily: "monospace" }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
                 </div>
-                <p style={{ color: "#64748b", marginBottom: 20, fontSize: 14 }}>📧 Confirmation sent to {customerEmail}</p>
-                <button onClick={() => { sessionStorage.setItem('booking_session_id', generateSessionId()); window.location.reload(); }} style={{ padding: "14px 24px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Book Another</button>
+                <p style={{ color: "var(--ink-muted)", marginBottom: 28, fontSize: 15 }}>✉️ Confirmation sent to {customerEmail}</p>
+                <button onClick={() => { sessionStorage.setItem('booking_session_id', generateSessionId()); window.location.reload(); }} style={{ padding: "16px 32px", background: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Book Another</button>
               </div>
             )}
           </div>
