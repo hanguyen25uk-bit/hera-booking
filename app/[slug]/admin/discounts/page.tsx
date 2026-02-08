@@ -262,7 +262,7 @@ export default function DiscountsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "#64748B" }}>
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
         Loading...
       </div>
     );
@@ -272,20 +272,32 @@ export default function DiscountsPage() {
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1E293B", margin: 0 }}>Discounts</h1>
-          <p style={{ fontSize: 14, color: "#64748B", marginTop: 4 }}>Create quiet time discounts for specific services and days</p>
+          <h1 style={{
+            fontSize: 32,
+            fontWeight: 600,
+            color: "var(--ink)",
+            margin: 0,
+            fontFamily: "var(--font-heading)"
+          }}>
+            Discounts
+          </h1>
+          <p style={{ fontSize: 15, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+            Create quiet time discounts for specific services and days
+          </p>
         </div>
         <button
           onClick={openCreateModal}
           style={{
-            padding: "12px 24px",
-            backgroundColor: "#10B981",
-            color: "#FFFFFF",
+            padding: "14px 28px",
+            backgroundColor: "var(--rose)",
+            color: "var(--white)",
             border: "none",
-            borderRadius: 8,
+            borderRadius: 50,
             fontSize: 14,
             fontWeight: 600,
             cursor: "pointer",
+            fontFamily: "var(--font-body)",
+            transition: "all 0.2s ease"
           }}
         >
           + Add Discount
@@ -294,15 +306,38 @@ export default function DiscountsPage() {
 
       {discounts.length === 0 ? (
         <div style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "var(--white)",
           borderRadius: 16,
           padding: 60,
           textAlign: "center",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          border: "1px solid var(--cream-dark)",
+          boxShadow: "var(--shadow-sm)",
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🏷️</div>
-          <h3 style={{ fontSize: 18, fontWeight: 600, color: "#1E293B", margin: "0 0 8px" }}>No discounts yet</h3>
-          <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>Create your first quiet time discount to attract customers during slower periods.</p>
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            backgroundColor: "var(--gold-light)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 20px",
+            fontSize: 28
+          }}>
+            %
+          </div>
+          <h3 style={{
+            fontSize: 18,
+            fontWeight: 600,
+            color: "var(--ink)",
+            margin: "0 0 8px",
+            fontFamily: "var(--font-heading)"
+          }}>
+            No discounts yet
+          </h3>
+          <p style={{ fontSize: 15, color: "var(--ink-muted)", margin: 0, fontFamily: "var(--font-body)" }}>
+            Create your first quiet time discount to attract customers during slower periods.
+          </p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -310,69 +345,96 @@ export default function DiscountsPage() {
             <div
               key={discount.id}
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: "var(--white)",
                 borderRadius: 16,
                 padding: 24,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                border: "1px solid var(--cream-dark)",
+                boxShadow: "var(--shadow-sm)",
                 opacity: discount.isActive ? 1 : 0.6,
+                transition: "all 0.2s ease"
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 600, color: "#1E293B", margin: 0 }}>{discount.name}</h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    <h3 style={{
+                      fontSize: 18,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      margin: 0,
+                      fontFamily: "var(--font-heading)"
+                    }}>
+                      {discount.name}
+                    </h3>
                     <span style={{
-                      padding: "4px 12px",
-                      borderRadius: 20,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      backgroundColor: "#ECFDF5",
-                      color: "#059669",
+                      padding: "6px 14px",
+                      borderRadius: 50,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      backgroundColor: "var(--sage-light)",
+                      color: "var(--sage)",
+                      fontFamily: "var(--font-body)"
                     }}>
                       {discount.discountPercent}% OFF
                     </span>
                     {!discount.isActive && (
                       <span style={{
-                        padding: "4px 12px",
-                        borderRadius: 20,
+                        padding: "6px 14px",
+                        borderRadius: 50,
                         fontSize: 12,
                         fontWeight: 500,
-                        backgroundColor: "#F3F4F6",
-                        color: "#6B7280",
+                        backgroundColor: "var(--cream)",
+                        color: "var(--ink-muted)",
+                        fontFamily: "var(--font-body)"
                       }}>
                         Inactive
                       </span>
                     )}
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 14, color: "#64748B" }}>
+                  <div style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 20,
+                    fontSize: 14,
+                    color: "var(--ink-light)",
+                    fontFamily: "var(--font-body)"
+                  }}>
                     <div>
-                      <strong>Time:</strong> {discount.startTime} - {discount.endTime}
+                      <span style={{ fontWeight: 500, color: "var(--ink)" }}>Time:</span> {discount.startTime} - {discount.endTime}
                     </div>
                     <div>
-                      <strong>Days:</strong> {getDayNames(discount.daysOfWeek)}
+                      <span style={{ fontWeight: 500, color: "var(--ink)" }}>Days:</span> {getDayNames(discount.daysOfWeek)}
                     </div>
                     <div>
-                      <strong>Staff:</strong> {getStaffNames(discount.staffIds)}
+                      <span style={{ fontWeight: 500, color: "var(--ink)" }}>Staff:</span> {getStaffNames(discount.staffIds)}
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 8, fontSize: 13, color: "#94A3B8" }}>
-                    <strong>Services:</strong> {getServiceNames(discount.serviceIds)}
+                  <div style={{
+                    marginTop: 10,
+                    fontSize: 13,
+                    color: "var(--ink-muted)",
+                    fontFamily: "var(--font-body)"
+                  }}>
+                    <span style={{ fontWeight: 500, color: "var(--ink-light)" }}>Services:</span> {getServiceNames(discount.serviceIds)}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 10 }}>
                   <button
                     onClick={() => toggleActive(discount)}
                     style={{
-                      padding: "8px 16px",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 8,
-                      background: "#FFFFFF",
-                      color: discount.isActive ? "#DC2626" : "#059669",
+                      padding: "10px 18px",
+                      border: "1.5px solid var(--ink)",
+                      borderRadius: 50,
+                      background: "var(--white)",
+                      color: discount.isActive ? "var(--rose)" : "var(--sage)",
                       fontSize: 13,
+                      fontWeight: 500,
                       cursor: "pointer",
+                      fontFamily: "var(--font-body)",
+                      transition: "all 0.2s ease"
                     }}
                   >
                     {discount.isActive ? "Disable" : "Enable"}
@@ -380,13 +442,16 @@ export default function DiscountsPage() {
                   <button
                     onClick={() => openEditModal(discount)}
                     style={{
-                      padding: "8px 16px",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 8,
-                      background: "#FFFFFF",
-                      color: "#374151",
+                      padding: "10px 18px",
+                      border: "1.5px solid var(--ink)",
+                      borderRadius: 50,
+                      background: "var(--white)",
+                      color: "var(--ink)",
                       fontSize: 13,
+                      fontWeight: 500,
                       cursor: "pointer",
+                      fontFamily: "var(--font-body)",
+                      transition: "all 0.2s ease"
                     }}
                   >
                     Edit
@@ -394,13 +459,16 @@ export default function DiscountsPage() {
                   <button
                     onClick={() => handleDelete(discount.id)}
                     style={{
-                      padding: "8px 16px",
-                      border: "1px solid #FEE2E2",
-                      borderRadius: 8,
-                      background: "#FEF2F2",
-                      color: "#DC2626",
+                      padding: "10px 18px",
+                      border: "none",
+                      borderRadius: 50,
+                      background: "var(--rose-pale)",
+                      color: "var(--rose)",
                       fontSize: 13,
+                      fontWeight: 500,
                       cursor: "pointer",
+                      fontFamily: "var(--font-body)",
+                      transition: "all 0.2s ease"
                     }}
                   >
                     Delete
@@ -417,7 +485,7 @@ export default function DiscountsPage() {
         <div style={{
           position: "fixed",
           inset: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
+          backgroundColor: "rgba(26,23,21,0.5)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -425,58 +493,75 @@ export default function DiscountsPage() {
           padding: 20,
         }}>
           <div style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "var(--white)",
             borderRadius: 16,
             width: "100%",
             maxWidth: 600,
             maxHeight: "90vh",
             overflow: "auto",
-            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+            boxShadow: "var(--shadow-lg)",
           }}>
             <div style={{
-              padding: "20px 24px",
-              borderBottom: "1px solid #E5E7EB",
+              padding: "24px 28px",
+              borderBottom: "1px solid var(--cream-dark)",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
             }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#111827" }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 600,
+                color: "var(--ink)",
+                fontFamily: "var(--font-heading)"
+              }}>
                 {editingId ? "Edit Discount" : "Create Discount"}
               </h2>
               <button
                 onClick={closeModal}
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 36,
+                  height: 36,
                   border: "none",
-                  background: "#F3F4F6",
-                  borderRadius: 8,
+                  background: "var(--cream)",
+                  borderRadius: 50,
                   cursor: "pointer",
                   fontSize: 18,
-                  color: "#6B7280",
+                  color: "var(--ink-light)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
                 }}
               >
-                ×
+                x
               </button>
             </div>
 
             {message && (
               <div style={{
-                margin: "16px 24px 0",
-                padding: 12,
-                borderRadius: 8,
-                backgroundColor: message.type === "success" ? "#ECFDF5" : "#FEF2F2",
-                color: message.type === "success" ? "#059669" : "#DC2626",
+                margin: "20px 28px 0",
+                padding: 14,
+                borderRadius: 12,
+                backgroundColor: message.type === "success" ? "var(--sage-light)" : "var(--rose-pale)",
+                color: message.type === "success" ? "var(--sage)" : "var(--rose)",
                 fontSize: 14,
+                fontFamily: "var(--font-body)"
               }}>
                 {message.text}
               </div>
             )}
 
-            <div style={{ padding: 24 }}>
+            <div style={{ padding: 28 }}>
               {/* Name */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                  color: "var(--ink-light)",
+                  fontFamily: "var(--font-body)"
+                }}>
                   Discount Name
                 </label>
                 <input
@@ -486,21 +571,31 @@ export default function DiscountsPage() {
                   placeholder="e.g., Quiet Time Special"
                   style={{
                     width: "100%",
-                    padding: 12,
-                    border: "1px solid #E5E7EB",
-                    borderRadius: 8,
-                    fontSize: 14,
+                    padding: "14px 16px",
+                    backgroundColor: "var(--cream)",
+                    border: "1px solid var(--cream-dark)",
+                    borderRadius: 12,
+                    fontSize: 15,
                     boxSizing: "border-box",
+                    color: "var(--ink)",
+                    fontFamily: "var(--font-body)"
                   }}
                 />
               </div>
 
               {/* Discount Percent */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                  color: "var(--ink-light)",
+                  fontFamily: "var(--font-body)"
+                }}>
                   Discount Percentage
                 </label>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input
                     type="number"
                     value={formData.discountPercent}
@@ -509,19 +604,34 @@ export default function DiscountsPage() {
                     max="100"
                     style={{
                       width: 100,
-                      padding: 12,
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 8,
-                      fontSize: 14,
+                      padding: "14px 16px",
+                      backgroundColor: "var(--cream)",
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      fontSize: 15,
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)"
                     }}
                   />
-                  <span style={{ fontSize: 16, fontWeight: 600, color: "#374151" }}>%</span>
+                  <span style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "var(--ink)",
+                    fontFamily: "var(--font-body)"
+                  }}>%</span>
                 </div>
               </div>
 
               {/* Time Range */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                  color: "var(--ink-light)",
+                  fontFamily: "var(--font-body)"
+                }}>
                   Time Range (Discount applies during this period)
                 </label>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -530,30 +640,43 @@ export default function DiscountsPage() {
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                     style={{
-                      padding: 12,
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 8,
-                      fontSize: 14,
+                      padding: "14px 16px",
+                      backgroundColor: "var(--cream)",
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      fontSize: 15,
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)"
                     }}
                   />
-                  <span style={{ color: "#64748B" }}>to</span>
+                  <span style={{ color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>to</span>
                   <input
                     type="time"
                     value={formData.endTime}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                     style={{
-                      padding: 12,
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 8,
-                      fontSize: 14,
+                      padding: "14px 16px",
+                      backgroundColor: "var(--cream)",
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      fontSize: 15,
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)"
                     }}
                   />
                 </div>
               </div>
 
               {/* Days of Week */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                  color: "var(--ink-light)",
+                  fontFamily: "var(--font-body)"
+                }}>
                   Days of Week
                 </label>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -562,14 +685,22 @@ export default function DiscountsPage() {
                       key={index}
                       onClick={() => toggleDay(index)}
                       style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        border: formData.daysOfWeek.includes(index) ? "2px solid #10B981" : "1px solid #E5E7EB",
-                        background: formData.daysOfWeek.includes(index) ? "#ECFDF5" : "#FFFFFF",
-                        color: formData.daysOfWeek.includes(index) ? "#059669" : "#64748B",
+                        padding: "12px 16px",
+                        borderRadius: 50,
+                        border: formData.daysOfWeek.includes(index)
+                          ? "2px solid var(--rose)"
+                          : "1px solid var(--cream-dark)",
+                        background: formData.daysOfWeek.includes(index)
+                          ? "var(--rose-pale)"
+                          : "var(--white)",
+                        color: formData.daysOfWeek.includes(index)
+                          ? "var(--rose)"
+                          : "var(--ink-muted)",
                         fontSize: 13,
                         fontWeight: 600,
                         cursor: "pointer",
+                        fontFamily: "var(--font-body)",
+                        transition: "all 0.2s ease"
                       }}
                     >
                       {day}
@@ -579,31 +710,52 @@ export default function DiscountsPage() {
               </div>
 
               {/* Services */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <label style={{ fontSize: 14, fontWeight: 500, color: "#374151" }}>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <label style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: "var(--ink-light)",
+                    fontFamily: "var(--font-body)"
+                  }}>
                     Services (select which services get discount)
                   </label>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 12 }}>
                     <button
                       onClick={selectAllServices}
-                      style={{ fontSize: 12, color: "#6366F1", background: "none", border: "none", cursor: "pointer" }}
+                      style={{
+                        fontSize: 13,
+                        color: "var(--rose)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                        fontFamily: "var(--font-body)"
+                      }}
                     >
                       Select All
                     </button>
                     <button
                       onClick={clearAllServices}
-                      style={{ fontSize: 12, color: "#64748B", background: "none", border: "none", cursor: "pointer" }}
+                      style={{
+                        fontSize: 13,
+                        color: "var(--ink-muted)",
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: "var(--font-body)"
+                      }}
                     >
                       Clear
                     </button>
                   </div>
                 </div>
                 <div style={{
-                  border: "1px solid #E5E7EB",
-                  borderRadius: 8,
+                  border: "1px solid var(--cream-dark)",
+                  borderRadius: 12,
                   maxHeight: 200,
                   overflow: "auto",
+                  backgroundColor: "var(--cream)"
                 }}>
                   {services.map(service => (
                     <label
@@ -612,60 +764,82 @@ export default function DiscountsPage() {
                         display: "flex",
                         alignItems: "center",
                         gap: 12,
-                        padding: "10px 12px",
-                        borderBottom: "1px solid #F3F4F6",
+                        padding: "12px 16px",
+                        borderBottom: "1px solid var(--cream-dark)",
                         cursor: "pointer",
-                        backgroundColor: formData.serviceIds.includes(service.id) ? "#F0FDF4" : "transparent",
+                        backgroundColor: formData.serviceIds.includes(service.id)
+                          ? "var(--rose-pale)"
+                          : "transparent",
+                        transition: "background-color 0.2s ease"
                       }}
                     >
                       <input
                         type="checkbox"
                         checked={formData.serviceIds.includes(service.id)}
                         onChange={() => toggleService(service.id)}
-                        style={{ width: 16, height: 16 }}
+                        style={{ width: 18, height: 18, accentColor: "var(--rose)" }}
                       />
-                      <span style={{ flex: 1, fontSize: 14, color: "#374151" }}>{service.name}</span>
-                      <span style={{ fontSize: 13, color: "#64748B" }}>£{service.price}</span>
+                      <span style={{
+                        flex: 1,
+                        fontSize: 14,
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)"
+                      }}>{service.name}</span>
+                      <span style={{
+                        fontSize: 13,
+                        color: "var(--ink-muted)",
+                        fontFamily: "var(--font-body)"
+                      }}>£{service.price}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               {/* Staff (Optional) - filtered by selected services */}
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>
+              <div style={{ marginBottom: 28 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                  color: "var(--ink-light)",
+                  fontFamily: "var(--font-body)"
+                }}>
                   Staff (leave empty for all staff who can do selected services)
                 </label>
                 {formData.serviceIds.length === 0 ? (
                   <div style={{
-                    padding: 16,
-                    border: "1px solid #E5E7EB",
-                    borderRadius: 8,
-                    backgroundColor: "#F9FAFB",
-                    color: "#64748B",
+                    padding: 20,
+                    border: "1px solid var(--cream-dark)",
+                    borderRadius: 12,
+                    backgroundColor: "var(--cream)",
+                    color: "var(--ink-muted)",
                     fontSize: 14,
                     textAlign: "center",
+                    fontFamily: "var(--font-body)"
                   }}>
                     Please select services first to see available staff
                   </div>
                 ) : filteredStaff.length === 0 ? (
                   <div style={{
-                    padding: 16,
-                    border: "1px solid #FEE2E2",
-                    borderRadius: 8,
-                    backgroundColor: "#FEF2F2",
-                    color: "#DC2626",
+                    padding: 20,
+                    border: "1px solid var(--rose-pale)",
+                    borderRadius: 12,
+                    backgroundColor: "var(--rose-pale)",
+                    color: "var(--rose)",
                     fontSize: 14,
                     textAlign: "center",
+                    fontFamily: "var(--font-body)"
                   }}>
                     No staff can perform the selected services
                   </div>
                 ) : (
                   <div style={{
-                    border: "1px solid #E5E7EB",
-                    borderRadius: 8,
+                    border: "1px solid var(--cream-dark)",
+                    borderRadius: 12,
                     maxHeight: 150,
                     overflow: "auto",
+                    backgroundColor: "var(--cream)"
                   }}>
                     {filteredStaff.map(staff => (
                       <label
@@ -674,24 +848,36 @@ export default function DiscountsPage() {
                           display: "flex",
                           alignItems: "center",
                           gap: 12,
-                          padding: "10px 12px",
-                          borderBottom: "1px solid #F3F4F6",
+                          padding: "12px 16px",
+                          borderBottom: "1px solid var(--cream-dark)",
                           cursor: "pointer",
-                          backgroundColor: formData.staffIds.includes(staff.id) ? "#F0FDF4" : "transparent",
+                          backgroundColor: formData.staffIds.includes(staff.id)
+                            ? "var(--rose-pale)"
+                            : "transparent",
+                          transition: "background-color 0.2s ease"
                         }}
                       >
                         <input
                           type="checkbox"
                           checked={formData.staffIds.includes(staff.id)}
                           onChange={() => toggleStaff(staff.id)}
-                          style={{ width: 16, height: 16 }}
+                          style={{ width: 18, height: 18, accentColor: "var(--rose)" }}
                         />
-                        <span style={{ fontSize: 14, color: "#374151" }}>{staff.name}</span>
+                        <span style={{
+                          fontSize: 14,
+                          color: "var(--ink)",
+                          fontFamily: "var(--font-body)"
+                        }}>{staff.name}</span>
                       </label>
                     ))}
                   </div>
                 )}
-                <p style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
+                <p style={{
+                  fontSize: 13,
+                  color: "var(--ink-muted)",
+                  marginTop: 6,
+                  fontFamily: "var(--font-body)"
+                }}>
                   Only showing staff who can perform the selected services. Leave empty for all eligible staff.
                 </p>
               </div>
@@ -702,13 +888,16 @@ export default function DiscountsPage() {
                   onClick={closeModal}
                   style={{
                     flex: 1,
-                    padding: 14,
-                    border: "1px solid #E5E7EB",
-                    borderRadius: 8,
-                    background: "#FFFFFF",
-                    color: "#6B7280",
+                    padding: "14px 24px",
+                    border: "1.5px solid var(--ink)",
+                    borderRadius: 50,
+                    background: "var(--white)",
+                    color: "var(--ink-light)",
                     fontSize: 15,
+                    fontWeight: 500,
                     cursor: "pointer",
+                    fontFamily: "var(--font-body)",
+                    transition: "all 0.2s ease"
                   }}
                 >
                   Cancel
@@ -718,15 +907,17 @@ export default function DiscountsPage() {
                   disabled={saving}
                   style={{
                     flex: 1,
-                    padding: 14,
+                    padding: "14px 24px",
                     border: "none",
-                    borderRadius: 8,
-                    background: "#10B981",
-                    color: "#FFFFFF",
+                    borderRadius: 50,
+                    background: "var(--rose)",
+                    color: "var(--white)",
                     fontSize: 15,
                     fontWeight: 600,
                     cursor: saving ? "not-allowed" : "pointer",
                     opacity: saving ? 0.7 : 1,
+                    fontFamily: "var(--font-body)",
+                    transition: "all 0.2s ease"
                   }}
                 >
                   {saving ? "Saving..." : editingId ? "Update Discount" : "Create Discount"}

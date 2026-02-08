@@ -405,10 +405,14 @@ export default function ReceiptsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1E293B", margin: 0 }}>Receipts</h1>
-        <p style={{ fontSize: 14, color: "#64748B", marginTop: 4 }}>Create receipts for walk-in customers</p>
+        <h1 style={{ fontSize: 32, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)" }}>
+          Receipts
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+          Create receipts for walk-in customers
+        </p>
       </div>
 
       {message && (
@@ -416,10 +420,11 @@ export default function ReceiptsPage() {
           padding: 16,
           borderRadius: 12,
           marginBottom: 24,
-          backgroundColor: message.type === "success" ? "#ECFDF5" : "#FEF2F2",
-          color: message.type === "success" ? "#059669" : "#DC2626",
+          backgroundColor: message.type === "success" ? "var(--sage-light)" : "var(--rose-pale)",
+          color: message.type === "success" ? "var(--sage)" : "var(--rose)",
           fontSize: 14,
           fontWeight: 500,
+          fontFamily: "var(--font-body)",
         }}>
           {message.text}
         </div>
@@ -427,49 +432,142 @@ export default function ReceiptsPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         {/* Left Column - Form */}
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#1E293B", marginTop: 0, marginBottom: 20 }}>Customer Details</h2>
+        <div style={{
+          backgroundColor: "var(--white)",
+          borderRadius: 16,
+          padding: 28,
+          border: "1px solid var(--cream-dark)",
+          boxShadow: "var(--shadow-sm)"
+        }}>
+          <h2 style={{
+            fontSize: 18,
+            fontWeight: 600,
+            color: "var(--ink)",
+            marginTop: 0,
+            marginBottom: 24,
+            fontFamily: "var(--font-heading)"
+          }}>
+            Customer Details
+          </h2>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>Customer Name</label>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 500,
+              marginBottom: 8,
+              color: "var(--ink-light)",
+              fontFamily: "var(--font-body)"
+            }}>
+              Customer Name
+            </label>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Walk-in Customer"
-              style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                backgroundColor: "var(--cream)",
+                border: "1px solid var(--cream-dark)",
+                borderRadius: 12,
+                fontSize: 15,
+                boxSizing: "border-box",
+                color: "var(--ink)",
+                fontFamily: "var(--font-body)",
+                outline: "none",
+                transition: "border-color 0.2s ease"
+              }}
             />
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>Customer Email (optional)</label>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 500,
+              marginBottom: 8,
+              color: "var(--ink-light)",
+              fontFamily: "var(--font-body)"
+            }}>
+              Customer Email (optional)
+            </label>
             <input
               type="email"
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               placeholder="customer@email.com"
-              style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                backgroundColor: "var(--cream)",
+                border: "1px solid var(--cream-dark)",
+                borderRadius: 12,
+                fontSize: 15,
+                boxSizing: "border-box",
+                color: "var(--ink)",
+                fontFamily: "var(--font-body)",
+                outline: "none"
+              }}
             />
           </div>
 
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6, color: "#374151" }}>Staff</label>
+          <div style={{ marginBottom: 28 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 500,
+              marginBottom: 8,
+              color: "var(--ink-light)",
+              fontFamily: "var(--font-body)"
+            }}>
+              Staff
+            </label>
             <select
               value={staffId}
               onChange={(e) => setStaffId(e.target.value)}
-              style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                backgroundColor: "var(--cream)",
+                border: "1px solid var(--cream-dark)",
+                borderRadius: 12,
+                fontSize: 15,
+                boxSizing: "border-box",
+                color: "var(--ink)",
+                fontFamily: "var(--font-body)",
+                cursor: "pointer"
+              }}
             >
               {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1E293B", marginBottom: 12 }}>Add Services</h3>
+          <h3 style={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: "var(--ink)",
+            marginBottom: 16,
+            fontFamily: "var(--font-heading)"
+          }}>
+            Add Services
+          </h3>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
             <select
               value={selectedServiceId}
               onChange={(e) => setSelectedServiceId(e.target.value)}
-              style={{ flex: 1, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+              style={{
+                flex: 1,
+                padding: "14px 16px",
+                backgroundColor: "var(--cream)",
+                border: "1px solid var(--cream-dark)",
+                borderRadius: 12,
+                fontSize: 15,
+                color: "var(--ink)",
+                fontFamily: "var(--font-body)"
+              }}
             >
               <option value="">Select a service...</option>
               {services.map(s => <option key={s.id} value={s.id}>{s.name} - £{s.price}</option>)}
@@ -478,25 +576,44 @@ export default function ReceiptsPage() {
               onClick={addServiceAsItem}
               disabled={!selectedServiceId}
               style={{
-                padding: "12px 20px",
+                padding: "14px 24px",
                 border: "none",
-                borderRadius: 8,
-                background: selectedServiceId ? "#6366F1" : "#E5E7EB",
-                color: selectedServiceId ? "#FFFFFF" : "#9CA3AF",
+                borderRadius: 50,
+                backgroundColor: selectedServiceId ? "var(--rose)" : "var(--cream-dark)",
+                color: selectedServiceId ? "var(--white)" : "var(--ink-muted)",
                 fontWeight: 600,
+                fontSize: 14,
                 cursor: selectedServiceId ? "pointer" : "not-allowed",
+                fontFamily: "var(--font-body)",
+                transition: "all 0.2s ease"
               }}
             >
               Add
             </button>
           </div>
 
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1E293B", marginBottom: 12 }}>Add Extra / Custom Item</h3>
+          <h3 style={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: "var(--ink)",
+            marginBottom: 16,
+            fontFamily: "var(--font-heading)"
+          }}>
+            Add Extra / Custom Item
+          </h3>
 
           {/* Quick Add Extras from Database */}
           {extras.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Quick Add Extras</label>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{
+                display: "block",
+                fontSize: 13,
+                color: "var(--ink-muted)",
+                marginBottom: 8,
+                fontFamily: "var(--font-body)"
+              }}>
+                Quick Add Extras
+              </label>
               <select
                 onChange={(e) => {
                   const value = e.target.value;
@@ -511,7 +628,16 @@ export default function ReceiptsPage() {
                   });
                   e.target.value = "";
                 }}
-                style={{ width: "100%", padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  backgroundColor: "var(--cream)",
+                  border: "1px solid var(--cream-dark)",
+                  borderRadius: 12,
+                  fontSize: 15,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-body)"
+                }}
               >
                 <option value="">Select an extra...</option>
                 {extras.map(extra => (
@@ -525,21 +651,47 @@ export default function ReceiptsPage() {
 
           {/* Custom Item Input */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Or Add Custom Item</label>
-            <div style={{ display: "flex", gap: 8 }}>
+            <label style={{
+              display: "block",
+              fontSize: 13,
+              color: "var(--ink-muted)",
+              marginBottom: 8,
+              fontFamily: "var(--font-body)"
+            }}>
+              Or Add Custom Item
+            </label>
+            <div style={{ display: "flex", gap: 10 }}>
               <input
                 type="text"
                 placeholder="Item name"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
-                style={{ flex: 1, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+                style={{
+                  flex: 1,
+                  padding: "14px 16px",
+                  backgroundColor: "var(--cream)",
+                  border: "1px solid var(--cream-dark)",
+                  borderRadius: 12,
+                  fontSize: 15,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-body)"
+                }}
               />
               <input
                 type="number"
                 placeholder="Price"
                 value={newItemPrice}
                 onChange={(e) => setNewItemPrice(e.target.value)}
-                style={{ width: 100, padding: 12, border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 14 }}
+                style={{
+                  width: 100,
+                  padding: "14px 16px",
+                  backgroundColor: "var(--cream)",
+                  border: "1px solid var(--cream-dark)",
+                  borderRadius: 12,
+                  fontSize: 15,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-body)"
+                }}
                 min="0"
                 step="0.01"
               />
@@ -547,13 +699,16 @@ export default function ReceiptsPage() {
                 onClick={addCustomItem}
                 disabled={!newItemName.trim() || !newItemPrice}
                 style={{
-                  padding: "12px 20px",
+                  padding: "14px 24px",
                   border: "none",
-                  borderRadius: 8,
-                  background: newItemName.trim() && newItemPrice ? "#10B981" : "#E5E7EB",
-                  color: newItemName.trim() && newItemPrice ? "#FFFFFF" : "#9CA3AF",
+                  borderRadius: 50,
+                  backgroundColor: newItemName.trim() && newItemPrice ? "var(--sage)" : "var(--cream-dark)",
+                  color: newItemName.trim() && newItemPrice ? "var(--white)" : "var(--ink-muted)",
                   fontWeight: 600,
+                  fontSize: 14,
                   cursor: newItemName.trim() && newItemPrice ? "pointer" : "not-allowed",
+                  fontFamily: "var(--font-body)",
+                  transition: "all 0.2s ease"
                 }}
               >
                 Add
@@ -563,26 +718,61 @@ export default function ReceiptsPage() {
         </div>
 
         {/* Right Column - Receipt Preview */}
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#1E293B", marginTop: 0, marginBottom: 20 }}>Receipt Preview</h2>
+        <div style={{
+          backgroundColor: "var(--white)",
+          borderRadius: 16,
+          padding: 28,
+          border: "1px solid var(--cream-dark)",
+          boxShadow: "var(--shadow-sm)"
+        }}>
+          <h2 style={{
+            fontSize: 18,
+            fontWeight: 600,
+            color: "var(--ink)",
+            marginTop: 0,
+            marginBottom: 24,
+            fontFamily: "var(--font-heading)"
+          }}>
+            Receipt Preview
+          </h2>
 
           {/* Receipt Card */}
           <div style={{
-            backgroundColor: "#F8FAFC",
+            backgroundColor: "var(--cream)",
             borderRadius: 12,
-            padding: 20,
-            border: "1px solid #E2E8F0",
+            padding: 24,
+            border: "1px solid var(--cream-dark)",
             minHeight: 300,
           }}>
             {/* Header */}
-            <div style={{ textAlign: "center", marginBottom: 16, paddingBottom: 16, borderBottom: "1px dashed #CBD5E1" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#1E293B" }}>{salonInfo?.name || "Salon"}</div>
-              {salonInfo?.address && <div style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>{salonInfo.address}</div>}
-              {salonInfo?.phone && <div style={{ fontSize: 12, color: "#64748B" }}>Tel: {salonInfo.phone}</div>}
+            <div style={{
+              textAlign: "center",
+              marginBottom: 20,
+              paddingBottom: 20,
+              borderBottom: "1px dashed var(--cream-dark)"
+            }}>
+              <div style={{
+                fontSize: 20,
+                fontWeight: 600,
+                color: "var(--ink)",
+                fontFamily: "var(--font-heading)"
+              }}>
+                {salonInfo?.name || "Salon"}
+              </div>
+              {salonInfo?.address && (
+                <div style={{ fontSize: 13, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+                  {salonInfo.address}
+                </div>
+              )}
+              {salonInfo?.phone && (
+                <div style={{ fontSize: 13, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+                  Tel: {salonInfo.phone}
+                </div>
+              )}
             </div>
 
             {/* Customer Info */}
-            <div style={{ marginBottom: 16, fontSize: 13, color: "#64748B" }}>
+            <div style={{ marginBottom: 20, fontSize: 13, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
               <div>Date: {new Date().toLocaleDateString("en-GB")}</div>
               {customerName && <div>Customer: {customerName}</div>}
               <div>Staff: {staffList.find(s => s.id === staffId)?.name || "-"}</div>
@@ -590,37 +780,104 @@ export default function ReceiptsPage() {
 
             {/* Items */}
             {receiptItems.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "#94A3B8", fontSize: 14 }}>
+              <div style={{
+                textAlign: "center",
+                padding: "48px 0",
+                color: "var(--ink-muted)",
+                fontSize: 14,
+                fontFamily: "var(--font-body)"
+              }}>
                 No items added yet
               </div>
             ) : (
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 20 }}>
                 {receiptItems.map((item) => (
                   <div key={item.id} style={{
                     display: "flex",
                     alignItems: "center",
-                    padding: "10px 0",
-                    borderBottom: "1px solid #E2E8F0",
+                    padding: "12px 0",
+                    borderBottom: "1px solid var(--cream-dark)",
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: "#1E293B" }}>{item.name}</div>
-                      <div style={{ fontSize: 12, color: "#64748B" }}>£{item.price.toFixed(2)} x {item.quantity}</div>
+                      <div style={{
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)"
+                      }}>
+                        {item.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+                        £{item.price.toFixed(2)} x {item.quantity}
+                      </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <button
                         onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
-                        style={{ width: 24, height: 24, border: "1px solid #E5E7EB", borderRadius: 4, background: "#FFF", cursor: item.quantity > 1 ? "pointer" : "not-allowed", fontSize: 14 }}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          border: "1px solid var(--cream-dark)",
+                          borderRadius: 8,
+                          background: "var(--white)",
+                          cursor: item.quantity > 1 ? "pointer" : "not-allowed",
+                          fontSize: 14,
+                          color: "var(--ink)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
                       >-</button>
-                      <span style={{ fontSize: 14, fontWeight: 600, minWidth: 20, textAlign: "center" }}>{item.quantity}</span>
+                      <span style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        minWidth: 24,
+                        textAlign: "center",
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)"
+                      }}>{item.quantity}</span>
                       <button
                         onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                        style={{ width: 24, height: 24, border: "1px solid #E5E7EB", borderRadius: 4, background: "#FFF", cursor: "pointer", fontSize: 14 }}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          border: "1px solid var(--cream-dark)",
+                          borderRadius: 8,
+                          background: "var(--white)",
+                          cursor: "pointer",
+                          fontSize: 14,
+                          color: "var(--ink)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
                       >+</button>
-                      <span style={{ fontSize: 14, fontWeight: 600, minWidth: 60, textAlign: "right" }}>£{(item.price * item.quantity).toFixed(2)}</span>
+                      <span style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        minWidth: 64,
+                        textAlign: "right",
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)"
+                      }}>
+                        £{(item.price * item.quantity).toFixed(2)}
+                      </span>
                       <button
                         onClick={() => removeItem(item.id)}
-                        style={{ width: 24, height: 24, border: "none", borderRadius: 4, background: "#FEE2E2", cursor: "pointer", fontSize: 12, color: "#DC2626" }}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          border: "none",
+                          borderRadius: 8,
+                          background: "var(--rose-pale)",
+                          cursor: "pointer",
+                          fontSize: 12,
+                          color: "var(--rose)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
                       >x</button>
                     </div>
                   </div>
@@ -633,77 +890,103 @@ export default function ReceiptsPage() {
               <div style={{
                 display: "flex",
                 justifyContent: "space-between",
-                padding: "16px 0",
-                borderTop: "2px solid #1E293B",
-                marginTop: 8,
+                padding: "20px 0 0",
+                borderTop: "2px solid var(--ink)",
+                marginTop: 12,
               }}>
-                <span style={{ fontSize: 18, fontWeight: 700, color: "#1E293B" }}>TOTAL</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: "#1E293B" }}>£{calculateTotal().toFixed(2)}</span>
+                <span style={{
+                  fontSize: 18,
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-heading)"
+                }}>TOTAL</span>
+                <span style={{
+                  fontSize: 18,
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  fontFamily: "var(--font-heading)"
+                }}>
+                  £{calculateTotal().toFixed(2)}
+                </span>
               </div>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
-            <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
+            <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={previewReceipt}
                 disabled={loading || receiptItems.length === 0}
                 style={{
                   flex: 1,
-                  padding: 14,
-                  border: "none",
-                  borderRadius: 8,
-                  background: receiptItems.length > 0 ? "#6366F1" : "#E5E7EB",
-                  color: receiptItems.length > 0 ? "#FFFFFF" : "#9CA3AF",
+                  padding: "14px 20px",
+                  border: "1.5px solid var(--ink)",
+                  borderRadius: 50,
+                  backgroundColor: "var(--white)",
+                  color: receiptItems.length > 0 ? "var(--ink)" : "var(--ink-muted)",
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: receiptItems.length > 0 ? "pointer" : "not-allowed",
+                  fontFamily: "var(--font-body)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 6,
+                  gap: 8,
+                  opacity: receiptItems.length === 0 ? 0.5 : 1,
+                  transition: "all 0.2s ease"
                 }}
               >
-                <span>👁</span> Preview PDF
+                Preview PDF
               </button>
               <button
                 onClick={sendReceiptEmail}
                 disabled={loading || receiptItems.length === 0 || !customerEmail}
                 style={{
                   flex: 1,
-                  padding: 14,
+                  padding: "14px 20px",
                   border: "none",
-                  borderRadius: 8,
-                  background: receiptItems.length > 0 && customerEmail ? "#10B981" : "#E5E7EB",
-                  color: receiptItems.length > 0 && customerEmail ? "#FFFFFF" : "#9CA3AF",
+                  borderRadius: 50,
+                  backgroundColor: receiptItems.length > 0 && customerEmail ? "var(--rose)" : "var(--cream-dark)",
+                  color: receiptItems.length > 0 && customerEmail ? "var(--white)" : "var(--ink-muted)",
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: receiptItems.length > 0 && customerEmail ? "pointer" : "not-allowed",
+                  fontFamily: "var(--font-body)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 6,
+                  gap: 8,
+                  transition: "all 0.2s ease"
                 }}
               >
-                <span>📧</span> {loading ? "Sending..." : "Send Email"}
+                {loading ? "Sending..." : "Send Email"}
               </button>
             </div>
             {!customerEmail && receiptItems.length > 0 && (
-              <p style={{ fontSize: 12, color: "#94A3B8", textAlign: "center", margin: "4px 0 0" }}>
+              <p style={{
+                fontSize: 13,
+                color: "var(--ink-muted)",
+                textAlign: "center",
+                margin: "4px 0 0",
+                fontFamily: "var(--font-body)"
+              }}>
                 Enter customer email to send receipt
               </p>
             )}
             <button
               onClick={clearForm}
               style={{
-                padding: 12,
-                border: "1px solid #E5E7EB",
-                borderRadius: 8,
-                background: "#FFFFFF",
-                color: "#6B7280",
+                padding: "12px 20px",
+                border: "1.5px solid var(--ink)",
+                borderRadius: 50,
+                backgroundColor: "var(--white)",
+                color: "var(--ink-light)",
                 fontSize: 14,
+                fontWeight: 500,
                 cursor: "pointer",
+                fontFamily: "var(--font-body)",
+                transition: "all 0.2s ease"
               }}
             >
               Clear & Start New

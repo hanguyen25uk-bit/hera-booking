@@ -17,6 +17,8 @@ type Service = {
   price: number;
 };
 
+const AVATAR_COLORS = ["var(--rose)", "var(--sage)", "var(--gold)", "var(--ink)"];
+
 export default function StaffPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -31,9 +33,7 @@ export default function StaffPage() {
   const [formRole, setFormRole] = useState("");
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
@@ -64,15 +64,14 @@ export default function StaffPage() {
     if (!selectedStaff) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/staff-services", {
+      await fetch("/api/admin/staff-services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ staffId: selectedStaff.id, serviceIds: staffServices }),
       });
-      if (!res.ok) throw new Error("Failed to save");
       setShowServiceModal(false);
-      loadData(); // Reload to show updated services
+      loadData();
     } catch (err) {
       alert("Error saving services");
     } finally {
@@ -86,23 +85,17 @@ export default function StaffPage() {
     try {
       const url = editingStaff ? `/api/admin/staff/${editingStaff.id}` : "/api/admin/staff";
       const method = editingStaff ? "PUT" : "POST";
-      const res = await fetch(url, {
+      await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ name: formName, role: formRole || "Nail Technician" }),
       });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to save");
-      }
       setShowModal(false);
-      setFormName("");
-      setFormRole("");
-      setEditingStaff(null);
+      setFormName(""); setFormRole(""); setEditingStaff(null);
       loadData();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error saving");
+    } catch (err) {
+      alert("Error saving");
     } finally {
       setSaving(false);
     }
@@ -110,13 +103,12 @@ export default function StaffPage() {
 
   async function handleToggleActive(s: Staff) {
     try {
-      const res = await fetch(`/api/admin/staff/${s.id}`, {
+      await fetch(`/api/admin/staff/${s.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ active: !s.active }),
       });
-      if (!res.ok) throw new Error("Failed to update");
       loadData();
     } catch (err) {
       alert("Error updating status");
@@ -126,8 +118,7 @@ export default function StaffPage() {
   async function handleDelete(s: Staff) {
     if (!confirm(`Delete ${s.name}?`)) return;
     try {
-      const res = await fetch(`/api/admin/staff/${s.id}`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Failed to delete");
+      await fetch(`/api/admin/staff/${s.id}`, { method: "DELETE", credentials: "include" });
       loadData();
     } catch (err) {
       alert("Error deleting");
@@ -149,128 +140,144 @@ export default function StaffPage() {
 
   function openAddModal() {
     setEditingStaff(null);
-    setFormName("");
-    setFormRole("");
+    setFormName(""); setFormRole("");
     setShowModal(true);
   }
 
   function toggleService(serviceId: string) {
-    setStaffServices(prev =>
-      prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]
-    );
-  }
-
-  function selectAllServices() {
-    setStaffServices(services.map(s => s.id));
-  }
-
-  function deselectAllServices() {
-    setStaffServices([]);
+    setStaffServices(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
   }
 
   if (loading) {
     return (
-      <div style={styles.page}>
-        <div style={styles.loading}>Loading...</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+        Loading...
       </div>
     );
   }
 
   return (
-    <div style={styles.page}>
+    <div style={{ maxWidth: 1200 }}>
       {/* Header */}
-      <div style={styles.header}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
         <div>
-          <h1 style={styles.title}>Staff</h1>
-          <p style={styles.subtitle}>Manage your team members and their services</p>
+          <h1 style={{ fontSize: 32, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>
+            Staff
+          </h1>
+          <p style={{ fontSize: 15, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+            Manage your team members and their services
+          </p>
         </div>
-        <button style={styles.btnPrimary} onClick={openAddModal}>
+        <button onClick={openAddModal} style={{ padding: "12px 24px", backgroundColor: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)", boxShadow: "var(--shadow-sm)" }}>
           + Add Staff
         </button>
       </div>
 
       {/* Staff Table */}
-      <div style={styles.tableCard}>
-        <table style={styles.table}>
+      <div style={{ backgroundColor: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Role</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Services</th>
-              <th style={{...styles.th, textAlign: "right"}}>Actions</th>
+            <tr style={{ borderBottom: "1px solid var(--cream-dark)", backgroundColor: "var(--cream)" }}>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Name</th>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Role</th>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Status</th>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Services</th>
+              <th style={{ textAlign: "right", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {staff.map((s) => (
-              <tr key={s.id} style={styles.tr}>
-                <td style={styles.td}>
-                  <div style={styles.nameCell}>
-                    <div style={styles.avatar}>{s.name.charAt(0)}</div>
-                    <span style={styles.name}>{s.name}</span>
+            {staff.map((s, idx) => (
+              <tr key={s.id} style={{ borderBottom: "1px solid var(--cream-dark)" }}>
+                <td style={{ padding: "18px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <div style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: "50%",
+                      backgroundColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
+                      color: "var(--white)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 600,
+                      fontSize: 16,
+                      fontFamily: "var(--font-body)"
+                    }}>
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ fontWeight: 600, color: "var(--ink)", fontSize: 15, fontFamily: "var(--font-body)" }}>{s.name}</span>
                   </div>
                 </td>
-                <td style={styles.td}>
-                  <span style={styles.role}>{s.role || "Nail Technician"}</span>
+                <td style={{ padding: "18px 20px", color: "var(--ink-muted)", fontSize: 14, fontFamily: "var(--font-body)" }}>
+                  {s.role || "Nail Technician"}
                 </td>
-                <td style={styles.td}>
+                <td style={{ padding: "18px 20px" }}>
                   <span style={{
-                    ...styles.badge,
-                    backgroundColor: s.active ? "#ecfdf5" : "#fef2f2",
-                    color: s.active ? "#059669" : "#dc2626",
+                    padding: "5px 12px",
+                    borderRadius: 50,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    fontFamily: "var(--font-body)",
+                    backgroundColor: s.active ? "var(--sage-light)" : "var(--rose-pale)",
+                    color: s.active ? "var(--sage)" : "var(--rose)"
                   }}>
                     {s.active ? "Active" : "Inactive"}
                   </span>
                 </td>
-                <td style={styles.td}>
+                <td style={{ padding: "18px 20px" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {s.serviceIds && s.serviceIds.length > 0 ? (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {s.serviceIds.slice(0, 3).map(serviceId => {
                           const service = services.find(svc => svc.id === serviceId);
                           return service ? (
                             <span key={serviceId} style={{
-                              padding: "3px 8px",
-                              backgroundColor: "#f0fdf4",
-                              color: "#15803d",
-                              borderRadius: 4,
-                              fontSize: 11,
+                              padding: "4px 10px",
+                              backgroundColor: "var(--cream)",
+                              color: "var(--ink-light)",
+                              borderRadius: 50,
+                              fontSize: 12,
                               fontWeight: 500,
+                              fontFamily: "var(--font-body)"
                             }}>
                               {service.name}
                             </span>
                           ) : null;
                         })}
                         {s.serviceIds.length > 3 && (
-                          <span style={{
-                            padding: "3px 8px",
-                            backgroundColor: "#f1f5f9",
-                            color: "#64748b",
-                            borderRadius: 4,
-                            fontSize: 11,
-                            fontWeight: 500,
-                          }}>
+                          <span style={{ padding: "4px 10px", backgroundColor: "var(--cream-dark)", color: "var(--ink-muted)", borderRadius: 50, fontSize: 12, fontWeight: 500 }}>
                             +{s.serviceIds.length - 3} more
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span style={{ color: "#94a3b8", fontSize: 12 }}>No services assigned</span>
+                      <span style={{ color: "var(--ink-muted)", fontSize: 13, fontFamily: "var(--font-body)" }}>No services assigned</span>
                     )}
-                    <button style={styles.btnServices} onClick={() => openServiceModal(s)}>
+                    <button onClick={() => openServiceModal(s)} style={{
+                      padding: "6px 14px",
+                      backgroundColor: "var(--cream)",
+                      border: "1px solid var(--cream-dark)",
+                      borderRadius: 50,
+                      fontSize: 13,
+                      color: "var(--ink-light)",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      fontFamily: "var(--font-body)",
+                      width: "fit-content"
+                    }}>
                       Manage Services
                     </button>
                   </div>
                 </td>
-                <td style={{...styles.td, textAlign: "right"}}>
-                  <div style={styles.actions}>
-                    <button style={styles.btnIcon} onClick={() => openEditModal(s)} title="Edit">
+                <td style={{ padding: "18px 20px", textAlign: "right" }}>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button onClick={() => openEditModal(s)} style={{ width: 34, height: 34, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }} title="Edit">
                       ✏️
                     </button>
-                    <button style={styles.btnIcon} onClick={() => handleToggleActive(s)} title={s.active ? "Deactivate" : "Activate"}>
+                    <button onClick={() => handleToggleActive(s)} style={{ width: 34, height: 34, border: "none", backgroundColor: s.active ? "var(--gold-light)" : "var(--sage-light)", borderRadius: 8, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }} title={s.active ? "Deactivate" : "Activate"}>
                       {s.active ? "⏸" : "▶️"}
                     </button>
-                    <button style={{...styles.btnIcon, color: "#dc2626"}} onClick={() => handleDelete(s)} title="Delete">
+                    <button onClick={() => handleDelete(s)} style={{ width: 34, height: 34, border: "none", backgroundColor: "var(--rose-pale)", borderRadius: 8, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }} title="Delete">
                       🗑
                     </button>
                   </div>
@@ -281,44 +288,38 @@ export default function StaffPage() {
         </table>
 
         {staff.length === 0 && (
-          <div style={styles.empty}>
-            <p>No staff members yet</p>
-            <button style={styles.btnPrimary} onClick={openAddModal}>Add your first staff</button>
+          <div style={{ textAlign: "center", padding: 60, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+            <p style={{ marginBottom: 16 }}>No staff members yet</p>
+            <button onClick={openAddModal} style={{ padding: "12px 24px", backgroundColor: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
+              Add your first staff
+            </button>
           </div>
         )}
       </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>{editingStaff ? "Edit Staff" : "Add Staff"}</h2>
-              <button style={styles.closeBtn} onClick={() => setShowModal(false)}>×</button>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(26,23,21,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div style={{ backgroundColor: "var(--white)", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", boxShadow: "var(--shadow-lg)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--cream-dark)" }}>
+              <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)" }}>
+                {editingStaff ? "Edit Staff" : "Add Staff"}
+              </h2>
+              <button onClick={() => setShowModal(false)} style={{ width: 32, height: 32, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "var(--ink-muted)" }}>×</button>
             </div>
-            <div style={styles.modalBody}>
-              <label style={styles.label}>
-                Name
-                <input
-                  style={styles.input}
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Enter name"
-                />
+            <div style={{ padding: 24 }}>
+              <label style={{ display: "block", marginBottom: 18 }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>Name</span>
+                <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Enter name" style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }} />
               </label>
-              <label style={styles.label}>
-                Role
-                <input
-                  style={styles.input}
-                  value={formRole}
-                  onChange={(e) => setFormRole(e.target.value)}
-                  placeholder="Nail Technician"
-                />
+              <label style={{ display: "block" }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>Role</span>
+                <input value={formRole} onChange={(e) => setFormRole(e.target.value)} placeholder="Nail Technician" style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }} />
               </label>
             </div>
-            <div style={styles.modalFooter}>
-              <button style={styles.btnSecondary} onClick={() => setShowModal(false)}>Cancel</button>
-              <button style={styles.btnPrimary} onClick={handleSaveStaff} disabled={saving}>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", padding: "16px 24px", borderTop: "1px solid var(--cream-dark)", backgroundColor: "var(--cream)" }}>
+              <button onClick={() => setShowModal(false)} style={{ padding: "12px 24px", backgroundColor: "var(--white)", color: "var(--ink-light)", border: "1px solid var(--cream-dark)", borderRadius: 50, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-body)" }}>Cancel</button>
+              <button onClick={handleSaveStaff} disabled={saving} style={{ padding: "12px 24px", backgroundColor: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
                 {saving ? "Saving..." : "Save"}
               </button>
             </div>
@@ -328,74 +329,59 @@ export default function StaffPage() {
 
       {/* Services Modal */}
       {showServiceModal && selectedStaff && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Services for {selectedStaff.name}</h2>
-              <button style={styles.closeBtn} onClick={() => setShowServiceModal(false)}>×</button>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(26,23,21,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div style={{ backgroundColor: "var(--white)", borderRadius: 16, width: "100%", maxWidth: 500, maxHeight: "85vh", overflow: "hidden", boxShadow: "var(--shadow-lg)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--cream-dark)" }}>
+              <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)" }}>
+                Services for {selectedStaff.name}
+              </h2>
+              <button onClick={() => setShowServiceModal(false)} style={{ width: 32, height: 32, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "var(--ink-muted)" }}>×</button>
             </div>
-            <div style={styles.modalBody}>
+            <div style={{ padding: 24, maxHeight: "60vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <p style={{ ...styles.modalSubtitle, margin: 0 }}>Select services this staff member can perform:</p>
+                <p style={{ fontSize: 14, color: "var(--ink-muted)", margin: 0, fontFamily: "var(--font-body)" }}>Select services this staff can perform:</p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={selectAllServices}
-                    style={{
-                      padding: "6px 12px",
-                      backgroundColor: "#6366f1",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                    }}
-                  >
+                  <button onClick={() => setStaffServices(services.map(s => s.id))} style={{ padding: "6px 12px", backgroundColor: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
                     Select All
                   </button>
-                  <button
-                    type="button"
-                    onClick={deselectAllServices}
-                    style={{
-                      padding: "6px 12px",
-                      backgroundColor: "#f1f5f9",
-                      color: "#475569",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Clear All
+                  <button onClick={() => setStaffServices([])} style={{ padding: "6px 12px", backgroundColor: "var(--cream)", color: "var(--ink-light)", border: "1px solid var(--cream-dark)", borderRadius: 50, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-body)" }}>
+                    Clear
                   </button>
                 </div>
               </div>
-              <div style={styles.serviceGrid}>
-                {services.map((service) => (
-                  <label key={service.id} style={{
-                    ...styles.serviceCard,
-                    borderColor: staffServices.includes(service.id) ? "#6366f1" : "#e2e8f0",
-                    backgroundColor: staffServices.includes(service.id) ? "#eef2ff" : "#fff",
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={staffServices.includes(service.id)}
-                      onChange={() => toggleService(service.id)}
-                      style={styles.checkbox}
-                    />
-                    <div>
-                      <div style={styles.serviceName}>{service.name}</div>
-                      <div style={styles.serviceMeta}>{service.durationMinutes}min • £{service.price}</div>
-                    </div>
-                  </label>
-                ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {services.map((service) => {
+                  const isSelected = staffServices.includes(service.id);
+                  return (
+                    <label key={service.id} style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: 16,
+                      border: isSelected ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      backgroundColor: isSelected ? "var(--rose-pale)" : "var(--white)",
+                      transition: "all 0.15s ease"
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleService(service.id)}
+                        style={{ width: 18, height: 18, cursor: "pointer", accentColor: "var(--rose)" }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, color: "var(--ink)", fontSize: 14, fontFamily: "var(--font-body)" }}>{service.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2, fontFamily: "var(--font-body)" }}>{service.durationMinutes}min • £{service.price}</div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
-            <div style={styles.modalFooter}>
-              <button style={styles.btnSecondary} onClick={() => setShowServiceModal(false)}>Cancel</button>
-              <button style={styles.btnPrimary} onClick={handleSaveServices} disabled={saving}>
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", padding: "16px 24px", borderTop: "1px solid var(--cream-dark)", backgroundColor: "var(--cream)" }}>
+              <button onClick={() => setShowServiceModal(false)} style={{ padding: "12px 24px", backgroundColor: "var(--white)", color: "var(--ink-light)", border: "1px solid var(--cream-dark)", borderRadius: 50, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-body)" }}>Cancel</button>
+              <button onClick={handleSaveServices} disabled={saving} style={{ padding: "12px 24px", backgroundColor: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
                 {saving ? "Saving..." : "Save Services"}
               </button>
             </div>
@@ -405,255 +391,3 @@ export default function StaffPage() {
     </div>
   );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-  page: {
-    maxWidth: 1200,
-  },
-  loading: {
-    padding: 40,
-    textAlign: "center",
-    color: "#64748b",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 700,
-    color: "#0f172a",
-    margin: 0,
-    letterSpacing: "-0.5px",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#64748b",
-    margin: "4px 0 0",
-  },
-  tableCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
-    overflow: "hidden",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
-  th: {
-    textAlign: "left",
-    padding: "14px 20px",
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    borderBottom: "1px solid #e2e8f0",
-    backgroundColor: "#f8fafc",
-  },
-  tr: {
-    borderBottom: "1px solid #f1f5f9",
-  },
-  td: {
-    padding: "16px 20px",
-    fontSize: 14,
-    color: "#334155",
-  },
-  nameCell: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 600,
-    fontSize: 14,
-  },
-  name: {
-    fontWeight: 600,
-    color: "#0f172a",
-  },
-  role: {
-    color: "#64748b",
-  },
-  badge: {
-    display: "inline-block",
-    padding: "4px 10px",
-    borderRadius: 6,
-    fontSize: 12,
-    fontWeight: 500,
-  },
-  actions: {
-    display: "flex",
-    gap: 8,
-    justifyContent: "flex-end",
-  },
-  btnIcon: {
-    width: 32,
-    height: 32,
-    border: "none",
-    backgroundColor: "#f1f5f9",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 14,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnServices: {
-    padding: "6px 12px",
-    backgroundColor: "#f1f5f9",
-    border: "1px solid #e2e8f0",
-    borderRadius: 6,
-    fontSize: 13,
-    color: "#475569",
-    cursor: "pointer",
-    fontWeight: 500,
-  },
-  btnPrimary: {
-    padding: "10px 20px",
-    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  btnSecondary: {
-    padding: "10px 20px",
-    backgroundColor: "#fff",
-    color: "#475569",
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: "pointer",
-  },
-  empty: {
-    padding: 60,
-    textAlign: "center",
-    color: "#64748b",
-  },
-  overlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.6)",
-    backdropFilter: "blur(4px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    width: "90%",
-    maxWidth: 480,
-    maxHeight: "85vh",
-    overflow: "hidden",
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "20px 24px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: "#64748b",
-    margin: "0 0 16px",
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    border: "none",
-    backgroundColor: "#f1f5f9",
-    borderRadius: 8,
-    fontSize: 20,
-    cursor: "pointer",
-    color: "#64748b",
-  },
-  modalBody: {
-    padding: 24,
-    overflowY: "auto",
-    maxHeight: "60vh",
-  },
-  modalFooter: {
-    display: "flex",
-    gap: 12,
-    justifyContent: "flex-end",
-    padding: "16px 24px",
-    borderTop: "1px solid #e2e8f0",
-    backgroundColor: "#f8fafc",
-  },
-  label: {
-    display: "block",
-    fontSize: 14,
-    fontWeight: 500,
-    color: "#374151",
-    marginBottom: 16,
-  },
-  input: {
-    display: "block",
-    width: "100%",
-    padding: "10px 14px",
-    marginTop: 6,
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    fontSize: 14,
-    boxSizing: "border-box",
-    outline: "none",
-  },
-  serviceGrid: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  serviceCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    border: "2px solid",
-    borderRadius: 10,
-    cursor: "pointer",
-    transition: "all 0.15s ease",
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    cursor: "pointer",
-  },
-  serviceName: {
-    fontWeight: 600,
-    color: "#0f172a",
-    fontSize: 14,
-  },
-  serviceMeta: {
-    fontSize: 12,
-    color: "#64748b",
-    marginTop: 2,
-  },
-};

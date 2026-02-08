@@ -29,25 +29,25 @@ type ReceiptItem = {
   quantity: number;
 };
 
-// Color Palette - Hera Nail Spa Theme
+// Color Palette - Hera Design System
 const COLORS = {
-  background: "#FFFFFF",
-  backgroundAlt: "#F5F5F5",
-  text: "#333333",
-  textSecondary: "#666666",
-  textPlaceholder: "#999999",
-  accent: "#333333",
-  accentHover: "#555555",
-  bookedSlot: "#FFE5E0",
-  bookedSlotHover: "#FFC2B3",
-  confirmedSlot: "#E6F3E6",
-  availableSlot: "#F5F5F5",
-  divider: "#E0E0E0",
-  navInactive: "#E0E0E0",
-  navActive: "#333333",
-  iconColor: "#666666",
-  cancelledSlot: "#F0F0F0",
-  noShowSlot: "#FFE0E0",
+  background: "var(--white)",
+  backgroundAlt: "var(--cream)",
+  text: "var(--ink)",
+  textSecondary: "var(--ink-light)",
+  textPlaceholder: "var(--ink-muted)",
+  accent: "var(--rose)",
+  accentHover: "var(--rose-light)",
+  bookedSlot: "var(--rose-pale)",
+  bookedSlotHover: "var(--rose-light)",
+  confirmedSlot: "var(--sage-light)",
+  availableSlot: "var(--cream)",
+  divider: "var(--cream-dark)",
+  navInactive: "var(--cream-dark)",
+  navActive: "var(--ink)",
+  iconColor: "var(--ink-muted)",
+  cancelledSlot: "var(--cream-dark)",
+  noShowSlot: "var(--rose-pale)",
 };
 
 export default function CalendarPage() {

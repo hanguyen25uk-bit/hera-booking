@@ -87,40 +87,73 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, textAlign: "center" }}>
-        <p>Loading...</p>
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+        Loading...
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
+    <div style={{ maxWidth: 800, margin: "0 auto" }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111827", margin: 0 }}>Settings</h1>
-        <p style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>Manage your salon settings</p>
+        <h1 style={{
+          fontSize: 32,
+          fontWeight: 600,
+          color: "var(--ink)",
+          margin: 0,
+          fontFamily: "var(--font-heading)"
+        }}>
+          Settings
+        </h1>
+        <p style={{ fontSize: 15, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+          Manage your salon settings
+        </p>
       </div>
 
       {message && (
         <div style={{
-          padding: "12px 16px",
-          borderRadius: 8,
-          marginBottom: 16,
-          backgroundColor: message.type === "success" ? "#D1FAE5" : "#FEE2E2",
-          color: message.type === "success" ? "#065F46" : "#991B1B",
+          padding: 16,
+          borderRadius: 12,
+          marginBottom: 24,
+          backgroundColor: message.type === "success" ? "var(--sage-light)" : "var(--rose-pale)",
+          color: message.type === "success" ? "var(--sage)" : "var(--rose)",
+          fontSize: 14,
+          fontWeight: 500,
+          fontFamily: "var(--font-body)"
         }}>
           {message.text}
         </div>
       )}
 
-      <div style={{ backgroundColor: "#FFFFFF", borderRadius: 12, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-        
+      <div style={{
+        backgroundColor: "var(--white)",
+        borderRadius: 16,
+        padding: 32,
+        border: "1px solid var(--cream-dark)",
+        boxShadow: "var(--shadow-sm)"
+      }}>
+
         {/* Salon Info Section */}
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: "#111827", marginBottom: 20 }}>
+        <h2 style={{
+          fontSize: 18,
+          fontWeight: 600,
+          color: "var(--ink)",
+          marginTop: 0,
+          marginBottom: 24,
+          fontFamily: "var(--font-heading)"
+        }}>
           Salon Information
         </h2>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+        <div style={{ marginBottom: 24 }}>
+          <label style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--ink-light)",
+            marginBottom: 8,
+            fontFamily: "var(--font-body)"
+          }}>
             Salon Name
           </label>
           <input
@@ -129,29 +162,41 @@ export default function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, salonName: e.target.value })}
             style={{
               width: "100%",
-              padding: "12px 16px",
-              border: "1px solid #D1D5DB",
-              borderRadius: 8,
-              fontSize: 16,
+              padding: "14px 16px",
+              backgroundColor: "var(--cream)",
+              border: "1px solid var(--cream-dark)",
+              borderRadius: 12,
+              fontSize: 15,
               boxSizing: "border-box",
+              color: "var(--ink)",
+              fontFamily: "var(--font-body)",
+              outline: "none"
             }}
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+        <div style={{ marginBottom: 24 }}>
+          <label style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--ink-light)",
+            marginBottom: 8,
+            fontFamily: "var(--font-body)"
+          }}>
             Booking URL
           </label>
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
             <span style={{
-              padding: "12px 16px",
-              backgroundColor: "#F3F4F6",
-              border: "1px solid #D1D5DB",
+              padding: "14px 16px",
+              backgroundColor: "var(--cream)",
+              border: "1px solid var(--cream-dark)",
               borderRight: "none",
-              borderRadius: "8px 0 0 8px",
+              borderRadius: "12px 0 0 12px",
               fontSize: 14,
-              color: "#6B7280",
+              color: "var(--ink-muted)",
               whiteSpace: "nowrap",
+              fontFamily: "var(--font-body)"
             }}>
               herabooking.com/
             </span>
@@ -170,26 +215,47 @@ export default function SettingsPage() {
               placeholder="your-salon-name"
               style={{
                 flex: 1,
-                padding: "12px 16px",
-                border: "1px solid #D1D5DB",
-                borderRadius: "0 8px 8px 0",
-                fontSize: 16,
+                padding: "14px 16px",
+                backgroundColor: "var(--cream)",
+                border: "1px solid var(--cream-dark)",
+                borderRadius: "0 12px 12px 0",
+                fontSize: 15,
                 boxSizing: "border-box",
+                color: "var(--ink)",
+                fontFamily: "var(--font-body)",
+                outline: "none"
               }}
             />
           </div>
-          <p style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
+          <p style={{
+            fontSize: 13,
+            color: "var(--ink-muted)",
+            marginTop: 10,
+            fontFamily: "var(--font-body)"
+          }}>
             This is your booking page URL. Use only lowercase letters, numbers, and hyphens.
           </p>
           {settings.salonSlug && (
-            <p style={{ fontSize: 13, color: "#6366F1", marginTop: 4 }}>
+            <p style={{
+              fontSize: 13,
+              color: "var(--rose)",
+              marginTop: 6,
+              fontFamily: "var(--font-body)"
+            }}>
               Preview: herabooking.com/<strong>{settings.salonSlug}</strong>/booking
             </p>
           )}
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+        <div style={{ marginBottom: 24 }}>
+          <label style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--ink-light)",
+            marginBottom: 8,
+            fontFamily: "var(--font-body)"
+          }}>
             Phone Number
           </label>
           <input
@@ -198,17 +264,28 @@ export default function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, salonPhone: e.target.value })}
             style={{
               width: "100%",
-              padding: "12px 16px",
-              border: "1px solid #D1D5DB",
-              borderRadius: 8,
-              fontSize: 16,
+              padding: "14px 16px",
+              backgroundColor: "var(--cream)",
+              border: "1px solid var(--cream-dark)",
+              borderRadius: 12,
+              fontSize: 15,
               boxSizing: "border-box",
+              color: "var(--ink)",
+              fontFamily: "var(--font-body)",
+              outline: "none"
             }}
           />
         </div>
 
-        <div style={{ marginBottom: 32 }}>
-          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+        <div style={{ marginBottom: 36 }}>
+          <label style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--ink-light)",
+            marginBottom: 8,
+            fontFamily: "var(--font-body)"
+          }}>
             Address
           </label>
           <textarea
@@ -217,62 +294,93 @@ export default function SettingsPage() {
             rows={2}
             style={{
               width: "100%",
-              padding: "12px 16px",
-              border: "1px solid #D1D5DB",
-              borderRadius: 8,
-              fontSize: 16,
+              padding: "14px 16px",
+              backgroundColor: "var(--cream)",
+              border: "1px solid var(--cream-dark)",
+              borderRadius: 12,
+              fontSize: 15,
               boxSizing: "border-box",
               resize: "vertical",
+              color: "var(--ink)",
+              fontFamily: "var(--font-body)",
+              outline: "none"
             }}
           />
         </div>
 
         {/* Booking Rules Section */}
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: "#111827", marginBottom: 20, paddingTop: 20, borderTop: "1px solid #E5E7EB" }}>
-          Booking Rules
-        </h2>
+        <div style={{
+          paddingTop: 28,
+          borderTop: "1px solid var(--cream-dark)"
+        }}>
+          <h2 style={{
+            fontSize: 18,
+            fontWeight: 600,
+            color: "var(--ink)",
+            marginTop: 0,
+            marginBottom: 24,
+            fontFamily: "var(--font-heading)"
+          }}>
+            Booking Rules
+          </h2>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
-            Minimum time to cancel/reschedule before appointment
-          </label>
-          <select
-            value={settings.cancelMinutesAdvance}
-            onChange={(e) => setSettings({ ...settings, cancelMinutesAdvance: Number(e.target.value) })}
-            style={{
-              width: "100%",
-              padding: "12px 16px",
-              border: "1px solid #D1D5DB",
-              borderRadius: 8,
-              fontSize: 16,
-              backgroundColor: "#FFFFFF",
-              cursor: "pointer",
-            }}
-          >
-            {cancelOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <p style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
-            Customers cannot cancel or reschedule within this time before their appointment.
-          </p>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 500,
+              color: "var(--ink-light)",
+              marginBottom: 8,
+              fontFamily: "var(--font-body)"
+            }}>
+              Minimum time to cancel/reschedule before appointment
+            </label>
+            <select
+              value={settings.cancelMinutesAdvance}
+              onChange={(e) => setSettings({ ...settings, cancelMinutesAdvance: Number(e.target.value) })}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                backgroundColor: "var(--cream)",
+                border: "1px solid var(--cream-dark)",
+                borderRadius: 12,
+                fontSize: 15,
+                cursor: "pointer",
+                color: "var(--ink)",
+                fontFamily: "var(--font-body)"
+              }}
+            >
+              {cancelOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <p style={{
+              fontSize: 13,
+              color: "var(--ink-muted)",
+              marginTop: 10,
+              fontFamily: "var(--font-body)"
+            }}>
+              Customers cannot cancel or reschedule within this time before their appointment.
+            </p>
+          </div>
         </div>
-
       </div>
 
-      <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ marginTop: 28, display: "flex", justifyContent: "flex-end" }}>
         <button
           onClick={handleSave}
           disabled={saving}
           style={{
-            padding: "12px 32px",
-            backgroundColor: saving ? "#9CA3AF" : "#EC4899",
-            color: "#FFFFFF",
+            padding: "14px 36px",
+            backgroundColor: saving ? "var(--ink-muted)" : "var(--rose)",
+            color: "var(--white)",
             border: "none",
-            borderRadius: 8,
-            fontSize: 16,
+            borderRadius: 50,
+            fontSize: 15,
             fontWeight: 600,
             cursor: saving ? "not-allowed" : "pointer",
+            fontFamily: "var(--font-body)",
+            transition: "all 0.2s ease"
           }}
         >
           {saving ? "Saving..." : "Save Settings"}

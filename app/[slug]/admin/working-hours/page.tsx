@@ -17,6 +17,7 @@ type WorkingHour = {
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const AVATAR_COLORS = ["var(--rose)", "var(--sage)", "var(--gold)", "var(--ink)"];
 
 const getDefaultHours = (): WorkingHour[] => [
   { dayOfWeek: 0, startTime: "10:00", endTime: "17:00", isWorking: true },
@@ -62,7 +63,6 @@ export default function WorkingHoursPage() {
       try {
         const res = await fetch(`/api/working-hours?staffId=${selectedStaff}`);
         const data = await res.json();
-        
         if (Array.isArray(data) && data.length === 7) {
           setWorkingHours(data);
         } else {
@@ -84,9 +84,7 @@ export default function WorkingHoursPage() {
   }
 
   const updateHour = (dayOfWeek: number, field: keyof WorkingHour, value: string | boolean) => {
-    setWorkingHours((prev) =>
-      prev.map((h) => (h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h))
-    );
+    setWorkingHours((prev) => prev.map((h) => (h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h)));
   };
 
   const applyToAllDays = () => {
@@ -94,12 +92,7 @@ export default function WorkingHoursPage() {
     if (!sunday) return;
 
     setWorkingHours((prev) =>
-      prev.map((h) => ({
-        ...h,
-        startTime: sunday.startTime,
-        endTime: sunday.endTime,
-        isWorking: sunday.isWorking,
-      }))
+      prev.map((h) => ({ ...h, startTime: sunday.startTime, endTime: sunday.endTime, isWorking: sunday.isWorking }))
     );
     setMessage({ type: "success", text: "Applied Sunday hours to all days" });
     setTimeout(() => setMessage(null), 2000);
@@ -110,7 +103,8 @@ export default function WorkingHoursPage() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/working-hours", { credentials: "include",
+      const res = await fetch("/api/working-hours", {
+        credentials: "include",
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ staffId: selectedStaff, hours: workingHours }),
@@ -129,132 +123,207 @@ export default function WorkingHoursPage() {
     }
   };
 
-  
   if (loading) {
     return (
-      <div style={{ padding: 24, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "50vh" }}>
-        <p>Loading...</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+        Loading...
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111827", margin: 0 }}>Working Hours</h1>
-        <p style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>Set working hours for each staff member</p>
+    <div style={{ maxWidth: 1000 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 32, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>
+            Staff Working Hours
+          </h1>
+          <p style={{ fontSize: 15, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+            Set working hours for each staff member
+          </p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            padding: "12px 28px",
+            backgroundColor: "var(--rose)",
+            color: "var(--white)",
+            border: "none",
+            borderRadius: 50,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: saving ? "not-allowed" : "pointer",
+            fontFamily: "var(--font-body)",
+            boxShadow: "var(--shadow-sm)",
+            opacity: saving ? 0.7 : 1,
+            transition: "all 0.2s ease"
+          }}
+        >
+          {saving ? "Saving..." : "Save Changes"}
+        </button>
       </div>
 
       {message && (
         <div style={{
-          padding: "12px 16px",
-          borderRadius: 8,
-          marginBottom: 16,
-          backgroundColor: message.type === "success" ? "#D1FAE5" : "#FEE2E2",
-          color: message.type === "success" ? "#065F46" : "#991B1B",
+          padding: 16,
+          borderRadius: 12,
+          marginBottom: 24,
+          backgroundColor: message.type === "success" ? "var(--sage-light)" : "var(--rose-pale)",
+          color: message.type === "success" ? "var(--sage)" : "var(--rose)",
+          fontSize: 14,
+          fontWeight: 500,
+          fontFamily: "var(--font-body)"
         }}>
           {message.text}
         </div>
       )}
 
+      {/* Staff Pills */}
       <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
-        {staff.map((s) => (
+        {staff.map((s, idx) => (
           <button
             key={s.id}
             onClick={() => setSelectedStaff(s.id)}
             style={{
-              padding: "10px 20px",
-              borderRadius: 8,
-              border: "1px solid #E5E7EB",
-              backgroundColor: selectedStaff === s.id ? "#EC4899" : "#FFFFFF",
-              color: selectedStaff === s.id ? "#FFFFFF" : "#374151",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 18px",
+              borderRadius: 50,
+              border: selectedStaff === s.id ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+              backgroundColor: selectedStaff === s.id ? "var(--rose-pale)" : "var(--white)",
+              color: selectedStaff === s.id ? "var(--rose)" : "var(--ink)",
               cursor: "pointer",
               fontSize: 14,
-              fontWeight: 500,
+              fontWeight: 600,
+              fontFamily: "var(--font-body)",
+              transition: "all 0.15s ease"
             }}
           >
+            <div style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              backgroundColor: selectedStaff === s.id ? "var(--rose)" : AVATAR_COLORS[idx % AVATAR_COLORS.length],
+              color: "var(--white)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 600,
+              fontSize: 12,
+            }}>
+              {s.name.charAt(0).toUpperCase()}
+            </div>
             {s.name}
           </button>
         ))}
       </div>
 
-      <div style={{ backgroundColor: "#FFFFFF", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" }}>
+      {/* Schedule Table */}
+      <div style={{
+        backgroundColor: "var(--white)",
+        borderRadius: 16,
+        border: "1px solid var(--cream-dark)",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-sm)"
+      }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ backgroundColor: "#F9FAFB" }}>
-              <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 14, fontWeight: 600, color: "#374151" }}>Day</th>
-              <th style={{ padding: "12px 16px", textAlign: "center", fontSize: 14, fontWeight: 600, color: "#374151" }}>Working</th>
-              <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 14, fontWeight: 600, color: "#374151" }}>Start Time</th>
-              <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 14, fontWeight: 600, color: "#374151" }}>End Time</th>
-              <th style={{ padding: "12px 16px", textAlign: "center", fontSize: 14, fontWeight: 600, color: "#374151" }}></th>
+            <tr style={{ backgroundColor: "var(--cream)" }}>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Day</th>
+              <th style={{ textAlign: "center", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Working</th>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Start</th>
+              <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>End</th>
+              <th style={{ textAlign: "center", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}></th>
             </tr>
           </thead>
           <tbody>
             {workingHours.map((hour) => (
-              <tr key={hour.dayOfWeek} style={{ borderTop: "1px solid #E5E7EB" }}>
-                <td style={{ padding: "12px 16px", fontSize: 14, color: "#111827", fontWeight: 500 }}>
-                  {DAYS[hour.dayOfWeek]}
+              <tr key={hour.dayOfWeek} style={{ borderBottom: "1px solid var(--cream-dark)" }}>
+                <td style={{ padding: "18px 20px" }}>
+                  <span style={{ fontWeight: 600, color: "var(--ink)", fontSize: 15, fontFamily: "var(--font-body)" }}>
+                    {DAYS[hour.dayOfWeek]}
+                  </span>
                 </td>
-                <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={hour.isWorking}
-                    onChange={(e) => updateHour(hour.dayOfWeek, "isWorking", e.target.checked)}
-                    style={{ width: 18, height: 18, cursor: "pointer" }}
-                  />
+                <td style={{ padding: "18px 20px", textAlign: "center" }}>
+                  <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={hour.isWorking}
+                      onChange={(e) => updateHour(hour.dayOfWeek, "isWorking", e.target.checked)}
+                      style={{ width: 18, height: 18, cursor: "pointer", accentColor: "var(--rose)" }}
+                    />
+                    <span style={{
+                      padding: "4px 12px",
+                      borderRadius: 50,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      fontFamily: "var(--font-body)",
+                      backgroundColor: hour.isWorking ? "var(--sage-light)" : "var(--rose-pale)",
+                      color: hour.isWorking ? "var(--sage)" : "var(--rose)"
+                    }}>
+                      {hour.isWorking ? "On" : "Off"}
+                    </span>
+                  </label>
                 </td>
-                <td style={{ padding: "12px 16px" }}>
+                <td style={{ padding: "18px 20px" }}>
                   <select
                     value={hour.startTime}
                     onChange={(e) => updateHour(hour.dayOfWeek, "startTime", e.target.value)}
                     disabled={!hour.isWorking}
                     style={{
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid #D1D5DB",
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      border: "1px solid var(--cream-dark)",
                       fontSize: 14,
-                      backgroundColor: hour.isWorking ? "#FFFFFF" : "#F3F4F6",
+                      backgroundColor: hour.isWorking ? "var(--cream)" : "var(--cream-dark)",
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)",
                       cursor: hour.isWorking ? "pointer" : "not-allowed",
+                      opacity: hour.isWorking ? 1 : 0.5
                     }}
                   >
-                    {timeOptions.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </td>
-                <td style={{ padding: "12px 16px" }}>
+                <td style={{ padding: "18px 20px" }}>
                   <select
                     value={hour.endTime}
                     onChange={(e) => updateHour(hour.dayOfWeek, "endTime", e.target.value)}
                     disabled={!hour.isWorking}
                     style={{
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid #D1D5DB",
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      border: "1px solid var(--cream-dark)",
                       fontSize: 14,
-                      backgroundColor: hour.isWorking ? "#FFFFFF" : "#F3F4F6",
+                      backgroundColor: hour.isWorking ? "var(--cream)" : "var(--cream-dark)",
+                      color: "var(--ink)",
+                      fontFamily: "var(--font-body)",
                       cursor: hour.isWorking ? "pointer" : "not-allowed",
+                      opacity: hour.isWorking ? 1 : 0.5
                     }}
                   >
-                    {timeOptions.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </td>
-                <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                <td style={{ padding: "18px 20px", textAlign: "center" }}>
                   {hour.dayOfWeek === 0 && (
                     <button
                       onClick={applyToAllDays}
                       style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#6366f1",
-                        color: "#FFFFFF",
+                        padding: "8px 14px",
+                        backgroundColor: "var(--ink)",
+                        color: "var(--cream)",
                         border: "none",
-                        borderRadius: 6,
+                        borderRadius: 50,
                         fontSize: 12,
-                        fontWeight: 500,
+                        fontWeight: 600,
                         cursor: "pointer",
                         whiteSpace: "nowrap",
+                        fontFamily: "var(--font-body)"
                       }}
                     >
                       Apply to All
@@ -266,26 +335,6 @@ export default function WorkingHoursPage() {
           </tbody>
         </table>
       </div>
-
-      <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{
-            padding: "12px 24px",
-            backgroundColor: saving ? "#9CA3AF" : "#EC4899",
-            color: "#FFFFFF",
-            border: "none",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
-      </div>
     </div>
   );
 }
-

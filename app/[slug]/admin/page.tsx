@@ -73,63 +73,241 @@ export default function SalonAdminDashboard() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "#6B7280" }}>
-        <p>Loading dashboard...</p>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "var(--ink-muted)" }}>
+        <p style={{ fontFamily: "var(--font-body)" }}>Loading dashboard...</p>
       </div>
     );
   }
 
+  const statCards = [
+    { label: "Today's Bookings", value: stats.todayBookings, color: "var(--rose)", bgColor: "var(--rose-pale)" },
+    { label: "Upcoming", value: stats.upcomingBookings, color: "var(--gold)", bgColor: "var(--gold-light)" },
+    { label: "Total Customers", value: stats.totalCustomers, color: "var(--sage)", bgColor: "var(--sage-light)" },
+    { label: "Revenue", value: formatCurrency(stats.revenue), color: "var(--ink)", bgColor: "var(--cream-dark)" },
+  ];
+
   return (
-    <div style={{ padding: "24px", maxWidth: 1400, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111827", margin: 0 }}>Dashboard</h1>
-          <p style={{ fontSize: 14, color: "#6B7280", marginTop: 4 }}>Welcome back! Here is what is happening today.</p>
+          <h1 style={{
+            fontSize: 32,
+            fontWeight: 600,
+            color: "var(--ink)",
+            margin: 0,
+            fontFamily: "var(--font-heading)",
+            letterSpacing: "-0.02em"
+          }}>
+            Dashboard
+          </h1>
+          <p style={{
+            fontSize: 15,
+            color: "var(--ink-muted)",
+            marginTop: 6,
+            fontFamily: "var(--font-body)"
+          }}>
+            Welcome back! Here is what is happening today.
+          </p>
         </div>
-        <Link href={`${basePath}/calendar`} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", backgroundColor: "#EC4899", color: "#FFFFFF", borderRadius: 8, textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
-          📅 View Calendar
+        <Link
+          href={`${basePath}/calendar`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 24px",
+            backgroundColor: "var(--rose)",
+            color: "var(--white)",
+            borderRadius: 50,
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 600,
+            fontFamily: "var(--font-body)",
+            transition: "all 0.2s ease",
+            boxShadow: "var(--shadow-sm)"
+          }}
+        >
+          <span>View Calendar</span>
+          <span style={{ fontSize: 16 }}>→</span>
         </Link>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 32 }}>
-        {[
-          { label: "Today's Bookings", value: stats.todayBookings, icon: "📅", color: "#EC4899" },
-          { label: "Upcoming", value: stats.upcomingBookings, icon: "⏰", color: "#8B5CF6" },
-          { label: "Total Customers", value: stats.totalCustomers, icon: "👥", color: "#10B981" },
-          { label: "Revenue", value: formatCurrency(stats.revenue), icon: "💰", color: "#F59E0B" },
-        ].map((stat) => (
-          <div key={stat.label} style={{ backgroundColor: "#FFFFFF", borderRadius: 12, padding: 20, display: "flex", alignItems: "center", gap: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", borderLeft: `4px solid ${stat.color}` }}>
-            <div style={{ fontSize: 32 }}>{stat.icon}</div>
-            <div>
-              <p style={{ fontSize: 13, color: "#6B7280", margin: 0, marginBottom: 4 }}>{stat.label}</p>
-              <p style={{ fontSize: 28, fontWeight: 700, color: "#111827", margin: 0 }}>{stat.value}</p>
+      {/* Stats Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, marginBottom: 32 }}>
+        {statCards.map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              backgroundColor: "var(--white)",
+              borderRadius: 16,
+              padding: 24,
+              border: "1px solid var(--cream-dark)",
+              boxShadow: "var(--shadow-sm)",
+              transition: "all 0.2s ease"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                backgroundColor: stat.bgColor,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}>
+                <div style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  backgroundColor: stat.color
+                }} />
+              </div>
+              <div>
+                <p style={{
+                  fontSize: 13,
+                  color: "var(--ink-muted)",
+                  margin: 0,
+                  marginBottom: 4,
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 500
+                }}>
+                  {stat.label}
+                </p>
+                <p style={{
+                  fontSize: 28,
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  margin: 0,
+                  fontFamily: "var(--font-heading)",
+                  letterSpacing: "-0.02em"
+                }}>
+                  {stat.value}
+                </p>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24, marginBottom: 32 }}>
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #E5E7EB" }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: "#111827", margin: 0 }}>Today's Appointments</h2>
-            <Link href={`${basePath}/calendar`} style={{ fontSize: 13, color: "#EC4899", textDecoration: "none", fontWeight: 500 }}>View all →</Link>
+      {/* Two Column Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 24 }}>
+        {/* Today's Appointments */}
+        <div style={{
+          backgroundColor: "var(--white)",
+          borderRadius: 16,
+          border: "1px solid var(--cream-dark)",
+          boxShadow: "var(--shadow-sm)",
+          overflow: "hidden"
+        }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "20px 24px",
+            borderBottom: "1px solid var(--cream-dark)"
+          }}>
+            <h2 style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "var(--ink)",
+              margin: 0,
+              fontFamily: "var(--font-heading)"
+            }}>
+              Today's Appointments
+            </h2>
+            <Link
+              href={`${basePath}/calendar`}
+              style={{
+                fontSize: 13,
+                color: "var(--rose)",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontFamily: "var(--font-body)"
+              }}
+            >
+              View all →
+            </Link>
           </div>
           <div style={{ padding: 20 }}>
             {todayAppointments.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "32px 0", color: "#6B7280" }}>
-                <p>No appointments today</p>
+              <div style={{
+                textAlign: "center",
+                padding: "40px 0",
+                color: "var(--ink-muted)",
+                fontFamily: "var(--font-body)"
+              }}>
+                <div style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: "50%",
+                  backgroundColor: "var(--cream-dark)",
+                  margin: "0 auto 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}>
+                  <span style={{ fontSize: 24 }}>📅</span>
+                </div>
+                <p style={{ margin: 0 }}>No appointments today</p>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {todayAppointments.map((apt) => (
-                  <div key={apt.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: 12, backgroundColor: "#F9FAFB", borderRadius: 8 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", minWidth: 50 }}>{formatTime(apt.startTime)}</div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: "#111827", margin: 0 }}>{apt.service.name}</p>
-                      <p style={{ fontSize: 12, color: "#6B7280", margin: 0, marginTop: 2 }}>{apt.customerName} • {apt.staff.name}</p>
+                  <div
+                    key={apt.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 16,
+                      padding: 16,
+                      backgroundColor: "var(--cream)",
+                      borderRadius: 12,
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <div style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--ink)",
+                      minWidth: 50,
+                      fontFamily: "var(--font-body)"
+                    }}>
+                      {formatTime(apt.startTime)}
                     </div>
-                    <div style={{ padding: "4px 10px", borderRadius: 12, fontSize: 11, fontWeight: 600, textTransform: "capitalize", backgroundColor: apt.status === "booked" ? "#DCFCE7" : "#FEE2E2", color: apt.status === "booked" ? "#166534" : "#991B1B" }}>
-                      {apt.status}
+                    <div style={{ flex: 1 }}>
+                      <p style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "var(--ink)",
+                        margin: 0,
+                        fontFamily: "var(--font-body)"
+                      }}>
+                        {apt.service.name}
+                      </p>
+                      <p style={{
+                        fontSize: 13,
+                        color: "var(--ink-muted)",
+                        margin: 0,
+                        marginTop: 3,
+                        fontFamily: "var(--font-body)"
+                      }}>
+                        {apt.customerName} • {apt.staff.name}
+                      </p>
+                    </div>
+                    <div style={{
+                      padding: "5px 12px",
+                      borderRadius: 50,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.02em",
+                      fontFamily: "var(--font-body)",
+                      backgroundColor: apt.status === "booked" || apt.status === "confirmed" ? "var(--sage-light)" : "var(--rose-pale)",
+                      color: apt.status === "booked" || apt.status === "confirmed" ? "var(--sage)" : "var(--rose)"
+                    }}>
+                      {apt.status === "booked" ? "Confirmed" : apt.status}
                     </div>
                   </div>
                 ))}
@@ -138,23 +316,72 @@ export default function SalonAdminDashboard() {
           </div>
         </div>
 
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #E5E7EB" }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: "#111827", margin: 0 }}>Quick Actions</h2>
+        {/* Quick Actions */}
+        <div style={{
+          backgroundColor: "var(--white)",
+          borderRadius: 16,
+          border: "1px solid var(--cream-dark)",
+          boxShadow: "var(--shadow-sm)",
+          overflow: "hidden"
+        }}>
+          <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--cream-dark)" }}>
+            <h2 style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: "var(--ink)",
+              margin: 0,
+              fontFamily: "var(--font-heading)"
+            }}>
+              Quick Actions
+            </h2>
           </div>
-          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              { href: `${basePath}/services`, label: "Manage Services", icon: "💅", badge: stats.totalServices },
-              { href: `${basePath}/staff`, label: "Manage Staff", icon: "👩‍💼", badge: stats.totalStaff },
-              { href: `${basePath}/working-hours`, label: "Working Hours", icon: "🕐" },
-              { href: `/${slug}`, label: "View Booking Page", icon: "🔗", external: true },
+              { href: `${basePath}/services`, label: "Manage Services", badge: stats.totalServices, color: "var(--rose)" },
+              { href: `${basePath}/staff`, label: "Manage Staff", badge: stats.totalStaff, color: "var(--sage)" },
+              { href: `${basePath}/working-hours`, label: "Staff Working Hours", color: "var(--gold)" },
+              { href: `/${slug}/booking`, label: "View Booking Page", external: true, color: "var(--ink)" },
             ].map((action) => (
-              <Link key={action.href} href={action.href} target={action.external ? "_blank" : undefined} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", backgroundColor: "#F9FAFB", borderRadius: 8, textDecoration: "none", color: "#374151", fontSize: 14, fontWeight: 500 }}>
-                <span style={{ fontSize: 20 }}>{action.icon}</span>
-                <span>{action.label}</span>
+              <Link
+                key={action.href}
+                href={action.href}
+                target={action.external ? "_blank" : undefined}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "16px 18px",
+                  backgroundColor: "var(--cream)",
+                  borderRadius: 12,
+                  textDecoration: "none",
+                  color: "var(--ink)",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  fontFamily: "var(--font-body)",
+                  transition: "all 0.2s ease",
+                  border: "1px solid transparent"
+                }}
+              >
+                <div style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  backgroundColor: action.color
+                }} />
+                <span style={{ flex: 1 }}>{action.label}</span>
                 {action.badge !== undefined && (
-                  <span style={{ marginLeft: "auto", backgroundColor: "#E5E7EB", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600, color: "#374151" }}>{action.badge}</span>
+                  <span style={{
+                    backgroundColor: "var(--cream-dark)",
+                    padding: "4px 12px",
+                    borderRadius: 50,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--ink-light)"
+                  }}>
+                    {action.badge}
+                  </span>
                 )}
+                <span style={{ color: "var(--ink-muted)", fontSize: 16 }}>→</span>
               </Link>
             ))}
           </div>
