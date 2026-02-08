@@ -1,26 +1,197 @@
 @import "tailwindcss";
 
+/* Hera Booking Design System */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Color Palette */
+  --cream: #FBF8F4;
+  --cream-dark: #F3EDE4;
+  --ink: #1A1715;
+  --ink-light: #4A4640;
+  --ink-muted: #8A857E;
+  --rose: #C4686D;
+  --rose-light: #E8A5A8;
+  --rose-pale: #F5DEDE;
+  --gold: #C6A96C;
+  --gold-light: #E8D5A8;
+  --sage: #7A8F7A;
+  --sage-light: #B5C5B5;
+  --white: #FFFFFF;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(26, 23, 21, 0.06);
+  --shadow-md: 0 4px 16px rgba(26, 23, 21, 0.08);
+  --shadow-lg: 0 12px 40px rgba(26, 23, 21, 0.12);
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 50px;
+
+  /* Typography */
+  --font-heading: var(--font-playfair), 'Playfair Display', serif;
+  --font-body: var(--font-dm-sans), 'DM Sans', sans-serif;
+
+  /* Legacy mappings */
+  --background: var(--cream);
+  --foreground: var(--ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
 }
 
+/* Reset dark mode - we use light only */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: var(--cream);
+    --foreground: var(--ink);
   }
 }
 
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography utilities */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Button base styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.btn-primary:hover {
+  background: var(--ink-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-rose {
+  background: var(--rose);
+  color: var(--white);
+}
+
+.btn-rose:hover {
+  background: #B35A5F;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(196, 104, 109, 0.3);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+}
+
+.btn-secondary:hover {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+/* Card styles */
+.card {
+  background: var(--white);
+  border: 1px solid var(--cream-dark);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Input styles */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--cream);
+  border: 1px solid var(--cream-dark);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ink);
+  transition: border-color 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--rose);
+  border-width: 1.5px;
+}
+
+.input::placeholder {
+  color: var(--ink-muted);
+}
+
+/* Badge styles */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-rose {
+  background: var(--rose-pale);
+  color: var(--rose);
+}
+
+.badge-gold {
+  background: var(--gold-light);
+  color: var(--gold);
+}
+
+.badge-sage {
+  background: var(--sage-light);
+  color: var(--sage);
+}
+
+/* Smooth transitions for all interactive elements */
+a, button, input, select, textarea {
+  transition: all 0.2s ease;
+}
+
+/* Selection color */
+::selection {
+  background: var(--rose-pale);
+  color: var(--ink);
 }
