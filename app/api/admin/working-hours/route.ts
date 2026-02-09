@@ -5,7 +5,8 @@ import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  const salon = await prisma.salon.findFirst();
+  // Fallback to victoria-nail-bar for dev
+  return "victoria-nail-bar";//
   return salon?.id || null;
 }
 

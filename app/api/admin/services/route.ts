@@ -5,8 +5,8 @@ import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  const salon = await prisma.salon.findFirst();
-  return salon?.id || null;
+  // Fallback to heranailspa for development
+  return "heranailspa";
 }
 
 export async function GET() {

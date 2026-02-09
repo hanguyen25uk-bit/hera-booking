@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
     // Set auth cookie
     response.cookies.set("salon_auth", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 8, // 8 hours
       path: "/",
     });

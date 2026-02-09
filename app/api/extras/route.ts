@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 async function getDefaultSalonId() {
-  const salon = await prisma.salon.findFirst();
+  // Fallback to heranailspa for dev
+  return "heranailspa";
   return salon?.id;
 }
 

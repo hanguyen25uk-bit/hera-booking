@@ -46,6 +46,17 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Development bypass - skip auth check on localhost
+  const host = request.headers.get("host") || "";
+  if (host.includes("localhost") || host.includes("127.0.0.1")) {
+    const response = NextResponse.next();
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    return response;
+  }
+
   // Add security headers
   const response = NextResponse.next();
   response.headers.set("X-Frame-Options", "DENY");

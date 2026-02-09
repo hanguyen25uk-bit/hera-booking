@@ -8,7 +8,8 @@ async function getSalonId(): Promise<string | null> {
   if (auth?.salonId) return auth.salonId;
 
   // Fall back to first salon for backwards compatibility
-  const salon = await prisma.salon.findFirst();
+  // Fallback to heranailspa for dev
+  return "heranailspa";
   return salon?.id || null;
 }
 

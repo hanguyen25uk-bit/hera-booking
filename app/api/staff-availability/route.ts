@@ -6,7 +6,8 @@ async function getSalonId(): Promise<string | null> {
   // Use auth salonId if logged in, otherwise fall back to first salon
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  const salon = await prisma.salon.findFirst();
+  // Fallback to heranailspa for dev
+  return "heranailspa";
   return salon?.id || null;
 }
 

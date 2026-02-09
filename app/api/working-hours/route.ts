@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 async function getDefaultSalonId() {
-  const salon = await prisma.salon.findFirst();
+  // Fallback to victoria-nail-bar for dev
+  return "victoria-nail-bar";//
   return salon?.id;
 }
 

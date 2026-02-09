@@ -18,21 +18,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log("Attempting login with:", email);
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("Response status:", res.status);
       const data = await res.json();
+      console.log("Response data:", data);
 
-      if (res.ok) {
-        router.push(data.redirectUrl);
-        router.refresh();
+      if (res.ok && data.success) {
+        console.log("Login success, redirecting to:", data.redirectUrl);
+        window.location.href = data.redirectUrl;
       } else {
         setError(data.error || "Invalid credentials");
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError("Something went wrong");
     } finally {
       setLoading(false);

@@ -6,7 +6,8 @@ async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
   // Fallback for legacy single-tenant
-  const salon = await prisma.salon.findFirst();
+  // Fallback to victoria-nail-bar for dev
+  return "victoria-nail-bar";//
   return salon?.id || null;
 }
 

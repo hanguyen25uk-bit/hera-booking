@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 const RESERVATION_MINUTES = 8; // Giữ chỗ 10 phút
 
 async function getDefaultSalonId() {
-  const salon = await prisma.salon.findFirst();
+  // Fallback to victoria-nail-bar for dev
+  return "victoria-nail-bar";//
   return salon?.id;
 }
 

@@ -7,7 +7,8 @@ import { getAuthPayload } from "@/lib/admin-auth";
 import crypto from "crypto";
 
 async function getDefaultSalonId() {
-  const salon = await prisma.salon.findFirst();
+  // Fallback to victoria-nail-bar for dev
+  return "victoria-nail-bar";//
   return salon?.id;
 }
 
