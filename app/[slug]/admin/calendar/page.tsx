@@ -889,10 +889,10 @@ export default function CalendarPage() {
     const top = (startHour - 8) * cellHeight;
     const height = Math.max(duration * cellHeight, cellHeight / 2);
 
-    // New color scheme - Light Coral/Peach for booked slots
-    let bgColor = COLORS.bookedSlot;
-    let borderColor = "#FFB5A8";
-    let textColor = COLORS.text;
+    // Light blue for booked slots
+    let bgColor = "#DBEAFE";
+    let borderColor = "#93C5FD";
+    let textColor = "#1e3a5f";
 
     if (apt.status === "cancelled") {
       bgColor = COLORS.cancelledSlot;
@@ -1295,7 +1295,7 @@ export default function CalendarPage() {
                     width: isMobile ? 36 : 44,
                     height: isMobile ? 36 : 44,
                     borderRadius: "50%",
-                    backgroundColor: isOff ? COLORS.divider : COLORS.accent,
+                    backgroundColor: isOff ? COLORS.divider : "#1a1a1a",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1457,28 +1457,30 @@ export default function CalendarPage() {
                             }}
                           >
                             <div style={{
-                              fontSize: isMobile ? 10 : 12,
+                              fontSize: isMobile ? 11 : 14,
                               fontWeight: 600,
                               color: style.textColor,
-                              marginBottom: 2,
+                              marginBottom: 1,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
+                              lineHeight: 1.2,
                             }}>
                               {apt.customerName}
                             </div>
                             <div style={{
-                              fontSize: isMobile ? 9 : 11,
+                              fontSize: isMobile ? 10 : 12,
                               color: style.textColor,
-                              opacity: 0.8,
+                              opacity: 0.85,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
+                              lineHeight: 1.2,
                             }}>
                               {apt.service.name}
                             </div>
                             {!isMobile && (
-                              <div style={{ fontSize: 10, color: style.textColor, opacity: 0.7, marginTop: 2 }}>
+                              <div style={{ fontSize: 10, color: style.textColor, opacity: 0.7, marginTop: 1, lineHeight: 1.2 }}>
                                 {formatTime(apt.startTime)} - {apt.service.durationMinutes}min
                               </div>
                             )}
