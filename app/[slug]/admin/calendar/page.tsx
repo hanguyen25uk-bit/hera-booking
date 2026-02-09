@@ -1112,8 +1112,8 @@ export default function CalendarPage() {
                   {isOff && (
                     <span style={{
                       padding: "2px 6px",
-                      backgroundColor: "#FEE2E2",
-                      color: "#DC2626",
+                      backgroundColor: "#374151",
+                      color: "#FFFFFF",
                       fontSize: 9,
                       fontWeight: 700,
                       borderRadius: 4,
@@ -1203,6 +1203,19 @@ export default function CalendarPage() {
                   const inWorkingHours = isHourInWorkingTime(hour, staff.id);
                   const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
 
+                  // Background styles based on state
+                  let cellBackground: string;
+                  if (isOff) {
+                    // Day off: dark diagonal stripes
+                    cellBackground = "repeating-linear-gradient(45deg, #d1d5db, #d1d5db 5px, #9ca3af 5px, #9ca3af 10px)";
+                  } else if (!inWorkingHours) {
+                    // Non-working hours: light diagonal stripes
+                    cellBackground = "repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 5px, #e5e7eb 5px, #e5e7eb 10px)";
+                  } else {
+                    // Working hours: pure white
+                    cellBackground = "#FFFFFF";
+                  }
+
                   return (
                     <div
                       key={`${staff.id}-${hour}`}
@@ -1210,19 +1223,21 @@ export default function CalendarPage() {
                         height: isMobile ? 60 : 80,
                         borderBottom: `1px solid #D1D5DB`,
                         borderRight: `1px solid #E5E7EB`,
-                        backgroundColor: isOff ? "#FEF2F2" : inWorkingHours ? COLORS.background : "#FAFAFA",
+                        background: cellBackground,
                         position: "relative",
                       }}
                     >
-                      {/* Half-hour dashed line */}
-                      <div style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: 0,
-                        right: 0,
-                        borderBottom: "1px dashed #E5E7EB",
-                        pointerEvents: "none",
-                      }} />
+                      {/* Half-hour dashed line - only show on working hours */}
+                      {inWorkingHours && !isOff && (
+                        <div style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: 0,
+                          right: 0,
+                          borderBottom: "1px dashed #E5E7EB",
+                          pointerEvents: "none",
+                        }} />
+                      )}
 
                       {!isOff && inWorkingHours && !isPastDate(selectedDate) && (
                         <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative", zIndex: 1 }}>
@@ -1248,9 +1263,12 @@ export default function CalendarPage() {
                           top: "50%",
                           left: "50%",
                           transform: "translate(-50%, -50%)",
-                          color: "#DC2626",
+                          backgroundColor: "rgba(255,255,255,0.9)",
+                          padding: "4px 12px",
+                          borderRadius: 4,
+                          color: "#374151",
                           fontSize: 11,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           zIndex: 5,
                         }}>
                           DAY OFF
@@ -1262,12 +1280,10 @@ export default function CalendarPage() {
                         const cellHeight = isMobile ? 60 : 80;
                         const style = getAppointmentStyle(apt, cellHeight);
                         // Use staff-specific colors for normal appointments
-                        const aptBgColor = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed"
-                          ? style.bgColor
-                          : staffColor.bg;
-                        const aptBorderColor = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed"
-                          ? style.borderColor
-                          : staffColor.border;
+                        const isSpecialStatus = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed";
+                        const aptBorderColor = isSpecialStatus ? style.borderColor : staffColor.border;
+                        // Lighter version of border color for outline
+                        const aptOutlineColor = isSpecialStatus ? style.borderColor + "40" : staffColor.border + "40";
 
                         return (
                           <div
@@ -1279,27 +1295,30 @@ export default function CalendarPage() {
                               left: 3,
                               right: 3,
                               height: style.height - 2,
-                              backgroundColor: aptBgColor,
+                              backgroundColor: "#FFFFFF",
                               borderLeft: `4px solid ${aptBorderColor}`,
+                              border: `1px solid ${aptOutlineColor}`,
+                              borderLeftWidth: 4,
+                              borderLeftColor: aptBorderColor,
                               borderRadius: 6,
                               padding: isMobile ? "4px 6px" : "6px 10px",
                               cursor: "pointer",
                               overflow: "hidden",
                               zIndex: 15,
                               transition: "box-shadow 0.15s ease",
-                              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.12)";
+                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
+                              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
                             }}
                           >
                             <div style={{
                               fontSize: isMobile ? 11 : 13,
                               fontWeight: 600,
-                              color: style.textColor,
+                              color: "#1F2937",
                               marginBottom: 2,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
