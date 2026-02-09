@@ -51,16 +51,14 @@ const COLORS = {
   noShowSlot: "var(--rose-pale)",
 };
 
-// Staff accent colors for left border
+// Staff accent colors for left border and background
 const STAFF_COLORS = [
-  "#E8B4BC", // Rose pink
-  "#B4C7E8", // Soft blue
-  "#B4E8C7", // Mint green
-  "#E8D4B4", // Warm sand
-  "#D4B4E8", // Lavender
-  "#E8E4B4", // Soft yellow
-  "#B4E8E8", // Aqua
-  "#E8B4D4", // Soft magenta
+  { border: "#3B82F6", bg: "#EFF6FF" }, // Blue
+  { border: "#F97316", bg: "#FFF7ED" }, // Orange
+  { border: "#10B981", bg: "#ECFDF5" }, // Green
+  { border: "#8B5CF6", bg: "#F5F3FF" }, // Purple
+  { border: "#14B8A6", bg: "#F0FDFA" }, // Teal
+  { border: "#EF4444", bg: "#FEF2F2" }, // Red
 ];
 
 export default function CalendarPage() {
@@ -871,25 +869,25 @@ export default function CalendarPage() {
     const top = (startHour - 8) * cellHeight;
     const height = Math.max(duration * cellHeight, cellHeight / 2);
 
-    // Light blue for booked slots
-    let bgColor = "#DBEAFE";
-    let borderColor = "#93C5FD";
-    let textColor = "#1e3a5f";
+    // Default text color for normal appointments
+    let bgColor = "#EFF6FF";
+    let borderColor = "#3B82F6";
+    let textColor = "#1F2937";
 
     if (apt.status === "cancelled") {
-      bgColor = COLORS.cancelledSlot;
-      borderColor = "#D0D0D0";
-      textColor = COLORS.textSecondary;
+      bgColor = "#F3F4F6";
+      borderColor = "#9CA3AF";
+      textColor = "#6B7280";
     }
     if (apt.status === "no-show") {
-      bgColor = COLORS.noShowSlot;
-      borderColor = "#FFB5B5";
-      textColor = "#C62828";
+      bgColor = "#FEF2F2";
+      borderColor = "#EF4444";
+      textColor = "#DC2626";
     }
     if (apt.status === "completed") {
-      bgColor = COLORS.confirmedSlot;
-      borderColor = "#B8DFB8";
-      textColor = "#2E7D32";
+      bgColor = "#ECFDF5";
+      borderColor = "#10B981";
+      textColor = "#059669";
     }
 
     return { top, height, bgColor, borderColor, textColor };
@@ -1058,81 +1056,69 @@ export default function CalendarPage() {
             top: 0,
             backgroundColor: COLORS.background,
             zIndex: 30,
-            borderBottom: `1px solid ${COLORS.divider}`,
+            borderBottom: `2px solid #D1D5DB`,
             borderRadius: "12px 12px 0 0",
           }}>
-            {/* Time Header */}
+            {/* Empty Time Header */}
             <div style={{
-              padding: isMobile ? "12px 4px" : "16px 12px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: COLORS.textSecondary,
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
+              padding: isMobile ? "10px 4px" : "12px 12px",
               position: "sticky",
               left: 0,
               backgroundColor: COLORS.background,
               zIndex: 40,
-            }}>
-              Time
-            </div>
-            {/* Staff Headers */}
+              borderRight: "1px solid #E5E7EB",
+            }} />
+            {/* Staff Headers - Compact inline layout */}
             {visibleStaffList.map((staff, idx) => {
               const avail = staffAvailability[staff.id];
               const isOff = avail && !avail.available;
-              const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
 
               return (
                 <div key={staff.id} style={{
-                  padding: isMobile ? "10px 4px" : "12px 12px",
-                  borderLeft: `1px solid ${COLORS.divider}`,
+                  padding: isMobile ? "10px 8px" : "12px 16px",
+                  borderLeft: `1px solid #E5E7EB`,
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  gap: 6,
+                  gap: 10,
                   backgroundColor: COLORS.background,
                 }}>
-                  {/* Staff Avatar with color accent */}
+                  {/* Small Staff Avatar */}
                   <div style={{
-                    width: isMobile ? 36 : 40,
-                    height: isMobile ? 36 : 40,
+                    width: 24,
+                    height: 24,
+                    minWidth: 24,
                     borderRadius: "50%",
-                    backgroundColor: isOff ? COLORS.divider : "#1a1a1a",
-                    border: isOff ? "none" : `3px solid ${staffColor}`,
+                    backgroundColor: isOff ? "#D1D5DB" : "#1a1a1a",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#FFFFFF",
                     fontWeight: 700,
-                    fontSize: isMobile ? 14 : 15,
+                    fontSize: 11,
                     textTransform: "uppercase",
                   }}>
                     {staff.name.charAt(0)}
                   </div>
                   <span style={{
-                    fontSize: isMobile ? 11 : 13,
+                    fontSize: 13,
                     fontWeight: 600,
                     color: isOff ? COLORS.textPlaceholder : COLORS.text,
-                    textAlign: "center",
-                    lineHeight: 1.2,
-                    maxWidth: isMobile ? 100 : "auto",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    whiteSpace: isMobile ? "nowrap" : "normal",
+                    whiteSpace: "nowrap",
                   }}>
                     {staff.name}
                   </span>
                   {isOff && (
                     <span style={{
-                      padding: "2px 8px",
-                      backgroundColor: "#FFE0E0",
-                      color: "#C62828",
+                      padding: "2px 6px",
+                      backgroundColor: "#FEE2E2",
+                      color: "#DC2626",
                       fontSize: 9,
-                      fontWeight: 600,
-                      borderRadius: 10,
+                      fontWeight: 700,
+                      borderRadius: 4,
                       textTransform: "uppercase",
+                      marginLeft: "auto",
                     }}>
                       OFF
                     </span>
@@ -1148,14 +1134,52 @@ export default function CalendarPage() {
             gridTemplateColumns: isMobile
               ? `60px repeat(${visibleStaffList.length}, 110px)`
               : `80px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
+            position: "relative",
           }}>
+            {/* Current Time Indicator */}
+            {showTimeIndicator && (
+              <div style={{
+                position: "absolute",
+                top: currentTimePosition,
+                left: 0,
+                right: 0,
+                zIndex: 50,
+                display: "flex",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}>
+                {/* Time pill */}
+                <div style={{
+                  backgroundColor: "#1a1a1a",
+                  color: "#FFFFFF",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "2px 6px",
+                  borderRadius: 10,
+                  marginLeft: 4,
+                  minWidth: isMobile ? 40 : 50,
+                  textAlign: "center",
+                }}>
+                  {currentTime.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
+                </div>
+                {/* Line */}
+                <div style={{
+                  flex: 1,
+                  height: 2,
+                  backgroundColor: "#1a1a1a",
+                  marginLeft: 4,
+                }} />
+              </div>
+            )}
+
             {/* Time Rows */}
             {hours.map(hour => (
               <>
                 {/* Time Label */}
                 <div key={`time-${hour}`} style={{
                   padding: isMobile ? "4px" : "8px 12px",
-                  borderBottom: `1px solid ${COLORS.dividerLight}`,
+                  borderBottom: `1px solid #D1D5DB`,
+                  borderRight: "1px solid #E5E7EB",
                   display: "flex",
                   alignItems: "flex-start",
                   justifyContent: isMobile ? "center" : "flex-end",
@@ -1177,20 +1201,31 @@ export default function CalendarPage() {
                   const avail = staffAvailability[staff.id];
                   const isOff = avail && !avail.available;
                   const inWorkingHours = isHourInWorkingTime(hour, staff.id);
+                  const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
 
                   return (
                     <div
                       key={`${staff.id}-${hour}`}
                       style={{
                         height: isMobile ? 60 : 80,
-                        borderBottom: `1px solid ${COLORS.dividerLight}`,
-                        borderLeft: `1px solid ${COLORS.dividerLight}`,
-                        backgroundColor: isOff ? "#FFF5F5" : inWorkingHours ? COLORS.background : "#FAFAFA",
+                        borderBottom: `1px solid #D1D5DB`,
+                        borderRight: `1px solid #E5E7EB`,
+                        backgroundColor: isOff ? "#FEF2F2" : inWorkingHours ? COLORS.background : "#FAFAFA",
                         position: "relative",
                       }}
                     >
+                      {/* Half-hour dashed line */}
+                      <div style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: 0,
+                        right: 0,
+                        borderBottom: "1px dashed #E5E7EB",
+                        pointerEvents: "none",
+                      }} />
+
                       {!isOff && inWorkingHours && !isPastDate(selectedDate) && (
-                        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                        <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative", zIndex: 1 }}>
                           {[0, 15, 30, 45].map(minute => (
                             <div
                               key={minute}
@@ -1198,10 +1233,9 @@ export default function CalendarPage() {
                               style={{
                                 flex: 1,
                                 cursor: "pointer",
-                                borderBottom: minute < 45 ? `1px dashed ${COLORS.dividerLight}` : "none",
                                 transition: "background-color 0.15s",
                               }}
-                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#F5F5F5"; }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.03)"; }}
                               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                             />
                           ))}
@@ -1214,9 +1248,10 @@ export default function CalendarPage() {
                           top: "50%",
                           left: "50%",
                           transform: "translate(-50%, -50%)",
-                          color: "#C62828",
+                          color: "#DC2626",
                           fontSize: 11,
                           fontWeight: 600,
+                          zIndex: 5,
                         }}>
                           DAY OFF
                         </div>
@@ -1226,7 +1261,14 @@ export default function CalendarPage() {
                       {hour === 8 && activeAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
                         const cellHeight = isMobile ? 60 : 80;
                         const style = getAppointmentStyle(apt, cellHeight);
-                        const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
+                        // Use staff-specific colors for normal appointments
+                        const aptBgColor = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed"
+                          ? style.bgColor
+                          : staffColor.bg;
+                        const aptBorderColor = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed"
+                          ? style.borderColor
+                          : staffColor.border;
+
                         return (
                           <div
                             key={apt.id}
@@ -1237,13 +1279,13 @@ export default function CalendarPage() {
                               left: 3,
                               right: 3,
                               height: style.height - 2,
-                              backgroundColor: style.bgColor,
-                              borderLeft: `4px solid ${staffColor}`,
+                              backgroundColor: aptBgColor,
+                              borderLeft: `4px solid ${aptBorderColor}`,
                               borderRadius: 6,
                               padding: isMobile ? "4px 6px" : "6px 10px",
                               cursor: "pointer",
                               overflow: "hidden",
-                              zIndex: 10,
+                              zIndex: 15,
                               transition: "box-shadow 0.15s ease",
                               boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                             }}
@@ -1267,9 +1309,8 @@ export default function CalendarPage() {
                               {apt.customerName}
                             </div>
                             <div style={{
-                              fontSize: isMobile ? 10 : 12,
-                              color: style.textColor,
-                              opacity: 0.75,
+                              fontSize: isMobile ? 10 : 11,
+                              color: "#6B7280",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
