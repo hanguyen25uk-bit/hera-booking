@@ -28,16 +28,6 @@ function verifySalonToken(token: string): TokenPayload | null {
   }
 }
 
-// Verify legacy admin_auth token (for backwards compatibility)
-function verifyLegacyToken(token: string): boolean {
-  if (!token || !token.includes(".") || !AUTH_SECRET) return false;
-  const [timestamp, signature] = token.split(".");
-  const expectedSignature = crypto.createHmac("sha256", AUTH_SECRET).update(timestamp).digest("hex");
-  if (signature !== expectedSignature) return false;
-  const tokenAge = Date.now() - parseInt(timestamp);
-  return tokenAge < 8 * 60 * 60 * 1000;
-}
-
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -64,13 +54,9 @@ export default function proxy(request: NextRequest) {
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  // Get auth tokens
+  // Get auth token
   const salonAuthCookie = request.cookies.get("salon_auth");
-  const legacyAuthCookie = request.cookies.get("admin_auth");
-
-  // Parse salon token if exists
   const salonAuth = salonAuthCookie?.value ? verifySalonToken(salonAuthCookie.value) : null;
-  const legacyAuth = legacyAuthCookie?.value ? verifyLegacyToken(legacyAuthCookie.value) : false;
 
   // Handle global login page
   if (pathname === "/login") {
@@ -100,23 +86,9 @@ export default function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Handle legacy /admin routes (for backwards compatibility)
-  if (pathname.startsWith("/admin")) {
-    // Check new salon auth first
-    if (salonAuth) {
-      // Redirect to new per-salon admin
-      return NextResponse.redirect(new URL(`/${salonAuth.salonSlug}/admin`, request.url));
-    }
-    // Fall back to legacy auth
-    if (legacyAuth) {
-      return response;
-    }
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
   return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/signup", "/:slug/admin/:path*"],
+  matcher: ["/login", "/signup", "/:slug/admin/:path*"],
 };
