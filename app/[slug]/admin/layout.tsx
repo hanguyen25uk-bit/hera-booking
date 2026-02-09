@@ -34,7 +34,6 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
 
   const basePath = `/${slug}/admin`;
   const menuItems = [
-    { href: basePath, label: "Dashboard", icon: "◉" },
     { href: `${basePath}/calendar`, label: "Calendar", icon: "◈" },
     { href: `${basePath}/receipts`, label: "Receipts", icon: "◇" },
     { href: `${basePath}/discounts`, label: "Discounts", icon: "✦" },
