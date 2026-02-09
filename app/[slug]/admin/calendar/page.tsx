@@ -1111,13 +1111,12 @@ export default function CalendarPage() {
                   </span>
                   {isOff && (
                     <span style={{
-                      padding: "2px 6px",
-                      backgroundColor: "#374151",
+                      padding: "2px 8px",
+                      backgroundColor: "#9CA3AF",
                       color: "#FFFFFF",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      borderRadius: 4,
-                      textTransform: "uppercase",
+                      fontSize: 10,
+                      fontWeight: 500,
+                      borderRadius: 10,
                       marginLeft: "auto",
                     }}>
                       OFF
@@ -1178,7 +1177,7 @@ export default function CalendarPage() {
                 {/* Time Label */}
                 <div key={`time-${hour}`} style={{
                   padding: isMobile ? "4px" : "8px 12px",
-                  borderBottom: `1px solid #D1D5DB`,
+                  borderBottom: "1px solid #E5E7EB",
                   borderRight: "1px solid #E5E7EB",
                   display: "flex",
                   alignItems: "flex-start",
@@ -1203,14 +1202,14 @@ export default function CalendarPage() {
                   const inWorkingHours = isHourInWorkingTime(hour, staff.id);
                   const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
 
-                  // Background styles based on state
+                  // Background styles - clean solid colors, no patterns
                   let cellBackground: string;
                   if (isOff) {
-                    // Day off: dark diagonal stripes
-                    cellBackground = "repeating-linear-gradient(45deg, #d1d5db, #d1d5db 5px, #9ca3af 5px, #9ca3af 10px)";
+                    // Day off: solid light gray
+                    cellBackground = "#E5E7EB";
                   } else if (!inWorkingHours) {
-                    // Non-working hours: light diagonal stripes
-                    cellBackground = "repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 5px, #e5e7eb 5px, #e5e7eb 10px)";
+                    // Non-working hours: barely-there gray
+                    cellBackground = "#F9FAFB";
                   } else {
                     // Working hours: pure white
                     cellBackground = "#FFFFFF";
@@ -1221,20 +1220,20 @@ export default function CalendarPage() {
                       key={`${staff.id}-${hour}`}
                       style={{
                         height: isMobile ? 60 : 80,
-                        borderBottom: `1px solid #D1D5DB`,
-                        borderRight: `1px solid #E5E7EB`,
-                        background: cellBackground,
+                        borderBottom: "1px solid #E5E7EB",
+                        borderRight: "1px solid #E5E7EB",
+                        backgroundColor: cellBackground,
                         position: "relative",
                       }}
                     >
-                      {/* Half-hour dashed line - only show on working hours */}
-                      {inWorkingHours && !isOff && (
+                      {/* Half-hour dashed line */}
+                      {!isOff && (
                         <div style={{
                           position: "absolute",
                           top: "50%",
                           left: 0,
                           right: 0,
-                          borderBottom: "1px dashed #E5E7EB",
+                          borderBottom: "1px dashed #F3F4F6",
                           pointerEvents: "none",
                         }} />
                       )}
@@ -1263,12 +1262,9 @@ export default function CalendarPage() {
                           top: "50%",
                           left: "50%",
                           transform: "translate(-50%, -50%)",
-                          backgroundColor: "rgba(255,255,255,0.9)",
-                          padding: "4px 12px",
-                          borderRadius: 4,
-                          color: "#374151",
-                          fontSize: 11,
-                          fontWeight: 700,
+                          color: "#9CA3AF",
+                          fontSize: 12,
+                          fontWeight: 500,
                           zIndex: 5,
                         }}>
                           DAY OFF
