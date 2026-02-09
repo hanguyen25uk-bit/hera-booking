@@ -42,13 +42,26 @@ const COLORS = {
   bookedSlotHover: "var(--rose-light)",
   confirmedSlot: "var(--sage-light)",
   availableSlot: "var(--cream)",
-  divider: "var(--cream-dark)",
+  divider: "#F3F4F6",
+  dividerLight: "#F9FAFB",
   navInactive: "var(--cream-dark)",
   navActive: "var(--ink)",
   iconColor: "var(--ink-muted)",
   cancelledSlot: "var(--cream-dark)",
   noShowSlot: "var(--rose-pale)",
 };
+
+// Staff accent colors for left border
+const STAFF_COLORS = [
+  "#E8B4BC", // Rose pink
+  "#B4C7E8", // Soft blue
+  "#B4E8C7", // Mint green
+  "#E8D4B4", // Warm sand
+  "#D4B4E8", // Lavender
+  "#E8E4B4", // Soft yellow
+  "#B4E8E8", // Aqua
+  "#E8B4D4", // Soft magenta
+];
 
 export default function CalendarPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -60,8 +73,6 @@ export default function CalendarPage() {
   const [visibleStaff, setVisibleStaff] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMobile, setIsMobile] = useState(false);
-  const [showStaffFilter, setShowStaffFilter] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
@@ -425,7 +436,7 @@ export default function CalendarPage() {
   function formatDateDisplay(dateStr: string) {
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
   function openAppointment(apt: Appointment) {
@@ -849,35 +860,6 @@ export default function CalendarPage() {
     }
   }
 
-  const toggleStaffVisibility = (staffId: string) => {
-    setVisibleStaff(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(staffId)) {
-        newSet.delete(staffId);
-      } else {
-        newSet.add(staffId);
-      }
-      return newSet;
-    });
-  };
-
-  const toggleAllStaff = () => {
-    if (visibleStaff.size === staffList.length) {
-      setVisibleStaff(new Set());
-    } else {
-      setVisibleStaff(new Set(staffList.map(s => s.id)));
-    }
-  };
-
-  function handleShare() {
-    const url = window.location.href;
-    if (navigator.share) {
-      navigator.share({ title: `Calendar - ${formatDateDisplay(selectedDate)}`, url });
-    } else {
-      navigator.clipboard.writeText(url);
-      alert("Link copied to clipboard!");
-    }
-  }
 
   const hours = Array.from({ length: 12 }, function(_, i) { return i + 8; });
 
@@ -946,94 +928,34 @@ export default function CalendarPage() {
   const currentTimePosition = (currentHour - 8) * 80 + (currentMinute / 60) * 80;
   const showTimeIndicator = isToday && currentHour >= 8 && currentHour < 20;
 
-  // Count appointments
-  const confirmedCount = appointments.filter(a => a.status === "confirmed" || a.status === "booked").length;
-  const totalCount = appointments.length;
-
-  // Filter appointments by search
-  const filteredAppointments = searchQuery
-    ? activeAppointments.filter(a =>
-        a.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.service.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : activeAppointments;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: COLORS.background, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       {/* Header */}
       <div style={{ padding: isMobile ? "12px 16px" : "16px 24px", backgroundColor: COLORS.background, borderBottom: `1px solid ${COLORS.divider}` }}>
-        {/* Top Row - Date and Actions */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, color: COLORS.text, margin: 0 }}>
+        {/* Navigation Row - Centered */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Left side - Date display */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
               {formatDateDisplay(selectedDate)}
             </h1>
             {isToday && (
               <span style={{
-                padding: "4px 10px",
+                padding: "3px 8px",
                 backgroundColor: COLORS.accent,
                 color: "#FFFFFF",
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 600,
-                borderRadius: 12,
+                borderRadius: 10,
               }}>
                 TODAY
               </span>
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Share Button */}
-            <button
-              onClick={handleShare}
-              style={{
-                width: 36,
-                height: 36,
-                border: `1px solid ${COLORS.divider}`,
-                borderRadius: 8,
-                background: COLORS.background,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              title="Share"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.iconColor} strokeWidth="2">
-                <circle cx="18" cy="5" r="3"/>
-                <circle cx="6" cy="12" r="3"/>
-                <circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-            </button>
-
-            {/* Add Button */}
-            <button
-              onClick={() => openAddModal()}
-              style={{
-                padding: isMobile ? "8px 14px" : "10px 18px",
-                backgroundColor: COLORS.accent,
-                color: "#FFFFFF",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
-              {!isMobile && "Add"}
-            </button>
-          </div>
-        </div>
-
-        {/* Navigation Row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {/* Center - Navigation */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button onClick={goToPreviousDay} style={{
               width: 32,
               height: 32,
@@ -1049,6 +971,34 @@ export default function CalendarPage() {
                 <polyline points="15 18 9 12 15 6"/>
               </svg>
             </button>
+
+            <button onClick={goToToday} style={{
+              padding: "6px 12px",
+              border: `1px solid ${COLORS.divider}`,
+              borderRadius: 6,
+              background: COLORS.background,
+              color: COLORS.text,
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}>
+              Today
+            </button>
+
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: `1px solid ${COLORS.divider}`,
+                borderRadius: 6,
+                fontSize: 13,
+                color: COLORS.text,
+                cursor: "pointer",
+              }}
+            />
+
             <button onClick={goToNextDay} style={{
               width: 32,
               height: 32,
@@ -1066,171 +1016,26 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          <button onClick={goToToday} style={{
-            padding: "6px 14px",
-            border: `1px solid ${COLORS.divider}`,
-            borderRadius: 6,
-            background: COLORS.background,
-            color: COLORS.text,
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: "pointer",
-          }}>
-            Today
-          </button>
-
-          {!isMobile && (
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                border: `1px solid ${COLORS.divider}`,
-                borderRadius: 6,
-                fontSize: 13,
-                color: COLORS.text,
-              }}
-            />
-          )}
-
-          {/* Search */}
-          <div style={{
-            flex: isMobile ? 1 : "none",
-            position: "relative",
-            minWidth: isMobile ? "auto" : 200,
-          }}>
-            <input
-              type="text"
-              placeholder="Search customer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "6px 10px 6px 32px",
-                border: `1px solid ${COLORS.divider}`,
-                borderRadius: 6,
-                fontSize: 13,
-                color: COLORS.text,
-                boxSizing: "border-box",
-              }}
-            />
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={COLORS.textPlaceholder} strokeWidth="2"
-              style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}
-            >
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </div>
-
-          {/* Staff Filter Toggle */}
+          {/* Right side - Add button only */}
           <button
-            onClick={() => setShowStaffFilter(!showStaffFilter)}
+            onClick={() => openAddModal()}
             style={{
-              padding: "6px 12px",
-              border: `1px solid ${showStaffFilter ? COLORS.accent : COLORS.divider}`,
-              borderRadius: 6,
-              background: showStaffFilter ? "#FFF0ED" : COLORS.background,
-              color: showStaffFilter ? COLORS.accent : COLORS.text,
-              fontSize: 13,
-              fontWeight: 500,
+              padding: isMobile ? "8px 12px" : "8px 16px",
+              backgroundColor: COLORS.accent,
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 6,
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            Team
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+            Add
           </button>
-        </div>
-
-        {/* Staff Filter Panel */}
-        {showStaffFilter && (
-          <div style={{
-            marginTop: 12,
-            padding: 12,
-            backgroundColor: COLORS.backgroundAlt,
-            borderRadius: 8,
-            border: `1px solid ${COLORS.divider}`,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.text }}>Show Team Members</span>
-              <button
-                onClick={toggleAllStaff}
-                style={{
-                  padding: "4px 10px",
-                  border: "none",
-                  borderRadius: 4,
-                  background: visibleStaff.size === staffList.length ? COLORS.accent : COLORS.divider,
-                  color: visibleStaff.size === staffList.length ? "#FFFFFF" : COLORS.text,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
-              >
-                {visibleStaff.size === staffList.length ? "Hide All" : "Show All"}
-              </button>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {staffList.map(staff => (
-                <label
-                  key={staff.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 10px",
-                    backgroundColor: visibleStaff.has(staff.id) ? "#FFF0ED" : COLORS.background,
-                    border: `1px solid ${visibleStaff.has(staff.id) ? COLORS.accent : COLORS.divider}`,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 13,
-                    color: visibleStaff.has(staff.id) ? COLORS.accent : COLORS.text,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleStaff.has(staff.id)}
-                    onChange={() => toggleStaffVisibility(staff.id)}
-                    style={{ accentColor: COLORS.accent }}
-                  />
-                  {staff.name}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Stats */}
-        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-          <div style={{
-            padding: "5px 12px",
-            backgroundColor: COLORS.confirmedSlot,
-            borderRadius: 16,
-          }}>
-            <span style={{ color: "#2E7D32", fontWeight: 600, fontSize: 12 }}>Confirmed: {confirmedCount}</span>
-          </div>
-          <div style={{
-            padding: "5px 12px",
-            backgroundColor: COLORS.backgroundAlt,
-            borderRadius: 16,
-          }}>
-            <span style={{ color: COLORS.textSecondary, fontWeight: 500, fontSize: 12 }}>Total: {totalCount}</span>
-          </div>
-          <div style={{
-            padding: "5px 12px",
-            backgroundColor: COLORS.backgroundAlt,
-            borderRadius: 16,
-          }}>
-            <span style={{ color: COLORS.textSecondary, fontWeight: 500, fontSize: 12 }}>Staff: {visibleStaffList.length}</span>
-          </div>
         </div>
       </div>
 
@@ -1253,7 +1058,7 @@ export default function CalendarPage() {
             top: 0,
             backgroundColor: COLORS.background,
             zIndex: 30,
-            borderBottom: `2px solid ${COLORS.divider}`,
+            borderBottom: `1px solid ${COLORS.divider}`,
             borderRadius: "12px 12px 0 0",
           }}>
             {/* Time Header */}
@@ -1277,31 +1082,31 @@ export default function CalendarPage() {
             {visibleStaffList.map((staff, idx) => {
               const avail = staffAvailability[staff.id];
               const isOff = avail && !avail.available;
-              // Alternating subtle backgrounds
-              const headerBg = idx % 2 === 0 ? COLORS.background : "#FAFAFA";
+              const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
 
               return (
                 <div key={staff.id} style={{
-                  padding: isMobile ? "10px 4px" : "14px 12px",
+                  padding: isMobile ? "10px 4px" : "12px 12px",
                   borderLeft: `1px solid ${COLORS.divider}`,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: 4,
-                  backgroundColor: headerBg,
+                  gap: 6,
+                  backgroundColor: COLORS.background,
                 }}>
-                  {/* Staff Avatar */}
+                  {/* Staff Avatar with color accent */}
                   <div style={{
-                    width: isMobile ? 36 : 44,
-                    height: isMobile ? 36 : 44,
+                    width: isMobile ? 36 : 40,
+                    height: isMobile ? 36 : 40,
                     borderRadius: "50%",
                     backgroundColor: isOff ? COLORS.divider : "#1a1a1a",
+                    border: isOff ? "none" : `3px solid ${staffColor}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#FFFFFF",
                     fontWeight: 700,
-                    fontSize: isMobile ? 14 : 16,
+                    fontSize: isMobile ? 14 : 15,
                     textTransform: "uppercase",
                   }}>
                     {staff.name.charAt(0)}
@@ -1319,11 +1124,6 @@ export default function CalendarPage() {
                   }}>
                     {staff.name}
                   </span>
-                  {!isMobile && (
-                    <span style={{ fontSize: 11, color: COLORS.textSecondary }}>
-                      {staff.role || "Nail Tech"}
-                    </span>
-                  )}
                   {isOff && (
                     <span style={{
                       padding: "2px 8px",
@@ -1355,21 +1155,21 @@ export default function CalendarPage() {
                 {/* Time Label */}
                 <div key={`time-${hour}`} style={{
                   padding: isMobile ? "4px" : "8px 12px",
-                  borderBottom: `1px solid ${COLORS.divider}`,
+                  borderBottom: `1px solid ${COLORS.dividerLight}`,
                   display: "flex",
                   alignItems: "flex-start",
                   justifyContent: isMobile ? "center" : "flex-end",
-                  color: COLORS.text,
-                  fontSize: isMobile ? 11 : 13,
+                  color: COLORS.textSecondary,
+                  fontSize: isMobile ? 11 : 12,
                   fontWeight: 500,
                   height: isMobile ? 60 : 80,
                   boxSizing: "border-box",
                   position: "sticky",
                   left: 0,
-                  backgroundColor: COLORS.backgroundAlt,
+                  backgroundColor: COLORS.background,
                   zIndex: 10,
                 }}>
-                  {hour.toString().padStart(2, "0")}:00
+                  {hour <= 12 ? hour : hour - 12}{hour < 12 ? "AM" : "PM"}
                 </div>
 
                 {/* Staff Columns */}
@@ -1377,17 +1177,15 @@ export default function CalendarPage() {
                   const avail = staffAvailability[staff.id];
                   const isOff = avail && !avail.available;
                   const inWorkingHours = isHourInWorkingTime(hour, staff.id);
-                  // Alternating column backgrounds
-                  const colBg = idx % 2 === 0 ? COLORS.background : "#FAFAFA";
 
                   return (
                     <div
                       key={`${staff.id}-${hour}`}
                       style={{
                         height: isMobile ? 60 : 80,
-                        borderBottom: `1px solid ${COLORS.divider}`,
-                        borderLeft: `1px solid ${COLORS.divider}`,
-                        backgroundColor: isOff ? "#FFEBEE" : inWorkingHours ? colBg : COLORS.backgroundAlt,
+                        borderBottom: `1px solid ${COLORS.dividerLight}`,
+                        borderLeft: `1px solid ${COLORS.dividerLight}`,
+                        backgroundColor: isOff ? "#FFF5F5" : inWorkingHours ? COLORS.background : "#FAFAFA",
                         position: "relative",
                       }}
                     >
@@ -1400,10 +1198,10 @@ export default function CalendarPage() {
                               style={{
                                 flex: 1,
                                 cursor: "pointer",
-                                borderBottom: minute < 45 ? `1px dashed ${COLORS.divider}` : "none",
+                                borderBottom: minute < 45 ? `1px dashed ${COLORS.dividerLight}` : "none",
                                 transition: "background-color 0.15s",
                               }}
-                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = COLORS.bookedSlotHover; }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#F5F5F5"; }}
                               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                             />
                           ))}
@@ -1425,9 +1223,10 @@ export default function CalendarPage() {
                       )}
 
                       {/* Appointments */}
-                      {hour === 8 && filteredAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
+                      {hour === 8 && activeAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
                         const cellHeight = isMobile ? 60 : 80;
                         const style = getAppointmentStyle(apt, cellHeight);
+                        const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
                         return (
                           <div
                             key={apt.id}
@@ -1435,55 +1234,49 @@ export default function CalendarPage() {
                             style={{
                               position: "absolute",
                               top: style.top,
-                              left: 2,
-                              right: 2,
+                              left: 3,
+                              right: 3,
                               height: style.height - 2,
                               backgroundColor: style.bgColor,
-                              border: `1px solid ${style.borderColor}`,
+                              borderLeft: `4px solid ${staffColor}`,
                               borderRadius: 6,
                               padding: isMobile ? "4px 6px" : "6px 10px",
                               cursor: "pointer",
                               overflow: "hidden",
                               zIndex: 10,
-                              transition: "transform 0.1s, box-shadow 0.1s",
+                              transition: "box-shadow 0.15s ease",
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = "scale(1.02)";
-                              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+                              e.currentTarget.style.boxShadow = "0 3px 8px rgba(0,0,0,0.12)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = "scale(1)";
-                              e.currentTarget.style.boxShadow = "none";
+                              e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
                             }}
                           >
                             <div style={{
-                              fontSize: isMobile ? 11 : 14,
+                              fontSize: isMobile ? 11 : 13,
                               fontWeight: 600,
                               color: style.textColor,
-                              marginBottom: 1,
+                              marginBottom: 2,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
-                              lineHeight: 1.2,
+                              lineHeight: 1.3,
                             }}>
                               {apt.customerName}
                             </div>
                             <div style={{
                               fontSize: isMobile ? 10 : 12,
                               color: style.textColor,
-                              opacity: 0.85,
+                              opacity: 0.75,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
-                              lineHeight: 1.2,
+                              lineHeight: 1.3,
                             }}>
                               {apt.service.name}
                             </div>
-                            {!isMobile && (
-                              <div style={{ fontSize: 10, color: style.textColor, opacity: 0.7, marginTop: 1, lineHeight: 1.2 }}>
-                                {formatTime(apt.startTime)} - {apt.service.durationMinutes}min
-                              </div>
-                            )}
                           </div>
                         );
                       })}
