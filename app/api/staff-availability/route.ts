@@ -3,12 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
 
 async function getSalonId(): Promise<string | null> {
-  // Use auth salonId if logged in, otherwise fall back to first salon
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  // Fallback to heranailspa for dev
   return "heranailspa";
-  return salon?.id || null;
 }
 
 export async function GET(req: NextRequest) {

@@ -1,8 +1,86 @@
 import { Resend } from "resend";
 
 const getResend = () => new Resend(process.env.RESEND_API_KEY || "");
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://hera-booking.vercel.app";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://herabooking.com";
 const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
+
+export async function sendPasswordResetEmail(data: {
+  email: string;
+  name: string;
+  resetToken: string;
+}) {
+  const { email, name, resetToken } = data;
+  const resetUrl = `${BASE_URL}/reset-password?token=${resetToken}`;
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">Hera</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 32px 24px; text-align: center;">
+              <div style="width: 64px; height: 64px; background-color: #FEF3C7; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 32px; line-height: 64px;">🔑</span>
+              </div>
+              <h2 style="color: #1e293b; margin: 0 0 16px; font-size: 22px; font-weight: 600;">Reset Your Password</h2>
+              <p style="color: #64748b; margin: 0 0 8px; font-size: 15px;">Hi ${name},</p>
+              <p style="color: #64748b; margin: 0 0 32px; font-size: 15px;">We received a request to reset your password. Click the button below to create a new password.</p>
+
+              <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 600; font-size: 16px;">Reset Password</a>
+
+              <p style="color: #94a3b8; margin: 32px 0 0; font-size: 13px;">This link will expire in 1 hour.</p>
+              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 13px;">If you didn't request this, you can safely ignore this email.</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #94a3b8; font-size: 12px; margin: 0;">If the button doesn't work, copy and paste this link:</p>
+              <p style="color: #6366f1; font-size: 12px; margin: 8px 0 0; word-break: break-all;">${resetUrl}</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  try {
+    const result = await getResend().emails.send({
+      from: `Hera <${FROM_EMAIL}>`,
+      to: email,
+      subject: "Reset Your Password - Hera",
+      html: emailHtml,
+    });
+
+    console.log("Password reset email sent:", result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Failed to send password reset email:", error);
+    return { success: false, error };
+  }
+}
 
 type BookingEmailData = {
   customerEmail: string;

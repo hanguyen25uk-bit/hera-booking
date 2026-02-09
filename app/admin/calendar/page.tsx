@@ -642,6 +642,8 @@ export default function CalendarPage() {
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
+  
+  
       doc.text(salonInfo?.name || "Hera Nail Spa", 40, y, { align: "center" });
       y += 5;
 

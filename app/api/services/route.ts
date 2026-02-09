@@ -3,14 +3,9 @@ import { NextResponse } from "next/server";
 import { getAuthPayload } from "@/lib/admin-auth";
 
 async function getSalonId(): Promise<string | null> {
-  // Try to get salonId from auth token
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-
-  // Fall back to first salon for backwards compatibility
-  // Fallback to heranailspa for dev
   return "heranailspa";
-  return salon?.id || null;
 }
 
 export async function GET() {

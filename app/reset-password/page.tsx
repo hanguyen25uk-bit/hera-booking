@@ -1,94 +1,134 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
+function ResetPasswordForm() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
+
+  useEffect(() => {
+    if (!token) {
+      setError("Invalid reset link");
+    }
+  }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      console.log("Attempting login with:", email);
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ token, password }),
       });
 
-      console.log("Response status:", res.status);
       const data = await res.json();
-      console.log("Response data:", data);
 
-      if (res.ok && data.success) {
-        console.log("Login success, redirecting to:", data.redirectUrl);
-        window.location.href = data.redirectUrl;
+      if (res.ok) {
+        setSuccess(true);
       } else {
-        setError(data.error || "Invalid credentials");
+        setError(data.error || "Something went wrong");
       }
-    } catch (err) {
-      console.error("Login error:", err);
+    } catch {
       setError("Something went wrong");
     } finally {
       setLoading(false);
     }
   }
 
+  if (success) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={styles.logoContainer}>
+            <span style={styles.logoText}>hera</span>
+          </div>
+
+          <div style={styles.successIcon}>✓</div>
+          <h1 style={styles.title}>Password Reset!</h1>
+          <p style={styles.subtitle}>
+            Your password has been successfully updated.
+          </p>
+
+          <Link href="/login" style={styles.button}>
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!token) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <div style={styles.logoContainer}>
+            <span style={styles.logoText}>hera</span>
+          </div>
+
+          <div style={styles.errorIcon}>!</div>
+          <h1 style={styles.title}>Invalid Link</h1>
+          <p style={styles.subtitle}>
+            This password reset link is invalid or has expired.
+          </p>
+
+          <Link href="/forgot-password" style={styles.button}>
+            Request New Link
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Logo */}
         <div style={styles.logoContainer}>
           <span style={styles.logoText}>hera</span>
         </div>
 
-        {/* Header */}
-        <h1 style={styles.title}>Welcome back</h1>
-        <p style={styles.subtitle}>Sign in to your dashboard</p>
+        <h1 style={styles.title}>Create new password</h1>
+        <p style={styles.subtitle}>
+          Enter your new password below
+        </p>
 
-        {/* Error */}
         {error && <div style={styles.error}>{error}</div>}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              style={styles.input}
-              autoFocus
-              required
-            />
-          </div>
-
-          <div style={styles.inputGroup}>
-            <div style={styles.labelRow}>
-              <label style={styles.label}>Password</label>
-              <Link href="/forgot-password" style={styles.forgotLink}>
-                Forgot password?
-              </Link>
-            </div>
+            <label style={styles.label}>New Password</label>
             <div style={styles.inputWrapper}>
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="Enter new password"
                 style={styles.input}
+                autoFocus
                 required
+                minLength={6}
               />
               <button
                 type="button"
@@ -110,20 +150,46 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Confirm Password</label>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
+              style={styles.input}
+              required
+              minLength={6}
+            />
+          </div>
+
           <button type="submit" style={styles.button} disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? "Resetting..." : "Reset Password"}
           </button>
         </form>
 
-        {/* Footer */}
         <p style={styles.footerText}>
-          Don't have an account?{" "}
-          <Link href="/signup" style={styles.link}>
-            Create one
+          Remember your password?{" "}
+          <Link href="/login" style={styles.link}>
+            Sign in
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
 
@@ -144,30 +210,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     width: "100%",
     maxWidth: 400,
+    textAlign: "center",
   },
   logoContainer: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
     marginBottom: 32,
-  },
-  logoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
-  },
-  logoH: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: 800,
-    fontFamily: "'Georgia', serif",
-    letterSpacing: "-1px",
   },
   logoText: {
     fontSize: 26,
@@ -176,44 +225,58 @@ const styles: { [key: string]: React.CSSProperties } = {
     letterSpacing: "0.5px",
     fontFamily: "'Söhne', 'Helvetica Neue', Arial, sans-serif",
   },
+  successIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: "50%",
+    backgroundColor: "#D1FAE5",
+    color: "#059669",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 32,
+    fontWeight: 700,
+    margin: "0 auto 24px",
+  },
+  errorIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: "50%",
+    backgroundColor: "#FEE2E2",
+    color: "#DC2626",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 32,
+    fontWeight: 700,
+    margin: "0 auto 24px",
+  },
   title: {
     fontSize: 24,
     fontWeight: 700,
     color: "#111827",
     margin: "0 0 8px 0",
-    textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
     color: "#6B7280",
     margin: "0 0 32px 0",
-    textAlign: "center",
   },
   form: {
     display: "flex",
     flexDirection: "column",
     gap: 20,
+    textAlign: "left",
   },
   inputGroup: {
     display: "flex",
     flexDirection: "column",
     gap: 6,
   },
-  labelRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   label: {
     fontSize: 14,
     fontWeight: 500,
     color: "#111827",
-  },
-  forgotLink: {
-    fontSize: 13,
-    color: "#6366F1",
-    textDecoration: "none",
-    fontWeight: 500,
   },
   inputWrapper: {
     position: "relative",
@@ -228,7 +291,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: "#FFFFFF",
     color: "#111827",
     boxSizing: "border-box",
-    transition: "border-color 0.2s ease",
   },
   eyeButton: {
     position: "absolute",
@@ -244,6 +306,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "center",
   },
   button: {
+    display: "block",
+    width: "100%",
     padding: "14px 24px",
     backgroundColor: "#111827",
     color: "#FFFFFF",
@@ -252,8 +316,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 16,
     fontWeight: 600,
     cursor: "pointer",
-    transition: "background-color 0.2s ease",
-    marginTop: 8,
+    textDecoration: "none",
+    textAlign: "center",
+    boxSizing: "border-box",
   },
   error: {
     backgroundColor: "#FEF2F2",
@@ -262,13 +327,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 8,
     fontSize: 14,
     marginBottom: 16,
-    textAlign: "center",
   },
   footerText: {
     marginTop: 24,
     color: "#6B7280",
     fontSize: 14,
-    textAlign: "center",
   },
   link: {
     color: "#6366F1",

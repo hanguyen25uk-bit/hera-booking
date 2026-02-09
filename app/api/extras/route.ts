@@ -2,9 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 async function getDefaultSalonId() {
-  // Fallback to heranailspa for dev
   return "heranailspa";
-  return salon?.id;
 }
 
 export async function GET() {

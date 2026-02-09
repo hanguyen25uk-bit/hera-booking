@@ -4,9 +4,7 @@ import { prisma } from "@/lib/prisma";
 const RESERVATION_MINUTES = 8; // Giữ chỗ 10 phút
 
 async function getDefaultSalonId() {
-  // Fallback to victoria-nail-bar for dev
-  return "victoria-nail-bar";//
-  return salon?.id;
+  return "heranailspa";
 }
 
 // POST - Reserve a slot

@@ -5,10 +5,7 @@ import { getAuthPayload, generateSalonToken } from "@/lib/admin-auth";
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  // Fallback for legacy single-tenant
-  // Fallback to victoria-nail-bar for dev
-  return "victoria-nail-bar";//
-  return salon?.id || null;
+  return "heranailspa";
 }
 
 export async function GET() {

@@ -5,9 +5,7 @@ import { getAuthPayload } from "@/lib/admin-auth";
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  // Fallback to heranailspa for dev
   return "heranailspa";
-  return salon?.id || null;
 }
 
 export async function GET() {

@@ -7,9 +7,7 @@ import { getAuthPayload } from "@/lib/admin-auth";
 import crypto from "crypto";
 
 async function getDefaultSalonId() {
-  // Fallback to victoria-nail-bar for dev
-  return "victoria-nail-bar";//
-  return salon?.id;
+  return "heranailspa";
 }
 
 export async function GET(req: NextRequest) {
