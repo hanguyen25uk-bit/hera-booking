@@ -83,44 +83,29 @@ export default function SchedulePage() {
   }
 
   async function handleSave() {
-    console.log("=== HANDLESAVE CALLED ===");
-    console.log("Form state:", { selectedStaffId, formStartDate, formEndDate, formAllDay, formStartTime, formEndTime, formTitle });
-
     if (!selectedStaffId || !formStartDate) {
-      console.log("=== VALIDATION FAILED ===", { selectedStaffId, formStartDate });
-      alert("Missing staff or date");
+      alert("Please select a staff member and date");
       return;
     }
 
     setSaving(true);
-    console.log("=== SAVING SET TO TRUE ===");
 
     try {
       if (editingOverride) {
-        console.log("=== UPDATING EXISTING ===", editingOverride.id);
-        const requestBody = {
-          id: editingOverride.id,
-          date: formStartDate,
-          isDayOff: formAllDay,
-          startTime: formAllDay ? null : formStartTime,
-          endTime: formAllDay ? null : formEndTime,
-          note: formTitle || null,
-        };
-        console.log("PUT request body:", requestBody);
-
+        // Update existing
         const res = await fetch("/api/admin/schedule-override", {
-          credentials: "include",
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify({
+            id: editingOverride.id,
+            date: formStartDate,
+            isDayOff: formAllDay,
+            startTime: formAllDay ? null : formStartTime,
+            endTime: formAllDay ? null : formEndTime,
+            note: formTitle || null,
+          }),
         });
-        console.log("PUT response status:", res.status);
-
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({ error: "Unknown error" }));
-          console.log("PUT error:", error);
-          throw new Error(error.error || "Failed to update");
-        }
+        if (!res.ok) throw new Error("Failed to update");
       } else {
         // Create new - support date range
         const dates: string[] = [];
@@ -133,47 +118,34 @@ export default function SchedulePage() {
         } else {
           dates.push(formStartDate);
         }
-        console.log("=== CREATING NEW ===", { dates, count: dates.length });
 
         for (const date of dates) {
-          const requestBody = {
-            staffId: selectedStaffId,
-            date,
-            isDayOff: formAllDay,
-            startTime: formAllDay ? null : formStartTime,
-            endTime: formAllDay ? null : formEndTime,
-            note: formTitle || null,
-          };
-          console.log("POST request body:", requestBody);
-
           const res = await fetch("/api/admin/schedule-override", {
-            credentials: "include",
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+              staffId: selectedStaffId,
+              date,
+              isDayOff: formAllDay,
+              startTime: formAllDay ? null : formStartTime,
+              endTime: formAllDay ? null : formEndTime,
+              note: formTitle || null,
+            }),
           });
-          console.log("POST response status:", res.status);
-
           if (!res.ok) {
-            const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-            console.log("POST error:", errorData);
-            throw new Error(errorData.error || "Failed to save");
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to save");
           }
-          const result = await res.json();
-          console.log("POST success:", result.id);
         }
       }
 
-      console.log("=== SAVE COMPLETE, CLOSING MODAL ===");
       setShowModal(false);
       resetForm();
       loadData();
     } catch (err: any) {
-      console.error("=== SAVE ERROR ===", err);
-      alert("Error saving: " + (err.message || "Unknown error"));
+      alert("Error: " + (err.message || "Failed to save"));
     } finally {
       setSaving(false);
-      console.log("=== SAVING SET TO FALSE ===");
     }
   }
 
@@ -199,13 +171,12 @@ export default function SchedulePage() {
 
   function openAddModal(type: "time-off" | "custom-hours") {
     const today = new Date().toISOString().split("T")[0];
-    console.log("openAddModal - today:", today, "selectedStaffId:", selectedStaffId);
     setFormTitle("");
     setFormStartDate(today);
     setFormStartTime("09:00");
     setFormEndDate(today);
     setFormEndTime("17:00");
-    setFormAllDay(type === "time-off"); // Default to all-day for time-off, unchecked for custom-hours
+    setFormAllDay(type === "time-off");
     setEditingOverride(null);
     setShowModal(true);
   }
@@ -899,10 +870,7 @@ export default function SchedulePage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  console.log("Add button clicked!", { saving, formStartDate, selectedStaffId });
-                  handleSave();
-                }}
+                onClick={handleSave}
                 disabled={saving || !formStartDate}
                 style={{
                   padding: "12px 28px",

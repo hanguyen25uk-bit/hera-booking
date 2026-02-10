@@ -44,15 +44,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const salonId = await getSalonId();
-    console.log("POST schedule-override - salonId:", salonId);
     if (!salonId) {
-      console.log("POST schedule-override - No salonId found");
       return unauthorizedResponse();
     }
 
     const body = await req.json();
     const { staffId, date, isDayOff, startTime, endTime, note } = body;
-    console.log("POST schedule-override - body:", { staffId, date, isDayOff, startTime, endTime, note });
 
     if (!staffId || !date) {
       return NextResponse.json({ error: "staffId and date required" }, { status: 400 });
@@ -60,7 +57,6 @@ export async function POST(req: NextRequest) {
 
     // Parse date and set to midnight UTC to avoid timezone issues
     const dateObj = new Date(date + "T00:00:00.000Z");
-    console.log("POST schedule-override - dateObj:", dateObj.toISOString());
 
     const override = await prisma.staffScheduleOverride.upsert({
       where: { staffId_date: { staffId, date: dateObj } },
@@ -81,10 +77,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log("POST schedule-override - created:", override.id);
     return NextResponse.json(override);
   } catch (error: any) {
-    console.error("POST schedule-override - error:", error);
+    console.error("POST schedule-override error:", error);
     return NextResponse.json({ error: error.message || "Failed to save" }, { status: 500 });
   }
 }
