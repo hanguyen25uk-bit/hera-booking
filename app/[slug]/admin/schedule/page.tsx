@@ -28,16 +28,16 @@ export default function SchedulePage() {
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<Tab>("time-off");
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState<"time-off" | "custom-hours">("time-off");
   const [saving, setSaving] = useState(false);
   const [editingOverride, setEditingOverride] = useState<Override | null>(null);
 
   // Form state
+  const [formTitle, setFormTitle] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
-  const [formEndDate, setFormEndDate] = useState("");
   const [formStartTime, setFormStartTime] = useState("09:00");
+  const [formEndDate, setFormEndDate] = useState("");
   const [formEndTime, setFormEndTime] = useState("17:00");
-  const [formNote, setFormNote] = useState("");
+  const [formAllDay, setFormAllDay] = useState(true);
 
   useEffect(() => { loadData(); }, []);
 
@@ -96,16 +96,16 @@ export default function SchedulePage() {
           body: JSON.stringify({
             id: editingOverride.id,
             date: formStartDate,
-            isDayOff: modalType === "time-off",
-            startTime: modalType === "time-off" ? null : formStartTime,
-            endTime: modalType === "time-off" ? null : formEndTime,
-            note: formNote || null,
+            isDayOff: formAllDay,
+            startTime: formAllDay ? null : formStartTime,
+            endTime: formAllDay ? null : formEndTime,
+            note: formTitle || null,
           }),
         });
       } else {
-        // Create new - support date range for time-off
+        // Create new - support date range
         const dates: string[] = [];
-        if (modalType === "time-off" && formEndDate && formEndDate !== formStartDate) {
+        if (formEndDate && formEndDate !== formStartDate) {
           const start = new Date(formStartDate);
           const end = new Date(formEndDate);
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -124,10 +124,10 @@ export default function SchedulePage() {
               body: JSON.stringify({
                 staffId: selectedStaffId,
                 date,
-                isDayOff: modalType === "time-off",
-                startTime: modalType === "time-off" ? null : formStartTime,
-                endTime: modalType === "time-off" ? null : formEndTime,
-                note: formNote || null,
+                isDayOff: formAllDay,
+                startTime: formAllDay ? null : formStartTime,
+                endTime: formAllDay ? null : formEndTime,
+                note: formTitle || null,
               }),
             })
           )
@@ -155,33 +155,34 @@ export default function SchedulePage() {
   }
 
   function resetForm() {
+    setFormTitle("");
     setFormStartDate("");
-    setFormEndDate("");
     setFormStartTime("09:00");
+    setFormEndDate("");
     setFormEndTime("17:00");
-    setFormNote("");
+    setFormAllDay(true);
     setEditingOverride(null);
   }
 
   function openAddModal(type: "time-off" | "custom-hours") {
-    setModalType(type);
     const today = new Date().toISOString().split("T")[0];
+    setFormTitle("");
     setFormStartDate(today);
-    setFormEndDate(today);
     setFormStartTime("09:00");
+    setFormEndDate(today);
     setFormEndTime("17:00");
-    setFormNote("");
+    setFormAllDay(type === "time-off"); // Default to all-day for time-off, unchecked for custom-hours
     setEditingOverride(null);
     setShowModal(true);
   }
 
   function openEditModal(override: Override) {
-    setModalType(override.isDayOff ? "time-off" : "custom-hours");
+    setFormTitle(override.note || "");
     setFormStartDate(override.date.split("T")[0]);
-    setFormEndDate(override.date.split("T")[0]);
     setFormStartTime(override.startTime || "09:00");
+    setFormEndDate(override.date.split("T")[0]);
     setFormEndTime(override.endTime || "17:00");
-    setFormNote(override.note || "");
+    setFormAllDay(override.isDayOff);
     setEditingOverride(override);
     setShowModal(true);
   }
@@ -202,11 +203,23 @@ export default function SchedulePage() {
     return diff > 0 ? diff : 1;
   }
 
-  const timeOptions: string[] = [];
+  // Generate time options with 12-hour format display
+  const timeOptions: { value: string; label: string }[] = [];
   for (let h = 6; h <= 22; h++) {
     for (let m = 0; m < 60; m += 30) {
-      timeOptions.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+      const value = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const ampm = h < 12 ? "AM" : "PM";
+      const label = `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
+      timeOptions.push({ value, label });
     }
+  }
+
+  function formatTime12h(time: string) {
+    const [h, m] = time.split(":").map(Number);
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
   }
 
   const selectedStaff = staff.find(s => s.id === selectedStaffId);
@@ -521,7 +534,7 @@ export default function SchedulePage() {
                               {formatDateLong(entry.date)}
                             </div>
                             <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
-                              {entry.startTime} - {entry.endTime}
+                              {entry.startTime && entry.endTime ? `${formatTime12h(entry.startTime)} - ${formatTime12h(entry.endTime)}` : "Custom hours"}
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -582,12 +595,12 @@ export default function SchedulePage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal - Setmore Style */}
       {showModal && (
         <div style={{
           position: "fixed",
           inset: 0,
-          backgroundColor: "rgba(0,0,0,0.4)",
+          backgroundColor: "rgba(0,0,0,0.5)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -596,239 +609,254 @@ export default function SchedulePage() {
         }}>
           <div style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: 12,
+            borderRadius: 16,
             width: "100%",
-            maxWidth: 420,
+            maxWidth: 520,
             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            position: "relative",
           }}>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "20px 24px",
-              borderBottom: "1px solid #E5E7EB",
-            }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1F2937" }}>
-                {editingOverride ? "Edit" : "Add"} {modalType === "time-off" ? "time off" : "custom hours"}
+            {/* Close button */}
+            <button
+              onClick={() => { setShowModal(false); resetForm(); }}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                width: 32,
+                height: 32,
+                border: "none",
+                background: "transparent",
+                fontSize: 20,
+                cursor: "pointer",
+                color: "#9CA3AF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 6,
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#6B7280"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "#9CA3AF"}
+            >
+              ×
+            </button>
+
+            {/* Header */}
+            <div style={{ padding: "24px 24px 0" }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#1F2937" }}>
+                {editingOverride ? "Edit time off" : "Add time off"}
               </h2>
-              <button
-                onClick={() => { setShowModal(false); resetForm(); }}
-                style={{
-                  width: 32,
-                  height: 32,
-                  border: "none",
-                  background: "#F3F4F6",
-                  borderRadius: 6,
-                  fontSize: 18,
-                  cursor: "pointer",
-                  color: "#6B7280",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ×
-              </button>
             </div>
 
-            <div style={{ padding: 24 }}>
-              {modalType === "time-off" ? (
-                <>
-                  {/* Time Off Form */}
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Title / Note (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={formNote}
-                      onChange={(e) => setFormNote(e.target.value)}
-                      placeholder="e.g. Holiday, Sick leave"
-                      style={{
-                        width: "100%",
-                        padding: "12px 14px",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: 8,
-                        fontSize: 14,
-                        color: "#1F2937",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  </div>
+            {/* Form Content */}
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Title Field */}
+              <div>
+                <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g. Vacation, Doctor's appointment"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    border: "1px solid #D1D5DB",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    color: "#1F2937",
+                    boxSizing: "border-box",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = "#1F2937"}
+                  onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+                />
+              </div>
 
-                  <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                        Start date
-                      </label>
-                      <input
-                        type="date"
-                        value={formStartDate}
-                        onChange={(e) => {
-                          setFormStartDate(e.target.value);
-                          if (!formEndDate || e.target.value > formEndDate) {
-                            setFormEndDate(e.target.value);
-                          }
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "12px 14px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: 8,
-                          fontSize: 14,
-                          color: "#1F2937",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                        End date
-                      </label>
-                      <input
-                        type="date"
-                        value={formEndDate}
-                        onChange={(e) => setFormEndDate(e.target.value)}
-                        min={formStartDate}
-                        style={{
-                          width: "100%",
-                          padding: "12px 14px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: 8,
-                          fontSize: 14,
-                          color: "#1F2937",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {getDaysCount() > 1 && (
-                    <div style={{
+              {/* Date & Time Row */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: formAllDay ? "1fr 1fr" : "1fr 1fr 1fr 1fr",
+                gap: 12
+              }}>
+                {/* Start Date */}
+                <div>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                    Start date
+                  </label>
+                  <input
+                    type="date"
+                    value={formStartDate}
+                    onChange={(e) => {
+                      setFormStartDate(e.target.value);
+                      if (!formEndDate || e.target.value > formEndDate) {
+                        setFormEndDate(e.target.value);
+                      }
+                    }}
+                    style={{
+                      width: "100%",
                       padding: "12px 14px",
-                      backgroundColor: "#F0FDF4",
+                      border: "1px solid #D1D5DB",
                       borderRadius: 8,
-                      color: "#15803D",
                       fontSize: 14,
-                      fontWeight: 500,
-                    }}>
-                      {getDaysCount()} days selected
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* Custom Hours Form */}
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formStartDate}
-                      onChange={(e) => setFormStartDate(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 14px",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: 8,
-                        fontSize: 14,
-                        color: "#1F2937",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  </div>
+                      color: "#1F2937",
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = "#1F2937"}
+                    onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+                  />
+                </div>
 
-                  <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                        Start time
-                      </label>
-                      <select
-                        value={formStartTime}
-                        onChange={(e) => setFormStartTime(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "12px 14px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: 8,
-                          fontSize: 14,
-                          color: "#1F2937",
-                          boxSizing: "border-box",
-                          backgroundColor: "#FFFFFF",
-                        }}
-                      >
-                        {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                        End time
-                      </label>
-                      <select
-                        value={formEndTime}
-                        onChange={(e) => setFormEndTime(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "12px 14px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: 8,
-                          fontSize: 14,
-                          color: "#1F2937",
-                          boxSizing: "border-box",
-                          backgroundColor: "#FFFFFF",
-                        }}
-                      >
-                        {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
+                {/* Start Time - only show if not all day */}
+                {!formAllDay && (
                   <div>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
-                      Note (optional)
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                      Start time
                     </label>
-                    <input
-                      type="text"
-                      value={formNote}
-                      onChange={(e) => setFormNote(e.target.value)}
-                      placeholder="e.g. Early shift"
+                    <select
+                      value={formStartTime}
+                      onChange={(e) => setFormStartTime(e.target.value)}
                       style={{
                         width: "100%",
                         padding: "12px 14px",
-                        border: "1px solid #E5E7EB",
+                        border: "1px solid #D1D5DB",
                         borderRadius: 8,
                         fontSize: 14,
                         color: "#1F2937",
                         boxSizing: "border-box",
+                        backgroundColor: "#FFFFFF",
+                        outline: "none",
+                        cursor: "pointer",
                       }}
-                    />
+                    >
+                      {timeOptions.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
                   </div>
-                </>
+                )}
+
+                {/* End Date */}
+                <div>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                    End date
+                  </label>
+                  <input
+                    type="date"
+                    value={formEndDate}
+                    onChange={(e) => setFormEndDate(e.target.value)}
+                    min={formStartDate}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      border: "1px solid #D1D5DB",
+                      borderRadius: 8,
+                      fontSize: 14,
+                      color: "#1F2937",
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = "#1F2937"}
+                    onBlur={(e) => e.currentTarget.style.borderColor = "#D1D5DB"}
+                  />
+                </div>
+
+                {/* End Time - only show if not all day */}
+                {!formAllDay && (
+                  <div>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                      End time
+                    </label>
+                    <select
+                      value={formEndTime}
+                      onChange={(e) => setFormEndTime(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        border: "1px solid #D1D5DB",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        color: "#1F2937",
+                        boxSizing: "border-box",
+                        backgroundColor: "#FFFFFF",
+                        outline: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {timeOptions.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* All Day Checkbox & Repeat */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                  <div
+                    onClick={() => setFormAllDay(!formAllDay)}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
+                      border: formAllDay ? "none" : "2px solid #D1D5DB",
+                      backgroundColor: formAllDay ? "#1F2937" : "#FFFFFF",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {formAllDay && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 14, color: "#374151" }}>All day</span>
+                </label>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 14, color: "#6B7280" }}>Does not repeat</span>
+                </div>
+              </div>
+
+              {/* Days count indicator */}
+              {getDaysCount() > 1 && (
+                <div style={{
+                  padding: "12px 14px",
+                  backgroundColor: "#F0FDF4",
+                  borderRadius: 8,
+                  color: "#15803D",
+                  fontSize: 14,
+                  fontWeight: 500,
+                }}>
+                  {getDaysCount()} days selected
+                </div>
               )}
             </div>
 
+            {/* Footer Buttons */}
             <div style={{
               display: "flex",
               gap: 12,
-              justifyContent: "flex-end",
-              padding: "16px 24px",
-              borderTop: "1px solid #E5E7EB",
-              backgroundColor: "#F9FAFB",
-              borderRadius: "0 0 12px 12px",
+              justifyContent: "space-between",
+              padding: "16px 24px 24px",
             }}>
               <button
                 onClick={() => { setShowModal(false); resetForm(); }}
                 style={{
-                  padding: "10px 20px",
-                  backgroundColor: "#FFFFFF",
+                  padding: "12px 24px",
+                  backgroundColor: "transparent",
                   color: "#374151",
-                  border: "1px solid #E5E7EB",
+                  border: "none",
                   borderRadius: 8,
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: "pointer",
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#F3F4F6"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
               >
                 Cancel
               </button>
@@ -836,18 +864,21 @@ export default function SchedulePage() {
                 onClick={handleSave}
                 disabled={saving || !formStartDate}
                 style={{
-                  padding: "10px 20px",
-                  backgroundColor: "#1F2937",
+                  padding: "12px 28px",
+                  backgroundColor: "#1a1a1a",
                   color: "#FFFFFF",
                   border: "none",
                   borderRadius: 8,
                   fontSize: 14,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   cursor: saving ? "not-allowed" : "pointer",
                   opacity: saving || !formStartDate ? 0.6 : 1,
+                  transition: "all 0.15s ease",
                 }}
+                onMouseEnter={(e) => { if (!saving && formStartDate) e.currentTarget.style.backgroundColor = "#333"; }}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#1a1a1a"}
               >
-                {saving ? "Saving..." : "Save"}
+                {saving ? "Saving..." : editingOverride ? "Save" : "Add"}
               </button>
             </div>
           </div>
