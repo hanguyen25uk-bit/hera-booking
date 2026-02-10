@@ -93,11 +93,24 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     const dayOfWeek = checkDate.getDay();
     const checkTime = time || new Date().toTimeString().slice(0, 5);
 
+    // Create date-only string for comparison (YYYY-MM-DD format)
+    const bookingDateStr = date || checkDate.toISOString().split('T')[0];
+
     let bestDiscount: Discount | null = null;
 
     for (const discount of discounts) {
       // Check if service is included
       if (!discount.serviceIds.includes(serviceId)) continue;
+
+      // Check if booking date is within validity period (date-only comparison)
+      if (discount.validFrom) {
+        const validFromDate = discount.validFrom.split('T')[0];
+        if (bookingDateStr < validFromDate) continue;
+      }
+      if (discount.validUntil) {
+        const validUntilDate = discount.validUntil.split('T')[0];
+        if (bookingDateStr > validUntilDate) continue;
+      }
 
       // Check if day is included
       if (!discount.daysOfWeek.includes(dayOfWeek)) continue;
@@ -665,8 +678,15 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {/* Services */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   {filteredServices.map((service) => {
-                    // Find the best discount available for this service
-                    const serviceDiscounts = discounts.filter(d => d.serviceIds.includes(service.id));
+                    // Find the best CURRENTLY VALID discount available for this service
+                    const today = new Date().toISOString().split('T')[0];
+                    const serviceDiscounts = discounts.filter(d => {
+                      if (!d.serviceIds.includes(service.id)) return false;
+                      // Check validity period
+                      if (d.validFrom && today < d.validFrom.split('T')[0]) return false;
+                      if (d.validUntil && today > d.validUntil.split('T')[0]) return false;
+                      return true;
+                    });
                     const bestDiscount = serviceDiscounts.length > 0
                       ? serviceDiscounts.reduce((max, d) => d.discountPercent > max.discountPercent ? d : max)
                       : null;
