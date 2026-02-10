@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-type Staff = { id: string; name: string };
+type Staff = { id: string; name: string; role?: string | null };
+type WorkingHours = { dayOfWeek: number; isWorking: boolean; startTime: string; endTime: string };
 
 type Override = {
   id: string;
@@ -15,21 +16,25 @@ type Override = {
   staff: Staff;
 };
 
-const AVATAR_COLORS = ["var(--rose)", "var(--sage)", "var(--gold)", "var(--ink)"];
+type Tab = "time-off" | "custom-hours" | "working-hours";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function SchedulePage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
+  const [workingHours, setWorkingHours] = useState<Record<string, WorkingHours[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<Tab>("time-off");
   const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState<"time-off" | "custom-hours">("time-off");
   const [saving, setSaving] = useState(false);
   const [editingOverride, setEditingOverride] = useState<Override | null>(null);
 
+  // Form state
   const [formStartDate, setFormStartDate] = useState("");
   const [formEndDate, setFormEndDate] = useState("");
-  const [formIsMultipleDays, setFormIsMultipleDays] = useState(false);
-  const [formIsDayOff, setFormIsDayOff] = useState(true);
   const [formStartTime, setFormStartTime] = useState("09:00");
   const [formEndTime, setFormEndTime] = useState("17:00");
   const [formNote, setFormNote] = useState("");
@@ -42,12 +47,38 @@ export default function SchedulePage() {
         fetch("/api/admin/staff", { credentials: "include" }),
         fetch("/api/admin/schedule-override", { credentials: "include" }),
       ]);
-      setStaff(await staffRes.json());
+      const staffData = await staffRes.json();
+      setStaff(staffData);
       setOverrides(await overridesRes.json());
+
+      // Select first staff member by default
+      if (staffData.length > 0 && !selectedStaffId) {
+        setSelectedStaffId(staffData[0].id);
+        loadWorkingHours(staffData[0].id);
+      }
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadWorkingHours(staffId: string) {
+    try {
+      const res = await fetch(`/api/admin/working-hours?staffId=${staffId}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setWorkingHours(prev => ({ ...prev, [staffId]: data }));
+      }
+    } catch (err) {
+      console.error("Failed to load working hours:", err);
+    }
+  }
+
+  function selectStaff(staffId: string) {
+    setSelectedStaffId(staffId);
+    if (!workingHours[staffId]) {
+      loadWorkingHours(staffId);
     }
   }
 
@@ -56,34 +87,52 @@ export default function SchedulePage() {
     setSaving(true);
 
     try {
-      const dates: string[] = [];
-      if (formIsMultipleDays && formEndDate) {
-        const start = new Date(formStartDate);
-        const end = new Date(formEndDate);
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          dates.push(d.toISOString().split("T")[0]);
-        }
+      if (editingOverride) {
+        // Update existing
+        await fetch("/api/admin/schedule-override", {
+          credentials: "include",
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingOverride.id,
+            date: formStartDate,
+            isDayOff: modalType === "time-off",
+            startTime: modalType === "time-off" ? null : formStartTime,
+            endTime: modalType === "time-off" ? null : formEndTime,
+            note: formNote || null,
+          }),
+        });
       } else {
-        dates.push(formStartDate);
-      }
+        // Create new - support date range for time-off
+        const dates: string[] = [];
+        if (modalType === "time-off" && formEndDate && formEndDate !== formStartDate) {
+          const start = new Date(formStartDate);
+          const end = new Date(formEndDate);
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dates.push(d.toISOString().split("T")[0]);
+          }
+        } else {
+          dates.push(formStartDate);
+        }
 
-      await Promise.all(
-        dates.map((date) =>
-          fetch("/api/admin/schedule-override", {
-            credentials: "include",
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              staffId: selectedStaffId,
-              date,
-              isDayOff: formIsDayOff,
-              startTime: formIsDayOff ? null : formStartTime,
-              endTime: formIsDayOff ? null : formEndTime,
-              note: formNote || null,
-            }),
-          })
-        )
-      );
+        await Promise.all(
+          dates.map((date) =>
+            fetch("/api/admin/schedule-override", {
+              credentials: "include",
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                staffId: selectedStaffId,
+                date,
+                isDayOff: modalType === "time-off",
+                startTime: modalType === "time-off" ? null : formStartTime,
+                endTime: modalType === "time-off" ? null : formEndTime,
+                note: formNote || null,
+              }),
+            })
+          )
+        );
+      }
 
       setShowModal(false);
       resetForm();
@@ -96,9 +145,9 @@ export default function SchedulePage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this schedule override?")) return;
+    if (!confirm("Delete this entry?")) return;
     try {
-      await fetch(`/api/admin/schedule-override?id=${id}`, { method: "DELETE" });
+      await fetch(`/api/admin/schedule-override?id=${id}`, { method: "DELETE", credentials: "include" });
       loadData();
     } catch (err) {
       alert("Error deleting");
@@ -106,25 +155,30 @@ export default function SchedulePage() {
   }
 
   function resetForm() {
-    setFormStartDate(""); setFormEndDate(""); setFormIsMultipleDays(false);
-    setFormIsDayOff(true); setFormStartTime("09:00"); setFormEndTime("17:00");
-    setFormNote(""); setSelectedStaffId(""); setEditingOverride(null);
+    setFormStartDate("");
+    setFormEndDate("");
+    setFormStartTime("09:00");
+    setFormEndTime("17:00");
+    setFormNote("");
+    setEditingOverride(null);
   }
 
-  function openAddModal(staffId: string) {
-    setSelectedStaffId(staffId);
+  function openAddModal(type: "time-off" | "custom-hours") {
+    setModalType(type);
     const today = new Date().toISOString().split("T")[0];
-    setFormStartDate(today); setFormEndDate(today); setFormIsMultipleDays(false);
-    setFormIsDayOff(true); setFormStartTime("09:00"); setFormEndTime("17:00");
-    setFormNote(""); setEditingOverride(null); setShowModal(true);
+    setFormStartDate(today);
+    setFormEndDate(today);
+    setFormStartTime("09:00");
+    setFormEndTime("17:00");
+    setFormNote("");
+    setEditingOverride(null);
+    setShowModal(true);
   }
 
   function openEditModal(override: Override) {
-    setSelectedStaffId(override.staffId);
+    setModalType(override.isDayOff ? "time-off" : "custom-hours");
     setFormStartDate(override.date.split("T")[0]);
     setFormEndDate(override.date.split("T")[0]);
-    setFormIsMultipleDays(false);
-    setFormIsDayOff(override.isDayOff);
     setFormStartTime(override.startTime || "09:00");
     setFormEndTime(override.endTime || "17:00");
     setFormNote(override.note || "");
@@ -133,11 +187,15 @@ export default function SchedulePage() {
   }
 
   function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function formatDateLong(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
   function getDaysCount() {
-    if (!formIsMultipleDays || !formStartDate || !formEndDate) return 1;
+    if (!formStartDate || !formEndDate || formStartDate === formEndDate) return 1;
     const start = new Date(formStartDate);
     const end = new Date(formEndDate);
     const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -151,231 +209,645 @@ export default function SchedulePage() {
     }
   }
 
+  const selectedStaff = staff.find(s => s.id === selectedStaffId);
+  const staffOverrides = overrides.filter(o => o.staffId === selectedStaffId);
+  const timeOffEntries = staffOverrides.filter(o => o.isDayOff).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const customHoursEntries = staffOverrides.filter(o => !o.isDayOff).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const staffWorkingHours = workingHours[selectedStaffId] || [];
+
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "#9CA3AF" }}>
         Loading...
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1200 }}>
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>
-          Schedule Overrides
-        </h1>
-        <p style={{ fontSize: 15, color: "var(--ink-muted)", marginTop: 6, fontFamily: "var(--font-body)" }}>
-          Manage day offs and custom working hours
-        </p>
-      </div>
-
-      {/* Staff Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20, marginBottom: 40 }}>
-        {staff.map((s, idx) => (
-          <div key={s.id} style={{
-            backgroundColor: "var(--white)",
-            borderRadius: 16,
-            border: "1px solid var(--cream-dark)",
-            padding: 20,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            boxShadow: "var(--shadow-sm)"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+    <div style={{ display: "flex", height: "calc(100vh - 64px)", backgroundColor: "#FFFFFF" }}>
+      {/* Left Panel - Staff List */}
+      <div style={{
+        width: 260,
+        minWidth: 260,
+        borderRight: "1px solid #E5E7EB",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#FFFFFF",
+      }}>
+        <div style={{
+          padding: "20px 16px",
+          borderBottom: "1px solid #E5E7EB",
+        }}>
+          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#374151" }}>
+            Your team <span style={{ color: "#9CA3AF", fontWeight: 400 }}>({staff.length})</span>
+          </h2>
+        </div>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {staff.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => selectStaff(s.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "14px 16px",
+                cursor: "pointer",
+                backgroundColor: selectedStaffId === s.id ? "#F9FAFB" : "transparent",
+                borderLeft: selectedStaffId === s.id ? "3px solid #1F2937" : "3px solid transparent",
+                transition: "all 0.15s ease",
+              }}
+            >
               <div style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                backgroundColor: AVATAR_COLORS[idx % AVATAR_COLORS.length],
-                color: "var(--white)",
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                backgroundColor: "#1F2937",
+                color: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: 600,
-                fontSize: 18,
-                fontFamily: "var(--font-body)"
+                fontSize: 13,
               }}>
-                {s.name.charAt(0)}
+                {s.name.charAt(0).toUpperCase()}
               </div>
-              <span style={{ fontWeight: 600, color: "var(--ink)", fontSize: 15, fontFamily: "var(--font-body)" }}>{s.name}</span>
+              <span style={{
+                fontSize: 14,
+                fontWeight: selectedStaffId === s.id ? 600 : 400,
+                color: "#1F2937",
+              }}>
+                {s.name}
+              </span>
             </div>
-            <button onClick={() => openAddModal(s.id)} style={{
-              padding: "10px 16px",
-              backgroundColor: "var(--cream)",
-              border: "1px solid var(--cream-dark)",
-              borderRadius: 50,
-              fontSize: 13,
-              color: "var(--ink-light)",
-              cursor: "pointer",
-              fontWeight: 500,
-              fontFamily: "var(--font-body)"
-            }}>
-              + Add Override
-            </button>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* Overrides List */}
-      <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--ink)", marginBottom: 16, fontFamily: "var(--font-heading)" }}>Upcoming Overrides</h2>
-      <div style={{
-        backgroundColor: "var(--white)",
-        borderRadius: 16,
-        border: "1px solid var(--cream-dark)",
-        overflow: "hidden",
-        boxShadow: "var(--shadow-sm)"
-      }}>
-        {overrides.length === 0 ? (
-          <div style={{ padding: 60, textAlign: "center", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
-            No schedule overrides yet
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ backgroundColor: "var(--cream)" }}>
-                <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Staff</th>
-                <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Date</th>
-                <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Type</th>
-                <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Hours</th>
-                <th style={{ textAlign: "left", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Note</th>
-                <th style={{ textAlign: "right", padding: "16px 20px", fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "var(--font-body)" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {overrides.map((o) => (
-                <tr key={o.id} style={{ borderBottom: "1px solid var(--cream-dark)" }}>
-                  <td style={{ padding: "18px 20px", fontSize: 14, color: "var(--ink)", fontWeight: 500, fontFamily: "var(--font-body)" }}>{o.staff.name}</td>
-                  <td style={{ padding: "18px 20px", fontSize: 14, color: "var(--ink-light)", fontFamily: "var(--font-body)" }}>{formatDate(o.date)}</td>
-                  <td style={{ padding: "18px 20px" }}>
-                    <span style={{
-                      padding: "5px 12px",
-                      borderRadius: 50,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      backgroundColor: o.isDayOff ? "var(--rose-pale)" : "var(--sage-light)",
-                      color: o.isDayOff ? "var(--rose)" : "var(--sage)",
-                      fontFamily: "var(--font-body)"
-                    }}>
-                      {o.isDayOff ? "Day Off" : "Custom Hours"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "18px 20px", fontSize: 14, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
-                    {o.isDayOff ? "—" : `${o.startTime} - ${o.endTime}`}
-                  </td>
-                  <td style={{ padding: "18px 20px", fontSize: 14, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>{o.note || "—"}</td>
-                  <td style={{ padding: "18px 20px", textAlign: "right" }}>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button onClick={() => openEditModal(o)} style={{ width: 34, height: 34, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>✏️</button>
-                      <button onClick={() => handleDelete(o.id)} style={{ width: 34, height: 34, border: "none", backgroundColor: "var(--rose-pale)", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>🗑</button>
-                    </div>
-                  </td>
-                </tr>
+      {/* Right Panel - Staff Details */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {selectedStaff ? (
+          <>
+            {/* Staff Header */}
+            <div style={{
+              padding: "24px 32px",
+              borderBottom: "1px solid #E5E7EB",
+              display: "flex",
+              alignItems: "center",
+              gap: 20,
+            }}>
+              <div style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                backgroundColor: "#1F2937",
+                color: "#FFFFFF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 600,
+                fontSize: 24,
+              }}>
+                {selectedStaff.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#1F2937" }}>
+                  {selectedStaff.name}
+                </h1>
+                <p style={{ margin: "4px 0 0", fontSize: 14, color: "#6B7280" }}>
+                  {selectedStaff.role || "Nail Technician"}
+                </p>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{
+              display: "flex",
+              gap: 32,
+              padding: "0 32px",
+              borderBottom: "1px solid #E5E7EB",
+            }}>
+              {[
+                { id: "working-hours" as Tab, label: "Working hours" },
+                { id: "time-off" as Tab, label: "Time off" },
+                { id: "custom-hours" as Tab, label: "Custom hours" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    padding: "16px 0",
+                    border: "none",
+                    background: "none",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: activeTab === tab.id ? 500 : 400,
+                    color: activeTab === tab.id ? "#1F2937" : "#6B7280",
+                    borderBottom: activeTab === tab.id ? "2px solid #1F2937" : "2px solid transparent",
+                    marginBottom: -1,
+                  }}
+                >
+                  {tab.label}
+                </button>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Tab Content */}
+            <div style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
+              {/* Working Hours Tab */}
+              {activeTab === "working-hours" && (
+                <div>
+                  <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 20 }}>
+                    Regular weekly schedule for {selectedStaff.name}
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    {[1, 2, 3, 4, 5, 6, 0].map(day => {
+                      const hours = staffWorkingHours.find(h => h.dayOfWeek === day);
+                      return (
+                        <div
+                          key={day}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "14px 0",
+                            borderBottom: "1px solid #F3F4F6",
+                          }}
+                        >
+                          <span style={{ fontSize: 14, fontWeight: 500, color: "#374151" }}>
+                            {DAY_NAMES[day]}
+                          </span>
+                          <span style={{ fontSize: 14, color: hours?.isWorking ? "#374151" : "#9CA3AF" }}>
+                            {hours?.isWorking ? `${hours.startTime} - ${hours.endTime}` : "Off"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {staffWorkingHours.length === 0 && (
+                    <p style={{ fontSize: 14, color: "#9CA3AF", marginTop: 20 }}>
+                      No working hours configured. Configure in Staff Hours page.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Time Off Tab */}
+              {activeTab === "time-off" && (
+                <div>
+                  <button
+                    onClick={() => openAddModal("time-off")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 14,
+                      color: "#1F2937",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginBottom: 24,
+                    }}
+                  >
+                    + Add time off
+                  </button>
+
+                  {timeOffEntries.length === 0 ? (
+                    <p style={{ fontSize: 14, color: "#9CA3AF" }}>No time off scheduled</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      {timeOffEntries.map(entry => (
+                        <div
+                          key={entry.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "16px 0",
+                            borderBottom: "1px solid #F3F4F6",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: "#1F2937" }}>
+                              {entry.note || "Day Off"}
+                            </div>
+                            <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                              {formatDate(entry.date)}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            <span style={{ fontSize: 13, color: "#6B7280" }}>1 day</span>
+                            <button
+                              onClick={() => openEditModal(entry)}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                border: "1px solid #E5E7EB",
+                                borderRadius: 6,
+                                background: "#FFFFFF",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(entry.id)}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                border: "1px solid #FEE2E2",
+                                borderRadius: 6,
+                                background: "#FEF2F2",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Custom Hours Tab */}
+              {activeTab === "custom-hours" && (
+                <div>
+                  <button
+                    onClick={() => openAddModal("custom-hours")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 14,
+                      color: "#1F2937",
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                      marginBottom: 24,
+                    }}
+                  >
+                    + Add custom hours
+                  </button>
+
+                  {customHoursEntries.length === 0 ? (
+                    <p style={{ fontSize: 14, color: "#9CA3AF" }}>No custom hours scheduled</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      {customHoursEntries.map(entry => (
+                        <div
+                          key={entry.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "16px 0",
+                            borderBottom: "1px solid #F3F4F6",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: "#1F2937" }}>
+                              {formatDateLong(entry.date)}
+                            </div>
+                            <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+                              {entry.startTime} - {entry.endTime}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            {entry.note && (
+                              <span style={{ fontSize: 13, color: "#6B7280" }}>{entry.note}</span>
+                            )}
+                            <button
+                              onClick={() => openEditModal(entry)}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                border: "1px solid #E5E7EB",
+                                borderRadius: 6,
+                                background: "#FFFFFF",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(entry.id)}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                border: "1px solid #FEE2E2",
+                                borderRadius: 6,
+                                background: "#FEF2F2",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9CA3AF" }}>
+            Select a staff member
+          </div>
         )}
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(26,23,21,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-          <div style={{ backgroundColor: "var(--white)", borderRadius: 16, width: "100%", maxWidth: 500, overflow: "hidden", boxShadow: "var(--shadow-lg)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--cream-dark)" }}>
-              <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)" }}>
-                {editingOverride ? "Edit Override" : "Add Override"}
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0,0,0,0.4)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: 16,
+        }}>
+          <div style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 12,
+            width: "100%",
+            maxWidth: 420,
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "20px 24px",
+              borderBottom: "1px solid #E5E7EB",
+            }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "#1F2937" }}>
+                {editingOverride ? "Edit" : "Add"} {modalType === "time-off" ? "time off" : "custom hours"}
               </h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} style={{ width: 32, height: 32, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "var(--ink-muted)" }}>×</button>
+              <button
+                onClick={() => { setShowModal(false); resetForm(); }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: "none",
+                  background: "#F3F4F6",
+                  borderRadius: 6,
+                  fontSize: 18,
+                  cursor: "pointer",
+                  color: "#6B7280",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ×
+              </button>
             </div>
+
             <div style={{ padding: 24 }}>
-              <p style={{ fontSize: 14, color: "var(--ink-muted)", marginBottom: 20, fontFamily: "var(--font-body)" }}>
-                For: <strong style={{ color: "var(--ink)" }}>{staff.find(s => s.id === selectedStaffId)?.name}</strong>
-              </p>
+              {modalType === "time-off" ? (
+                <>
+                  {/* Time Off Form */}
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Title / Note (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formNote}
+                      onChange={(e) => setFormNote(e.target.value)}
+                      placeholder="e.g. Holiday, Sick leave"
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        color: "#1F2937",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
 
-              {!editingOverride && (
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--ink-light)", marginBottom: 20, padding: "14px 16px", backgroundColor: "var(--cream)", borderRadius: 12, cursor: "pointer", fontFamily: "var(--font-body)" }}>
-                  <input type="checkbox" checked={formIsMultipleDays} onChange={(e) => setFormIsMultipleDays(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer", accentColor: "var(--rose)" }} />
-                  Multiple days
-                </label>
-              )}
+                  <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                        Start date
+                      </label>
+                      <input
+                        type="date"
+                        value={formStartDate}
+                        onChange={(e) => {
+                          setFormStartDate(e.target.value);
+                          if (!formEndDate || e.target.value > formEndDate) {
+                            setFormEndDate(e.target.value);
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: 8,
+                          fontSize: 14,
+                          color: "#1F2937",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                        End date
+                      </label>
+                      <input
+                        type="date"
+                        value={formEndDate}
+                        onChange={(e) => setFormEndDate(e.target.value)}
+                        min={formStartDate}
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: 8,
+                          fontSize: 14,
+                          color: "#1F2937",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+                  </div>
 
-              <div style={{ display: formIsMultipleDays ? "flex" : "block", gap: 16, marginBottom: 18 }}>
-                <label style={{ display: "block", flex: 1 }}>
-                  <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>{formIsMultipleDays ? "From Date" : "Date"}</span>
-                  <input
-                    type="date"
-                    value={formStartDate}
-                    onChange={(e) => { setFormStartDate(e.target.value); if (!formIsMultipleDays) setFormEndDate(e.target.value); }}
-                    min={new Date().toISOString().split("T")[0]}
-                    style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }}
-                  />
-                </label>
-                {formIsMultipleDays && (
-                  <label style={{ display: "block", flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>To Date</span>
+                  {getDaysCount() > 1 && (
+                    <div style={{
+                      padding: "12px 14px",
+                      backgroundColor: "#F0FDF4",
+                      borderRadius: 8,
+                      color: "#15803D",
+                      fontSize: 14,
+                      fontWeight: 500,
+                    }}>
+                      {getDaysCount()} days selected
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Custom Hours Form */}
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Date
+                    </label>
                     <input
                       type="date"
-                      value={formEndDate}
-                      onChange={(e) => setFormEndDate(e.target.value)}
-                      min={formStartDate || new Date().toISOString().split("T")[0]}
-                      style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }}
+                      value={formStartDate}
+                      onChange={(e) => setFormStartDate(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        color: "#1F2937",
+                        boxSizing: "border-box",
+                      }}
                     />
-                  </label>
-                )}
-              </div>
+                  </div>
 
-              {formIsMultipleDays && formStartDate && formEndDate && (
-                <div style={{ padding: "12px 14px", backgroundColor: "var(--sage-light)", borderRadius: 10, color: "var(--sage)", fontSize: 14, fontWeight: 500, marginBottom: 18, fontFamily: "var(--font-body)" }}>
-                  {getDaysCount()} day(s) selected
-                </div>
+                  <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                        Start time
+                      </label>
+                      <select
+                        value={formStartTime}
+                        onChange={(e) => setFormStartTime(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: 8,
+                          fontSize: 14,
+                          color: "#1F2937",
+                          boxSizing: "border-box",
+                          backgroundColor: "#FFFFFF",
+                        }}
+                      >
+                        {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                        End time
+                      </label>
+                      <select
+                        value={formEndTime}
+                        onChange={(e) => setFormEndTime(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "12px 14px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: 8,
+                          fontSize: 14,
+                          color: "#1F2937",
+                          boxSizing: "border-box",
+                          backgroundColor: "#FFFFFF",
+                        }}
+                      >
+                        {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>
+                      Note (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formNote}
+                      onChange={(e) => setFormNote(e.target.value)}
+                      placeholder="e.g. Early shift"
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        color: "#1F2937",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                </>
               )}
-
-              <label style={{ display: "block", marginBottom: 18 }}>
-                <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>Type</span>
-                <select
-                  value={formIsDayOff ? "dayoff" : "custom"}
-                  onChange={(e) => setFormIsDayOff(e.target.value === "dayoff")}
-                  style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }}
-                >
-                  <option value="dayoff">Day Off</option>
-                  <option value="custom">Custom Hours</option>
-                </select>
-              </label>
-
-              {!formIsDayOff && (
-                <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
-                  <label style={{ flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>Start</span>
-                    <select value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)} style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }}>
-                      {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </label>
-                  <label style={{ flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>End</span>
-                    <select value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)} style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }}>
-                      {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </label>
-                </div>
-              )}
-
-              <label style={{ display: "block" }}>
-                <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--ink-light)", marginBottom: 6, fontFamily: "var(--font-body)" }}>Note (Optional)</span>
-                <input
-                  type="text"
-                  value={formNote}
-                  onChange={(e) => setFormNote(e.target.value)}
-                  placeholder="e.g. Holiday, Doctor appointment"
-                  style={{ width: "100%", padding: "12px 16px", backgroundColor: "var(--cream)", border: "1px solid var(--cream-dark)", borderRadius: 12, fontSize: 14, color: "var(--ink)", fontFamily: "var(--font-body)", boxSizing: "border-box" }}
-                />
-              </label>
             </div>
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", padding: "16px 24px", borderTop: "1px solid var(--cream-dark)", backgroundColor: "var(--cream)" }}>
-              <button onClick={() => { setShowModal(false); resetForm(); }} style={{ padding: "12px 24px", backgroundColor: "var(--white)", color: "var(--ink-light)", border: "1px solid var(--cream-dark)", borderRadius: 50, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-body)" }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} style={{ padding: "12px 24px", backgroundColor: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
-                {saving ? "Saving..." : (editingOverride ? "Update" : `Save${formIsMultipleDays ? ` (${getDaysCount()} days)` : ""}`)}
+
+            <div style={{
+              display: "flex",
+              gap: 12,
+              justifyContent: "flex-end",
+              padding: "16px 24px",
+              borderTop: "1px solid #E5E7EB",
+              backgroundColor: "#F9FAFB",
+              borderRadius: "0 0 12px 12px",
+            }}>
+              <button
+                onClick={() => { setShowModal(false); resetForm(); }}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#FFFFFF",
+                  color: "#374151",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !formStartDate}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#1F2937",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: saving ? "not-allowed" : "pointer",
+                  opacity: saving || !formStartDate ? 0.6 : 1,
+                }}
+              >
+                {saving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

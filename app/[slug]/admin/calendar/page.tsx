@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 
 type Appointment = {
   id: string;
@@ -1173,7 +1173,7 @@ export default function CalendarPage() {
 
             {/* Time Rows */}
             {hours.map(hour => (
-              <>
+              <Fragment key={hour}>
                 {/* Time Label */}
                 <div key={`time-${hour}`} style={{
                   padding: isMobile ? "4px" : "8px 12px",
@@ -1339,7 +1339,7 @@ export default function CalendarPage() {
                     </div>
                   );
                 })}
-              </>
+              </Fragment>
             ))}
           </div>
         </div>
