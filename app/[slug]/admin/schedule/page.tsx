@@ -83,31 +83,42 @@ export default function SchedulePage() {
   }
 
   async function handleSave() {
-    console.log("handleSave called", { selectedStaffId, formStartDate, formAllDay });
+    console.log("=== HANDLESAVE CALLED ===");
+    console.log("Form state:", { selectedStaffId, formStartDate, formEndDate, formAllDay, formStartTime, formEndTime, formTitle });
+
     if (!selectedStaffId || !formStartDate) {
-      console.log("handleSave - missing required fields");
+      console.log("=== VALIDATION FAILED ===", { selectedStaffId, formStartDate });
+      alert("Missing staff or date");
       return;
     }
+
     setSaving(true);
+    console.log("=== SAVING SET TO TRUE ===");
 
     try {
       if (editingOverride) {
-        // Update existing
+        console.log("=== UPDATING EXISTING ===", editingOverride.id);
+        const requestBody = {
+          id: editingOverride.id,
+          date: formStartDate,
+          isDayOff: formAllDay,
+          startTime: formAllDay ? null : formStartTime,
+          endTime: formAllDay ? null : formEndTime,
+          note: formTitle || null,
+        };
+        console.log("PUT request body:", requestBody);
+
         const res = await fetch("/api/admin/schedule-override", {
           credentials: "include",
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: editingOverride.id,
-            date: formStartDate,
-            isDayOff: formAllDay,
-            startTime: formAllDay ? null : formStartTime,
-            endTime: formAllDay ? null : formEndTime,
-            note: formTitle || null,
-          }),
+          body: JSON.stringify(requestBody),
         });
+        console.log("PUT response status:", res.status);
+
         if (!res.ok) {
           const error = await res.json().catch(() => ({ error: "Unknown error" }));
+          console.log("PUT error:", error);
           throw new Error(error.error || "Failed to update");
         }
       } else {
@@ -122,38 +133,47 @@ export default function SchedulePage() {
         } else {
           dates.push(formStartDate);
         }
+        console.log("=== CREATING NEW ===", { dates, count: dates.length });
 
-        const results = await Promise.all(
-          dates.map(async (date) => {
-            const res = await fetch("/api/admin/schedule-override", {
-              credentials: "include",
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                staffId: selectedStaffId,
-                date,
-                isDayOff: formAllDay,
-                startTime: formAllDay ? null : formStartTime,
-                endTime: formAllDay ? null : formEndTime,
-                note: formTitle || null,
-              }),
-            });
-            if (!res.ok) {
-              const error = await res.json().catch(() => ({ error: "Unknown error" }));
-              throw new Error(error.error || "Failed to save");
-            }
-            return res.json();
-          })
-        );
+        for (const date of dates) {
+          const requestBody = {
+            staffId: selectedStaffId,
+            date,
+            isDayOff: formAllDay,
+            startTime: formAllDay ? null : formStartTime,
+            endTime: formAllDay ? null : formEndTime,
+            note: formTitle || null,
+          };
+          console.log("POST request body:", requestBody);
+
+          const res = await fetch("/api/admin/schedule-override", {
+            credentials: "include",
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          });
+          console.log("POST response status:", res.status);
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+            console.log("POST error:", errorData);
+            throw new Error(errorData.error || "Failed to save");
+          }
+          const result = await res.json();
+          console.log("POST success:", result.id);
+        }
       }
 
+      console.log("=== SAVE COMPLETE, CLOSING MODAL ===");
       setShowModal(false);
       resetForm();
       loadData();
-    } catch (err) {
-      alert("Error saving");
+    } catch (err: any) {
+      console.error("=== SAVE ERROR ===", err);
+      alert("Error saving: " + (err.message || "Unknown error"));
     } finally {
       setSaving(false);
+      console.log("=== SAVING SET TO FALSE ===");
     }
   }
 
