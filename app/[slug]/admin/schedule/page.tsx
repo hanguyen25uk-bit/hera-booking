@@ -611,9 +611,10 @@ export default function SchedulePage() {
             backgroundColor: "#FFFFFF",
             borderRadius: 16,
             width: "100%",
-            maxWidth: 520,
+            maxWidth: formAllDay ? 480 : 680,
             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             position: "relative",
+            transition: "max-width 0.2s ease",
           }}>
             {/* Close button */}
             <button
@@ -648,9 +649,9 @@ export default function SchedulePage() {
             </div>
 
             {/* Form Content */}
-            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ padding: 24 }}>
               {/* Title Field */}
-              <div>
+              <div style={{ marginBottom: 16 }}>
                 <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
                   Title
                 </label>
@@ -677,12 +678,13 @@ export default function SchedulePage() {
               {/* Date & Time Row */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: formAllDay ? "1fr 1fr" : "1fr 1fr 1fr 1fr",
-                gap: 12
+                gridTemplateColumns: formAllDay ? "1fr 1fr" : "1fr minmax(130px, 1fr) 1fr minmax(130px, 1fr)",
+                gap: 12,
+                marginBottom: 16,
               }}>
                 {/* Start Date */}
                 <div>
-                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 8, whiteSpace: "nowrap" }}>
                     Start date
                   </label>
                   <input
@@ -696,7 +698,7 @@ export default function SchedulePage() {
                     }}
                     style={{
                       width: "100%",
-                      padding: "12px 14px",
+                      padding: "10px 12px",
                       border: "1px solid #D1D5DB",
                       borderRadius: 8,
                       fontSize: 14,
@@ -712,7 +714,7 @@ export default function SchedulePage() {
                 {/* Start Time - only show if not all day */}
                 {!formAllDay && (
                   <div>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 8, whiteSpace: "nowrap" }}>
                       Start time
                     </label>
                     <select
@@ -720,7 +722,8 @@ export default function SchedulePage() {
                       onChange={(e) => setFormStartTime(e.target.value)}
                       style={{
                         width: "100%",
-                        padding: "12px 14px",
+                        minWidth: 130,
+                        padding: "10px 12px",
                         border: "1px solid #D1D5DB",
                         borderRadius: 8,
                         fontSize: 14,
@@ -738,7 +741,7 @@ export default function SchedulePage() {
 
                 {/* End Date */}
                 <div>
-                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 8, whiteSpace: "nowrap" }}>
                     End date
                   </label>
                   <input
@@ -748,7 +751,7 @@ export default function SchedulePage() {
                     min={formStartDate}
                     style={{
                       width: "100%",
-                      padding: "12px 14px",
+                      padding: "10px 12px",
                       border: "1px solid #D1D5DB",
                       borderRadius: 8,
                       fontSize: 14,
@@ -764,7 +767,7 @@ export default function SchedulePage() {
                 {/* End Time - only show if not all day */}
                 {!formAllDay && (
                   <div>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 8 }}>
+                    <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#374151", marginBottom: 8, whiteSpace: "nowrap" }}>
                       End time
                     </label>
                     <select
@@ -772,7 +775,8 @@ export default function SchedulePage() {
                       onChange={(e) => setFormEndTime(e.target.value)}
                       style={{
                         width: "100%",
-                        padding: "12px 14px",
+                        minWidth: 130,
+                        padding: "10px 12px",
                         border: "1px solid #D1D5DB",
                         borderRadius: 8,
                         fontSize: 14,
@@ -790,7 +794,7 @@ export default function SchedulePage() {
               </div>
 
               {/* All Day Checkbox & Repeat */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                   <div
                     onClick={() => setFormAllDay(!formAllDay)}
@@ -816,9 +820,7 @@ export default function SchedulePage() {
                   <span style={{ fontSize: 14, color: "#374151" }}>All day</span>
                 </label>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 14, color: "#6B7280" }}>Does not repeat</span>
-                </div>
+                <span style={{ fontSize: 13, color: "#9CA3AF" }}>Does not repeat</span>
               </div>
 
               {/* Days count indicator */}
