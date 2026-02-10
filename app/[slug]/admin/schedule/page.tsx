@@ -96,6 +96,7 @@ export default function SchedulePage() {
         const res = await fetch("/api/admin/schedule-override", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             id: editingOverride.id,
             date: formStartDate,
@@ -123,6 +124,7 @@ export default function SchedulePage() {
           const res = await fetch("/api/admin/schedule-override", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({
               staffId: selectedStaffId,
               date,
