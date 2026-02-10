@@ -24,13 +24,15 @@ export async function GET(
       where: {
         salonId: salon.id,
         isActive: true,
-        // Only include discounts that haven't expired
-        OR: [
-          { validUntil: null },
-          { validUntil: { gte: now } },
-        ],
-        // Only include discounts that have started (or have no start date)
         AND: [
+          // Discount hasn't expired (validUntil is null OR >= now)
+          {
+            OR: [
+              { validUntil: null },
+              { validUntil: { gte: now } },
+            ],
+          },
+          // Discount has started (validFrom is null OR <= now)
           {
             OR: [
               { validFrom: null },
