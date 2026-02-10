@@ -474,58 +474,61 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#94a3b8" }}><p>Loading...</p></div>;
+  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--cream)", color: "var(--ink-muted)" }}><p>Loading...</p></div>;
 
   if (notFound) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a", color: "#fff", flexDirection: "column", gap: 16 }}>
-      <h1 style={{ fontSize: 24 }}>Salon not found</h1>
-      <p style={{ color: "#94a3b8" }}>The booking page you are looking for does not exist.</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--cream)", color: "var(--ink)", flexDirection: "column", gap: 16, padding: 24 }}>
+      <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--cream-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "var(--ink-muted)" }}>?</div>
+      <h1 style={{ fontSize: 24, fontFamily: "var(--font-heading)", fontWeight: 600 }}>Salon not found</h1>
+      <p style={{ color: "var(--ink-muted)", textAlign: "center" }}>The booking page you are looking for does not exist.</p>
     </div>
   );
 
   // Show initial policy popup on mobile
   if (isMobile && !mobilePolicyRead && policyItems.length > 0) {
     return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", fontFamily: "system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
+      <div style={{ minHeight: "100vh", backgroundColor: "var(--cream)", fontFamily: "var(--font-body)", display: "flex", flexDirection: "column" }}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", padding: "20px", textAlign: "center" }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 20, margin: "0 auto 12px" }}>{salonName.charAt(0)}</div>
-          <h1 style={{ color: "#fff", fontSize: 20, fontWeight: 600, margin: 0 }}>Welcome to {salonName}</h1>
-          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, margin: "8px 0 0" }}>Please read our booking policy before continuing</p>
+        <div style={{ background: "var(--cream-dark)", padding: "24px 20px", textAlign: "center" }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--ink)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cream)", fontWeight: 700, fontSize: 16, margin: "0 auto 16px", fontFamily: "var(--font-heading)" }}>H</div>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", color: "var(--ink-muted)", marginBottom: 8, textTransform: "uppercase" }}>{salonName}</div>
+          <h1 style={{ color: "var(--ink)", fontSize: 24, fontWeight: 600, margin: 0, fontFamily: "var(--font-heading)" }}>Welcome</h1>
+          <p style={{ color: "var(--ink-muted)", fontSize: 14, margin: "8px 0 0" }}>Please read our booking policy before continuing</p>
         </div>
 
         {/* Policy Content */}
-        <div style={{ flex: 1, backgroundColor: "#fff", padding: 20, overflowY: "auto" }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, color: "#1e293b" }}>{policyTitle}</h2>
+        <div style={{ flex: 1, backgroundColor: "var(--cream)", padding: 20, overflowY: "auto" }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>{policyTitle}</h2>
 
           {policyItems.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 14, marginBottom: 20, padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-              <span style={{ fontSize: 28 }}>{item.icon}</span>
+            <div key={i} style={{ display: "flex", gap: 14, marginBottom: 16, padding: 16, background: "var(--white)", borderRadius: 12, border: "1px solid var(--cream-dark)" }}>
+              <span style={{ fontSize: 24 }}>{item.icon}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>{item.title}</div>
-                <div style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>{item.description}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>{item.title}</div>
+                <div style={{ fontSize: 13, color: "var(--ink-muted)", lineHeight: 1.5 }}>{item.description}</div>
               </div>
             </div>
           ))}
         </div>
 
         {/* Continue Button */}
-        <div style={{ padding: 20, backgroundColor: "#fff", borderTop: "1px solid #e2e8f0" }}>
+        <div style={{ padding: 20, backgroundColor: "var(--cream)", borderTop: "1px solid var(--cream-dark)" }}>
           <button
             onClick={() => setMobilePolicyRead(true)}
             style={{
               width: "100%",
               padding: 16,
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff",
+              background: "var(--ink)",
+              color: "var(--cream)",
               border: "none",
-              borderRadius: 12,
-              fontSize: 16,
+              borderRadius: 50,
+              fontSize: 15,
               fontWeight: 600,
-              cursor: "pointer"
+              cursor: "pointer",
+              fontFamily: "var(--font-body)"
             }}
           >
-            I've Read the Policy - Continue to Booking
+            Continue to Booking
           </button>
         </div>
       </div>
@@ -768,8 +771,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   width: "100%",
                   marginTop: 32,
                   padding: 16,
-                  background: "var(--rose)",
-                  color: "var(--white)",
+                  background: "var(--ink)",
+                  color: "var(--cream)",
                   border: "none",
                   borderRadius: 50,
                   fontSize: 16,
@@ -825,7 +828,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 </div>
                 <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
                   <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
-                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 16, background: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Continue</button>
+                  <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 16, background: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
               </>
             )}
@@ -988,7 +991,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 </div>
                 <div style={{ display: "flex", gap: 12 }}>
                   <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
-                  <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } if (!policyAgreed) { setError("Please agree to the booking policy"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 16, background: policyAgreed ? "var(--rose)" : "var(--cream-dark)", color: policyAgreed ? "var(--white)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed", transition: "all 0.2s ease" }}>Continue</button>
+                  <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } if (!policyAgreed) { setError("Please agree to the booking policy"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 16, background: policyAgreed ? "var(--ink)" : "var(--cream-dark)", color: policyAgreed ? "var(--cream)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
               </>
             )}
@@ -1041,7 +1044,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   </div>
                   <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
                     <button type="button" onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
-                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1, transition: "all 0.2s ease" }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
+                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1, transition: "all 0.2s ease" }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
                   </div>
                 </form>
               </>
