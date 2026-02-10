@@ -5,7 +5,13 @@ import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
   if (auth?.salonId) return auth.salonId;
-  return "heranailspa";
+
+  // Fallback: look up salon by slug
+  const salon = await prisma.salon.findUnique({
+    where: { slug: "heranailspa" },
+    select: { id: true },
+  });
+  return salon?.id || null;
 }
 
 export async function GET(req: NextRequest) {
@@ -60,6 +66,33 @@ export async function POST(req: NextRequest) {
       note: note || null,
     },
     update: {
+      isDayOff: isDayOff ?? false,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      note: note || null,
+    },
+  });
+
+  return NextResponse.json(override);
+}
+
+export async function PUT(req: NextRequest) {
+  const salonId = await getSalonId();
+  if (!salonId) return unauthorizedResponse();
+
+  const body = await req.json();
+  const { id, date, isDayOff, startTime, endTime, note } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+
+  const dateObj = date ? new Date(date) : undefined;
+
+  const override = await prisma.staffScheduleOverride.update({
+    where: { id },
+    data: {
+      ...(dateObj && { date: dateObj }),
       isDayOff: isDayOff ?? false,
       startTime: startTime || null,
       endTime: endTime || null,

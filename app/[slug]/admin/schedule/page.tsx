@@ -89,7 +89,7 @@ export default function SchedulePage() {
     try {
       if (editingOverride) {
         // Update existing
-        await fetch("/api/admin/schedule-override", {
+        const res = await fetch("/api/admin/schedule-override", {
           credentials: "include",
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -102,6 +102,10 @@ export default function SchedulePage() {
             note: formTitle || null,
           }),
         });
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(error.error || "Failed to update");
+        }
       } else {
         // Create new - support date range
         const dates: string[] = [];
@@ -115,9 +119,9 @@ export default function SchedulePage() {
           dates.push(formStartDate);
         }
 
-        await Promise.all(
-          dates.map((date) =>
-            fetch("/api/admin/schedule-override", {
+        const results = await Promise.all(
+          dates.map(async (date) => {
+            const res = await fetch("/api/admin/schedule-override", {
               credentials: "include",
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -129,8 +133,13 @@ export default function SchedulePage() {
                 endTime: formAllDay ? null : formEndTime,
                 note: formTitle || null,
               }),
-            })
-          )
+            });
+            if (!res.ok) {
+              const error = await res.json().catch(() => ({ error: "Unknown error" }));
+              throw new Error(error.error || "Failed to save");
+            }
+            return res.json();
+          })
         );
       }
 
