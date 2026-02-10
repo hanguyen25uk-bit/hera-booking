@@ -83,7 +83,11 @@ export default function SchedulePage() {
   }
 
   async function handleSave() {
-    if (!selectedStaffId || !formStartDate) return;
+    console.log("handleSave called", { selectedStaffId, formStartDate, formAllDay });
+    if (!selectedStaffId || !formStartDate) {
+      console.log("handleSave - missing required fields");
+      return;
+    }
     setSaving(true);
 
     try {
@@ -175,6 +179,7 @@ export default function SchedulePage() {
 
   function openAddModal(type: "time-off" | "custom-hours") {
     const today = new Date().toISOString().split("T")[0];
+    console.log("openAddModal - today:", today, "selectedStaffId:", selectedStaffId);
     setFormTitle("");
     setFormStartDate(today);
     setFormStartTime("09:00");
@@ -855,6 +860,7 @@ export default function SchedulePage() {
               padding: "16px 24px 24px",
             }}>
               <button
+                type="button"
                 onClick={() => { setShowModal(false); resetForm(); }}
                 style={{
                   padding: "12px 24px",
@@ -872,7 +878,11 @@ export default function SchedulePage() {
                 Cancel
               </button>
               <button
-                onClick={handleSave}
+                type="button"
+                onClick={() => {
+                  console.log("Add button clicked!", { saving, formStartDate, selectedStaffId });
+                  handleSave();
+                }}
                 disabled={saving || !formStartDate}
                 style={{
                   padding: "12px 28px",
