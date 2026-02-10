@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive } = body;
+    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive, validFrom, validUntil } = body;
 
     if (!name || !discountPercent || !startTime || !endTime || !daysOfWeek || !serviceIds) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
         serviceIds,
         staffIds: staffIds || [],
         isActive: isActive !== false,
+        validFrom: validFrom ? new Date(validFrom) : null,
+        validUntil: validUntil ? new Date(validUntil) : null,
         salonId: auth.salonId,
       },
     });

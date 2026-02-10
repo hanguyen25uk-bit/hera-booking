@@ -24,7 +24,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive } = body;
+    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive, validFrom, validUntil } = body;
 
     const discount = await prisma.discount.update({
       where: { id },
@@ -37,6 +37,8 @@ export async function PUT(
         ...(serviceIds !== undefined && { serviceIds }),
         ...(staffIds !== undefined && { staffIds }),
         ...(isActive !== undefined && { isActive }),
+        ...(validFrom !== undefined && { validFrom: validFrom ? new Date(validFrom) : null }),
+        ...(validUntil !== undefined && { validUntil: validUntil ? new Date(validUntil) : null }),
       },
     });
 

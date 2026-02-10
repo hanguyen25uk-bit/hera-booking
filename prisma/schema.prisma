@@ -328,9 +328,13 @@ model Discount {
   name            String   // e.g., "Quiet Time Discount"
   discountPercent Int      // e.g., 20 for 20%
 
-  startTime       String   // "10:00" - start of discount period
-  endTime         String   // "16:00" - end of discount period
+  startTime       String   // "10:00" - start of discount period (time of day)
+  endTime         String   // "16:00" - end of discount period (time of day)
   daysOfWeek      Int[]    // [1, 2, 3] for Mon, Tue, Wed (0=Sun, 6=Sat)
+
+  // Date range for discount validity (optional - if null, discount runs indefinitely)
+  validFrom       DateTime? // Start date of discount validity
+  validUntil      DateTime? // End date of discount validity
 
   serviceIds      String[] // IDs of services this discount applies to
   staffIds        String[] // IDs of staff (empty = all staff)

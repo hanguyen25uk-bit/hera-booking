@@ -12,6 +12,8 @@ type Discount = {
   serviceIds: string[];
   staffIds: string[];
   isActive: boolean;
+  validFrom: string | null;
+  validUntil: string | null;
 };
 
 type Service = { id: string; name: string; price: number };
@@ -38,6 +40,8 @@ export default function DiscountsPage() {
     serviceIds: [] as string[],
     staffIds: [] as string[],
     isActive: true,
+    validFrom: "",
+    validUntil: "",
   });
 
   useEffect(() => {
@@ -71,6 +75,9 @@ export default function DiscountsPage() {
 
   function openCreateModal() {
     setEditingId(null);
+    // Default to today + 2 weeks
+    const today = new Date().toISOString().split("T")[0];
+    const twoWeeksLater = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     setFormData({
       name: "",
       discountPercent: "20",
@@ -80,6 +87,8 @@ export default function DiscountsPage() {
       serviceIds: [],
       staffIds: [],
       isActive: true,
+      validFrom: today,
+      validUntil: twoWeeksLater,
     });
     setMessage(null);
     setShowModal(true);
@@ -96,6 +105,8 @@ export default function DiscountsPage() {
       serviceIds: discount.serviceIds,
       staffIds: discount.staffIds,
       isActive: discount.isActive,
+      validFrom: discount.validFrom ? discount.validFrom.split("T")[0] : "",
+      validUntil: discount.validUntil ? discount.validUntil.split("T")[0] : "",
     });
     setMessage(null);
     setShowModal(true);
@@ -105,6 +116,18 @@ export default function DiscountsPage() {
     setShowModal(false);
     setEditingId(null);
     setMessage(null);
+    setFormData({
+      name: "",
+      discountPercent: "20",
+      startTime: "10:00",
+      endTime: "16:00",
+      daysOfWeek: [1, 2, 3],
+      serviceIds: [],
+      staffIds: [],
+      isActive: true,
+      validFrom: "",
+      validUntil: "",
+    });
   }
 
   function toggleDay(day: number) {
@@ -260,6 +283,32 @@ export default function DiscountsPage() {
     return days.map(d => DAY_NAMES[d]).join(", ");
   }
 
+  function formatDate(dateStr: string | null) {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function getValidityStatus(discount: Discount) {
+    if (!discount.validFrom && !discount.validUntil) {
+      return { label: "Always valid", color: "var(--sage)", bg: "var(--sage-light)" };
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const from = discount.validFrom ? new Date(discount.validFrom) : null;
+    const until = discount.validUntil ? new Date(discount.validUntil) : null;
+
+    if (from && now < from) {
+      return { label: "Upcoming", color: "var(--gold)", bg: "var(--gold-light)" };
+    }
+    if (until && now > until) {
+      return { label: "Expired", color: "var(--ink-muted)", bg: "var(--cream)" };
+    }
+    return { label: "Active", color: "var(--sage)", bg: "var(--sage-light)" };
+  }
+
   if (loading) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
@@ -356,7 +405,7 @@ export default function DiscountsPage() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
                     <h3 style={{
                       fontSize: 18,
                       fontWeight: 600,
@@ -377,6 +426,22 @@ export default function DiscountsPage() {
                     }}>
                       {discount.discountPercent}% OFF
                     </span>
+                    {(() => {
+                      const status = getValidityStatus(discount);
+                      return (
+                        <span style={{
+                          padding: "6px 14px",
+                          borderRadius: 50,
+                          fontSize: 12,
+                          fontWeight: 500,
+                          backgroundColor: status.bg,
+                          color: status.color,
+                          fontFamily: "var(--font-body)"
+                        }}>
+                          {status.label}
+                        </span>
+                      );
+                    })()}
                     {!discount.isActive && (
                       <span style={{
                         padding: "6px 14px",
@@ -387,7 +452,7 @@ export default function DiscountsPage() {
                         color: "var(--ink-muted)",
                         fontFamily: "var(--font-body)"
                       }}>
-                        Inactive
+                        Disabled
                       </span>
                     )}
                   </div>
@@ -406,6 +471,12 @@ export default function DiscountsPage() {
                     <div>
                       <span style={{ fontWeight: 500, color: "var(--ink)" }}>Days:</span> {getDayNames(discount.daysOfWeek)}
                     </div>
+                    {(discount.validFrom || discount.validUntil) && (
+                      <div>
+                        <span style={{ fontWeight: 500, color: "var(--ink)" }}>Valid:</span>{" "}
+                        {formatDate(discount.validFrom) || "Start"} → {formatDate(discount.validUntil) || "No end"}
+                      </div>
+                    )}
                     <div>
                       <span style={{ fontWeight: 500, color: "var(--ink)" }}>Staff:</span> {getStaffNames(discount.staffIds)}
                     </div>
@@ -707,6 +778,92 @@ export default function DiscountsPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Validity Period */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                  color: "var(--ink-light)",
+                  fontFamily: "var(--font-body)"
+                }}>
+                  Validity Period (optional - leave empty for no expiry)
+                </label>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "block", fontSize: 12, color: "var(--ink-muted)", marginBottom: 4, fontFamily: "var(--font-body)" }}>
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.validFrom}
+                      onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        backgroundColor: "var(--cream)",
+                        border: "1px solid var(--cream-dark)",
+                        borderRadius: 12,
+                        fontSize: 15,
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                  </div>
+                  <span style={{ color: "var(--ink-muted)", fontFamily: "var(--font-body)", marginTop: 20 }}>to</span>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "block", fontSize: 12, color: "var(--ink-muted)", marginBottom: 4, fontFamily: "var(--font-body)" }}>
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.validUntil}
+                      onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                      min={formData.validFrom}
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        backgroundColor: "var(--cream)",
+                        border: "1px solid var(--cream-dark)",
+                        borderRadius: 12,
+                        fontSize: 15,
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                  </div>
+                  {(formData.validFrom || formData.validUntil) && (
+                    <button
+                      onClick={() => setFormData({ ...formData, validFrom: "", validUntil: "" })}
+                      style={{
+                        marginTop: 20,
+                        padding: "10px 16px",
+                        border: "1px solid var(--cream-dark)",
+                        borderRadius: 8,
+                        background: "var(--white)",
+                        color: "var(--ink-muted)",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        fontFamily: "var(--font-body)"
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p style={{
+                  fontSize: 13,
+                  color: "var(--ink-muted)",
+                  marginTop: 6,
+                  fontFamily: "var(--font-body)"
+                }}>
+                  Set date range for limited-time promotions. Leave empty for permanent discounts.
+                </p>
               </div>
 
               {/* Services */}

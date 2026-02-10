@@ -17,11 +17,27 @@ export async function GET(
       return NextResponse.json({ error: "Salon not found" }, { status: 404 });
     }
 
-    // Get all active discounts for this salon
+    const now = new Date();
+
+    // Get all active discounts for this salon that are within their validity period
     const discounts = await prisma.discount.findMany({
       where: {
         salonId: salon.id,
         isActive: true,
+        // Only include discounts that haven't expired
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: now } },
+        ],
+        // Only include discounts that have started (or have no start date)
+        AND: [
+          {
+            OR: [
+              { validFrom: null },
+              { validFrom: { lte: now } },
+            ],
+          },
+        ],
       },
     });
 
