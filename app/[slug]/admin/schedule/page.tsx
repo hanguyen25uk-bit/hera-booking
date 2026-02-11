@@ -130,8 +130,6 @@ export default function SchedulePage() {
             note: formTitle || null,
           };
 
-          alert(`Saving: ${JSON.stringify(payload, null, 2)}`);
-
           const res = await fetch("/api/admin/schedule-override", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -139,20 +137,19 @@ export default function SchedulePage() {
             body: JSON.stringify(payload),
           });
 
-          const data = await res.json().catch(() => null);
-
           if (!res.ok) {
-            alert(`Error ${res.status}: ${data?.error || "Unknown error"}`);
-            throw new Error(data?.error || `Failed to save (${res.status})`);
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Failed to save (${res.status})`);
           }
-
-          alert(`Saved! isDayOff=${data.isDayOff}, check ${data.isDayOff ? "Time off" : "Custom hours"} tab`);
         }
       }
 
       setShowModal(false);
       resetForm();
-      loadData();
+      // Force refresh the overrides list
+      const overridesRes = await fetch("/api/admin/schedule-override", { credentials: "include" });
+      const newOverrides = await overridesRes.json();
+      setOverrides(newOverrides);
     } catch (err: any) {
       alert("Error: " + (err.message || "Failed to save"));
     } finally {
