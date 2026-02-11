@@ -137,13 +137,10 @@ export default function SchedulePage() {
             body: JSON.stringify(payload),
           });
 
-          const data = await res.json().catch(() => ({}));
-
           if (!res.ok) {
-            throw new Error(data.error || "Failed to save");
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to save");
           }
-
-          alert(`Saved successfully! ID: ${data.id}`);
         }
       }
 
