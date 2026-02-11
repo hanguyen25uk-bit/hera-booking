@@ -130,7 +130,7 @@ export default function SchedulePage() {
             note: formTitle || null,
           };
 
-          console.log("Sending payload:", payload);
+          alert(`Saving: ${JSON.stringify(payload, null, 2)}`);
 
           const res = await fetch("/api/admin/schedule-override", {
             method: "POST",
@@ -140,11 +140,13 @@ export default function SchedulePage() {
           });
 
           const data = await res.json().catch(() => null);
-          console.log("Response:", res.status, data);
 
           if (!res.ok) {
+            alert(`Error ${res.status}: ${data?.error || "Unknown error"}`);
             throw new Error(data?.error || `Failed to save (${res.status})`);
           }
+
+          alert(`Saved! isDayOff=${data.isDayOff}, check ${data.isDayOff ? "Time off" : "Custom hours"} tab`);
         }
       }
 
