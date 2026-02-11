@@ -83,7 +83,6 @@ export default function SchedulePage() {
   }
 
   async function handleSave() {
-    alert(`handleSave called! staffId=${selectedStaffId}, date=${formStartDate}`);
     if (!selectedStaffId || !formStartDate) {
       alert("Please select a staff member and date");
       return;
@@ -122,23 +121,29 @@ export default function SchedulePage() {
         }
 
         for (const date of dates) {
+          const payload = {
+            staffId: selectedStaffId,
+            date,
+            isDayOff: formAllDay,
+            startTime: formAllDay ? null : formStartTime,
+            endTime: formAllDay ? null : formEndTime,
+            note: formTitle || null,
+          };
+
           const res = await fetch("/api/admin/schedule-override", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({
-              staffId: selectedStaffId,
-              date,
-              isDayOff: formAllDay,
-              startTime: formAllDay ? null : formStartTime,
-              endTime: formAllDay ? null : formEndTime,
-              note: formTitle || null,
-            }),
+            body: JSON.stringify(payload),
           });
+
+          const data = await res.json().catch(() => ({}));
+
           if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || "Failed to save");
+            throw new Error(data.error || "Failed to save");
           }
+
+          alert(`Saved successfully! ID: ${data.id}`);
         }
       }
 
