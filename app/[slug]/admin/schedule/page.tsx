@@ -83,6 +83,7 @@ export default function SchedulePage() {
   }
 
   async function handleSave() {
+    alert(`handleSave called! staffId=${selectedStaffId}, date=${formStartDate}`);
     if (!selectedStaffId || !formStartDate) {
       alert("Please select a staff member and date");
       return;
