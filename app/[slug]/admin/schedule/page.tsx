@@ -130,6 +130,8 @@ export default function SchedulePage() {
             note: formTitle || null,
           };
 
+          console.log("Sending payload:", payload);
+
           const res = await fetch("/api/admin/schedule-override", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -137,9 +139,11 @@ export default function SchedulePage() {
             body: JSON.stringify(payload),
           });
 
+          const data = await res.json().catch(() => null);
+          console.log("Response:", res.status, data);
+
           if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || "Failed to save");
+            throw new Error(data?.error || `Failed to save (${res.status})`);
           }
         }
       }
