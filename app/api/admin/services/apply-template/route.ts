@@ -46,7 +46,10 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
 
-    // Use transaction for all-or-nothing
+    // Track new service IDs for staff assignment (done after transaction)
+    const newServiceIds: string[] = [];
+
+    // Use transaction for categories and services only
     await prisma.$transaction(async (tx) => {
       // Process each category
       for (let catIndex = 0; catIndex < SERVICE_TEMPLATES.categories.length; catIndex++) {
@@ -100,20 +103,32 @@ export async function POST(req: NextRequest) {
           });
 
           result.created.services++;
-
-          // Create staff assignments for all active staff
-          if (activeStaff.length > 0) {
-            await tx.staffService.createMany({
-              data: activeStaff.map((staff) => ({
-                staffId: staff.id,
-                serviceId: newService.id,
-              })),
-            });
-            result.created.assignments += activeStaff.length;
-          }
+          newServiceIds.push(newService.id);
         }
       }
     });
+
+    // Create staff assignments OUTSIDE the transaction (only if there are staff)
+    if (activeStaff.length > 0 && newServiceIds.length > 0) {
+      const staffAssignments: { staffId: string; serviceId: string }[] = [];
+
+      for (const serviceId of newServiceIds) {
+        for (const staff of activeStaff) {
+          staffAssignments.push({
+            staffId: staff.id,
+            serviceId: serviceId,
+          });
+        }
+      }
+
+      // Use createMany outside transaction
+      await prisma.staffService.createMany({
+        data: staffAssignments,
+        skipDuplicates: true,
+      });
+
+      result.created.assignments = staffAssignments.length;
+    }
 
     return NextResponse.json({
       success: true,
