@@ -276,14 +276,18 @@ export default function ServicesPage() {
         credentials: "include",
         body: JSON.stringify({ templateId: "nail-salon" }),
       });
-      if (!res.ok) throw new Error("Failed to apply template");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        alert("Error: " + (errorData.error || errorData.message || res.statusText || "Unknown error"));
+        return;
+      }
       const result = await res.json();
       setShowTemplateModal(false);
       setSuccessMessage(`Added ${result.created.services} services across ${result.created.categories} categories`);
       setTimeout(() => setSuccessMessage(null), 5000);
       loadData();
     } catch (err) {
-      alert("Error applying template");
+      alert("Error applying template: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setApplyingTemplate(false);
     }
