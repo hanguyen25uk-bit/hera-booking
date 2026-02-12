@@ -148,40 +148,25 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   ) : null;
   const finalPrice = currentService ? getDiscountedPrice(currentService.price, currentDiscount) : 0;
 
-  // Load initial data
+  // Load initial data - single API call for all booking data
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, categoriesRes, policyRes, discountsRes, salonRes] = await Promise.all([
-          fetch(`${apiBase}/services`),
-          fetch(`${apiBase}/categories`),
-          fetch(`${apiBase}/booking-policy`),
-          fetch(`${apiBase}/discounts`),
-          fetch(`${apiBase}/salon`)
-        ]);
+        const res = await fetch(`${apiBase}/booking-data`);
 
-        if (!servicesRes.ok) {
+        if (!res.ok) {
           setNotFound(true);
           return;
         }
 
-        setServices(await servicesRes.json());
-        setCategories(await categoriesRes.json());
-        const policyData = await policyRes.json();
-        setPolicyTitle(policyData.title || "Our Booking Policy");
-        setPolicyItems(policyData.policies || []);
+        const data = await res.json();
 
-        // Get salon name from API, fallback to slug-based name
-        if (salonRes.ok) {
-          const salonData = await salonRes.json();
-          setSalonName(salonData.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
-        } else {
-          setSalonName(slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
-        }
-
-        if (discountsRes.ok) {
-          setDiscounts(await discountsRes.json());
-        }
+        setServices(data.services || []);
+        setCategories(data.categories || []);
+        setPolicyTitle(data.policy?.title || "Our Booking Policy");
+        setPolicyItems(data.policy?.policies || []);
+        setSalonName(data.salon?.name || slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+        setDiscounts(data.discounts || []);
       } catch (err) {
         setError("Failed to load. Please refresh.");
       } finally {
