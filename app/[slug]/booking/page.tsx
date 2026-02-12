@@ -547,25 +547,105 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     );
   }
 
+  // Step labels for mobile indicator
+  const stepLabels = ["Service", "Specialist", "Date & Time", "Your Info", "Confirmed"];
+
+  // Check if current step can proceed
+  const canProceed = () => {
+    if (step === 1) return !!selectedServiceId;
+    if (step === 2) return !!selectedStaffId;
+    if (step === 3) return !!selectedTime && policyAgreed;
+    if (step === 4) return !!customerName && !!customerPhone && !!customerEmail && reservationTimer > 0;
+    return false;
+  };
+
+  // Get sticky bar text
+  const getStickyBarText = () => {
+    if (step === 1) {
+      if (!selectedServiceId) return "Select a service";
+      return `${currentService?.name} · £${currentService?.price}`;
+    }
+    if (step === 2) {
+      if (!selectedStaffId) return "Select a specialist";
+      return selectedStaffId === "any" ? "Any Available" : staff.find(s => s.id === selectedStaffId)?.name || "";
+    }
+    if (step === 3) {
+      if (!selectedTime) return "Select a time";
+      if (!policyAgreed) return "Agree to policy to continue";
+      return `${selectedTime} · ${currentService?.name}`;
+    }
+    if (step === 4) {
+      if (!customerName || !customerPhone || !customerEmail) return "Fill in your details";
+      return "Confirm your booking";
+    }
+    return "";
+  };
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--ink)", fontFamily: "var(--font-body)" }}>
       <style>{`
         @media (max-width: 768px) {
           .desktop-sidebar { display: none !important; }
-          .main-content { margin-left: 0 !important; border-radius: 0 !important; }
-          .mobile-header { display: flex !important; }
-          .time-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .main-content {
+            margin-left: 0 !important;
+            border-radius: 0 !important;
+            padding: 20px 16px 100px 16px !important;
+            min-height: calc(100vh - 56px) !important;
+          }
+          .mobile-header { display: block !important; }
+          .mobile-sticky-bar { display: flex !important; }
+          .desktop-buttons { display: none !important; }
+          .category-tabs {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+          .category-tabs::-webkit-scrollbar { display: none; }
+          .category-tab { flex-shrink: 0 !important; }
         }
-        @media (min-width: 769px) { .mobile-header { display: none !important; } }
+        @media (min-width: 769px) {
+          .mobile-header { display: none !important; }
+          .mobile-sticky-bar { display: none !important; }
+        }
       `}</style>
 
-      {/* Mobile Header */}
-      <div className="mobile-header" style={{ display: "none", background: "var(--ink)", padding: "16px 20px", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid rgba(251,248,244,0.1)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--rose)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 }}>{salonName.charAt(0)}</div>
-          <span style={{ color: "var(--cream)", fontSize: 16, fontWeight: 600, fontFamily: "var(--font-heading)" }}>{salonName}</span>
+      {/* Mobile Header - Horizontal Step Indicator */}
+      <div className="mobile-header" style={{ display: "none", background: "var(--ink)", padding: "12px 16px", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid rgba(251,248,244,0.1)" }}>
+        {/* Salon name row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--rose)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{salonName.charAt(0)}</div>
+            <span style={{ color: "var(--cream)", fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)" }}>{salonName}</span>
+          </div>
+          {reservationTimer > 0 && (
+            <div style={{ color: "var(--gold)", fontSize: 12, fontWeight: 600 }}>⏱ {formatTimer(reservationTimer)}</div>
+          )}
         </div>
-        <div style={{ color: "var(--cream)", opacity: 0.7, fontSize: 13 }}>Step {step} of 5</div>
+        {/* Step indicator dots */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div key={n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div style={{
+                width: step === n ? 28 : 10,
+                height: 10,
+                borderRadius: 5,
+                background: step > n ? "var(--sage)" : step === n ? "var(--rose)" : "rgba(251,248,244,0.2)",
+                transition: "all 0.3s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                {step > n && <span style={{ fontSize: 8, color: "#fff" }}>✓</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Current step label */}
+        <div style={{ textAlign: "center", marginTop: 6 }}>
+          <span style={{ color: "var(--cream)", fontSize: 12, fontWeight: 500 }}>{stepLabels[step - 1]}</span>
+        </div>
       </div>
 
       <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -662,30 +742,32 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Service</h1>
                 <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Select the service you would like to book</p>
 
-                {/* Category Tabs */}
-                <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
-                  <button onClick={() => setSelectedCategoryId(null)} style={{
-                    padding: "10px 20px",
+                {/* Category Tabs - Scrollable on mobile */}
+                <div className="category-tabs" style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", paddingBottom: 4 }}>
+                  <button className="category-tab" onClick={() => setSelectedCategoryId(null)} style={{
+                    padding: "10px 16px",
                     borderRadius: 50,
                     border: "none",
                     background: !selectedCategoryId ? "var(--ink)" : "var(--cream-dark)",
                     color: !selectedCategoryId ? "var(--cream)" : "var(--ink-light)",
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: 500,
                     cursor: "pointer",
-                    transition: "all 0.2s ease"
-                  }}>All Services</button>
+                    transition: "all 0.2s ease",
+                    whiteSpace: "nowrap"
+                  }}>All</button>
                   {categories.map((cat) => (
-                    <button key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} style={{
-                      padding: "10px 20px",
+                    <button className="category-tab" key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} style={{
+                      padding: "10px 16px",
                       borderRadius: 50,
                       border: "none",
                       background: selectedCategoryId === cat.id ? "var(--ink)" : "var(--cream-dark)",
                       color: selectedCategoryId === cat.id ? "var(--cream)" : "var(--ink-light)",
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: 500,
                       cursor: "pointer",
-                      transition: "all 0.2s ease"
+                      transition: "all 0.2s ease",
+                      whiteSpace: "nowrap"
                     }}>{cat.name}</button>
                   ))}
                 </div>
@@ -779,19 +861,20 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   })}
                 </div>
 
-                <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{
-                  width: "100%",
-                  marginTop: 32,
-                  padding: 16,
-                  background: "var(--ink)",
-                  color: "var(--cream)",
-                  border: "none",
-                  borderRadius: 50,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease"
-                }}>Continue</button>
+                <div className="desktop-buttons" style={{ marginTop: 32 }}>
+                  <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{
+                    width: "100%",
+                    padding: 16,
+                    background: "var(--ink)",
+                    color: "var(--cream)",
+                    border: "none",
+                    borderRadius: 50,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}>Continue</button>
+                </div>
               </>
             )}
 
@@ -838,7 +921,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     );
                   })}
                 </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+                <div className="desktop-buttons" style={{ display: "flex", gap: 12, marginTop: 32 }}>
                   <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
                   <button onClick={() => selectedStaffId ? (setError(null), goNext()) : setError("Please select a specialist")} style={{ flex: 1, padding: 16, background: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
@@ -1001,7 +1084,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     <span style={{ fontSize: 14, color: "var(--ink-light)", lineHeight: 1.6 }}>I have read and agree to the <strong style={{ color: "var(--ink)" }}>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
                   </label>
                 </div>
-                <div style={{ display: "flex", gap: 12 }}>
+                <div className="desktop-buttons" style={{ display: "flex", gap: 12 }}>
                   <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
                   <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } if (!policyAgreed) { setError("Please agree to the booking policy"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 16, background: policyAgreed ? "var(--ink)" : "var(--cream-dark)", color: policyAgreed ? "var(--cream)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
@@ -1054,7 +1137,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       fontFamily: "var(--font-body)"
                     }} />
                   </div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+                  <div className="desktop-buttons" style={{ display: "flex", gap: 12, marginTop: 12 }}>
                     <button type="button" onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
                     <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1, transition: "all 0.2s ease" }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
                   </div>
@@ -1095,6 +1178,108 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Bottom Bar */}
+      {step < 5 && (
+        <div className="mobile-sticky-bar" style={{
+          display: "none",
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "var(--white)",
+          borderTop: "1px solid var(--cream-dark)",
+          padding: "12px 16px",
+          paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+          zIndex: 200,
+          flexDirection: "column",
+          gap: 8,
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.1)"
+        }}>
+          {/* Selection summary */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 2 }}>
+                {step === 1 && "Selected service"}
+                {step === 2 && "Selected specialist"}
+                {step === 3 && "Selected time"}
+                {step === 4 && "Complete booking"}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {getStickyBarText()}
+              </div>
+            </div>
+            {currentService && step >= 1 && (
+              <div style={{ textAlign: "right", marginLeft: 12 }}>
+                {currentDiscount ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 13, color: "var(--ink-muted)", textDecoration: "line-through" }}>£{currentService.price}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>£{finalPrice.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>£{currentService.price}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 10 }}>
+            {step > 1 && (
+              <button
+                onClick={goBack}
+                style={{
+                  padding: "14px 20px",
+                  background: "var(--white)",
+                  color: "var(--ink)",
+                  border: "1.5px solid var(--ink)",
+                  borderRadius: 50,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Back
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (step === 1) {
+                  if (!selectedServiceId) { setError("Please select a service"); return; }
+                  setError(null); goNext();
+                } else if (step === 2) {
+                  if (!selectedStaffId) { setError("Please select a specialist"); return; }
+                  setError(null); goNext();
+                } else if (step === 3) {
+                  if (!selectedTime) { setError("Please select a time"); return; }
+                  if (!policyAgreed) { setError("Please agree to the booking policy"); return; }
+                  setError(null); goNext();
+                } else if (step === 4) {
+                  // Trigger form submit
+                  const form = document.querySelector("form");
+                  if (form) form.requestSubmit();
+                }
+              }}
+              disabled={!canProceed() || (step === 4 && submitting)}
+              style={{
+                flex: 1,
+                padding: "14px 24px",
+                background: canProceed() ? "var(--ink)" : "var(--cream-dark)",
+                color: canProceed() ? "var(--cream)" : "var(--ink-muted)",
+                border: "none",
+                borderRadius: 50,
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: canProceed() ? "pointer" : "not-allowed",
+                minHeight: 52,
+                transition: "all 0.2s ease"
+              }}
+            >
+              {step === 4 ? (submitting ? "Booking..." : "Confirm Booking") : "Continue"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
