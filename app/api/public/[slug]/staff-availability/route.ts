@@ -57,8 +57,8 @@ export async function GET(
       });
     }
 
-    // Check for schedule override
-    const override = await prisma.staffScheduleOverride.findFirst({
+    // Check for schedule overrides
+    const overrides = await prisma.staffScheduleOverride.findMany({
       where: {
         staffId,
         date: dateObj,
@@ -66,49 +66,58 @@ export async function GET(
       },
     });
 
+    // Check for full day off first
+    const dayOffOverride = overrides.find(o => o.isDayOff);
+    if (dayOffOverride) {
+      return NextResponse.json({
+        available: false,
+        reason: "Day off",
+        note: dayOffOverride.note,
+      });
+    }
+
+    // Collect partial time-off ranges (isDayOff = false with times means staff is OFF during those hours)
+    const excludeRanges: { startTime: string; endTime: string }[] = [];
+    for (const override of overrides) {
+      if (!override.isDayOff && override.startTime && override.endTime) {
+        excludeRanges.push({
+          startTime: override.startTime,
+          endTime: override.endTime,
+        });
+      }
+    }
+
     let staffStart: string;
     let staffEnd: string;
 
-    if (override) {
-      if (override.isDayOff) {
-        return NextResponse.json({
-          available: false,
-          reason: "Day off",
-          note: override.note,
-        });
-      }
-      staffStart = override.startTime || "09:00";
-      staffEnd = override.endTime || "18:00";
-    } else {
-      // Get regular working hours
-      const workingHours = await prisma.workingHours.findFirst({
-        where: {
-          staffId,
-          dayOfWeek,
-          salonId: salon.id,
-        },
-      });
+    // Get regular working hours
+    const workingHours = await prisma.workingHours.findFirst({
+      where: {
+        staffId,
+        dayOfWeek,
+        salonId: salon.id,
+      },
+    });
 
-      if (workingHours) {
-        if (!workingHours.isWorking) {
-          return NextResponse.json({
-            available: false,
-            reason: "Not working this day",
-          });
-        }
-        staffStart = workingHours.startTime;
-        staffEnd = workingHours.endTime;
-      } else if (shopHours && shopHours.isOpen) {
-        // Fall back to shop hours if no staff working hours configured
-        staffStart = shopHours.startTime;
-        staffEnd = shopHours.endTime;
-      } else {
-        // No working hours and no shop hours - not available
+    if (workingHours) {
+      if (!workingHours.isWorking) {
         return NextResponse.json({
           available: false,
-          reason: "Schedule not configured",
+          reason: "Not working this day",
         });
       }
+      staffStart = workingHours.startTime;
+      staffEnd = workingHours.endTime;
+    } else if (shopHours && shopHours.isOpen) {
+      // Fall back to shop hours if no staff working hours configured
+      staffStart = shopHours.startTime;
+      staffEnd = shopHours.endTime;
+    } else {
+      // No working hours and no shop hours - not available
+      return NextResponse.json({
+        available: false,
+        reason: "Schedule not configured",
+      });
     }
 
     // Calculate effective hours (intersection of shop and staff hours)
@@ -134,6 +143,7 @@ export async function GET(
       available: true,
       startTime: effectiveStart,
       endTime: effectiveEnd,
+      excludeRanges: excludeRanges.length > 0 ? excludeRanges : undefined,
       shopHours: shopHours ? { start: shopHours.startTime, end: shopHours.endTime } : null,
     });
   } catch (error) {

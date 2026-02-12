@@ -5,7 +5,7 @@ import { useEffect, useState, FormEvent, useCallback, use } from "react";
 type ServiceCategory = { id: string; name: string; description: string | null };
 type Service = { id: string; name: string; description: string | null; durationMinutes: number; price: number; categoryId?: string | null; serviceCategory?: ServiceCategory | null };
 type Staff = { id: string; name: string; role?: string | null };
-type StaffAvailability = { available: boolean; reason?: string; startTime?: string; endTime?: string; isCustom?: boolean; note?: string };
+type StaffAvailability = { available: boolean; reason?: string; startTime?: string; endTime?: string; isCustom?: boolean; note?: string; excludeRanges?: { startTime: string; endTime: string }[] };
 type ReservedSlot = { startTime: string; endTime: string };
 type PolicyItem = { icon: string; title: string; description: string };
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -326,6 +326,19 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       const availEnd = endH * 60 + endM;
       if (slotStartMin < availStart || slotEndMin > availEnd) continue;
 
+      // Check if slot falls within excluded time ranges (partial time off)
+      const excludeRanges = availability.excludeRanges || [];
+      const isExcluded = excludeRanges.some(range => {
+        const [exStartH, exStartM] = range.startTime.split(":").map(Number);
+        const [exEndH, exEndM] = range.endTime.split(":").map(Number);
+        const excludeStart = new Date(`${selectedDate}T00:00:00`);
+        excludeStart.setHours(exStartH, exStartM, 0, 0);
+        const excludeEnd = new Date(`${selectedDate}T00:00:00`);
+        excludeEnd.setHours(exEndH, exEndM, 0, 0);
+        return slotStart < excludeEnd && slotEnd > excludeStart;
+      });
+      if (isExcluded) continue;
+
       // Check if this staff has the slot booked
       const staffBooked = staffBookedSlots[member.id] || [];
       const hasBooking = staffBooked.some(a => slotStart < new Date(a.endTime) && slotEnd > new Date(a.startTime));
@@ -397,7 +410,21 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     const staffReserved = staffReservedSlots[staffId] || [];
     const isReserved = staffReserved.some(r => slotStart < new Date(r.endTime) && slotEnd > new Date(r.startTime));
 
-    return !hasConflict && !isReserved;
+    // Check if slot falls within excluded time ranges (partial time off)
+    const availability = allStaffAvailability[staffId];
+    const excludeRanges = availability?.excludeRanges || [];
+    const isExcluded = excludeRanges.some(range => {
+      const [exStartH, exStartM] = range.startTime.split(":").map(Number);
+      const [exEndH, exEndM] = range.endTime.split(":").map(Number);
+      const excludeStart = new Date(`${selectedDate}T00:00:00`);
+      excludeStart.setHours(exStartH, exStartM, 0, 0);
+      const excludeEnd = new Date(`${selectedDate}T00:00:00`);
+      excludeEnd.setHours(exEndH, exEndM, 0, 0);
+      // Slot conflicts with exclude range if slot starts before exclude ends AND slot ends after exclude starts
+      return slotStart < excludeEnd && slotEnd > excludeStart;
+    });
+
+    return !hasConflict && !isReserved && !isExcluded;
   };
 
   const timeSlots = generateTimeSlots();
