@@ -17,6 +17,7 @@ type Service = {
   category: string | null;
   categoryId: string | null;
   serviceCategory: ServiceCategory | null;
+  isActive: boolean;
 };
 
 export default function ServicesPage() {
@@ -127,6 +128,21 @@ export default function ServicesPage() {
     }
   }
 
+  async function handleToggleActive(service: Service) {
+    try {
+      const res = await fetch(`/api/admin/services/${service.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ isActive: !service.isActive }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setServices(services.map(s => s.id === service.id ? { ...s, isActive: !s.isActive } : s));
+    } catch (err) {
+      alert("Error updating service");
+    }
+  }
+
   function resetForm() {
     setFormName(""); setFormDescription(""); setFormDuration("60"); setFormPrice(""); setFormCategoryId(""); setEditingService(null);
   }
@@ -224,7 +240,7 @@ export default function ServicesPage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
               {catServices.map((service) => (
-                <ServiceCard key={service.id} service={service} onEdit={openEditModal} onDelete={handleDelete} />
+                <ServiceCard key={service.id} service={service} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
               ))}
             </div>
           </div>
@@ -237,7 +253,7 @@ export default function ServicesPage() {
           <h2 style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", margin: "0 0 16px", fontFamily: "var(--font-heading)" }}>Other Services</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
             {uncategorized.map((service) => (
-              <ServiceCard key={service.id} service={service} onEdit={openEditModal} onDelete={handleDelete} />
+              <ServiceCard key={service.id} service={service} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
             ))}
           </div>
         </div>
@@ -333,14 +349,40 @@ export default function ServicesPage() {
   );
 }
 
-function ServiceCard({ service, onEdit, onDelete }: { service: Service; onEdit: (s: Service) => void; onDelete: (s: Service) => void }) {
+function ServiceCard({ service, onEdit, onDelete, onToggle }: { service: Service; onEdit: (s: Service) => void; onDelete: (s: Service) => void; onToggle: (s: Service) => void }) {
   return (
-    <div style={{ backgroundColor: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", padding: 20, transition: "all 0.2s ease", boxShadow: "var(--shadow-sm)" }}>
+    <div style={{ backgroundColor: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", padding: 20, transition: "all 0.2s ease", boxShadow: "var(--shadow-sm)", opacity: service.isActive ? 1 : 0.5 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.05em", backgroundColor: "var(--rose-pale)", padding: "4px 10px", borderRadius: 50, fontFamily: "var(--font-body)" }}>
           {service.serviceCategory?.name || service.category || "General"}
         </span>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={() => onToggle(service)}
+            title={service.isActive ? "Active - click to deactivate" : "Inactive - click to activate"}
+            style={{
+              width: 44,
+              height: 24,
+              borderRadius: 12,
+              border: "none",
+              backgroundColor: service.isActive ? "#22c55e" : "#d1d5db",
+              cursor: "pointer",
+              position: "relative",
+              transition: "background-color 0.2s ease",
+            }}
+          >
+            <span style={{
+              position: "absolute",
+              top: 2,
+              left: service.isActive ? 22 : 2,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              backgroundColor: "white",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              transition: "left 0.2s ease",
+            }} />
+          </button>
           <button onClick={() => onEdit(service)} style={{ width: 30, height: 30, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>✏️</button>
           <button onClick={() => onDelete(service)} style={{ width: 30, height: 30, border: "none", backgroundColor: "var(--rose-pale)", borderRadius: 8, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>🗑</button>
         </div>

@@ -9,7 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   try {
     const body = await req.json();
-    const { name, description, durationMinutes, price, categoryId } = body;
+    const { name, description, durationMinutes, price, categoryId, isActive } = body;
 
     const service = await prisma.service.update({
       where: { id },
@@ -19,6 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(durationMinutes !== undefined && { durationMinutes: parseInt(durationMinutes) }),
         ...(price !== undefined && { price: parseFloat(price) }),
         ...(categoryId !== undefined && { categoryId: categoryId || null }),
+        ...(isActive !== undefined && { isActive }),
       },
       include: { serviceCategory: true },
     });
