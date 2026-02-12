@@ -2,28 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 
-async function getSalonId(): Promise<string | null> {
-  const auth = await getAuthPayload();
-  if (auth?.salonId) return auth.salonId;
-
-  // Fallback: look up salon by slug
-  const salon = await prisma.salon.findUnique({
-    where: { slug: "heranailspa" },
-    select: { id: true },
-  });
-  return salon?.id || null;
-}
-
 export async function GET(req: NextRequest) {
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
+
   const staffId = req.nextUrl.searchParams.get("staffId");
   const month = req.nextUrl.searchParams.get("month");
 
-  const salonId = await getSalonId();
-  if (!salonId) {
-    return NextResponse.json([]);
-  }
-
-  const where: any = { salonId };
+  const where: any = { salonId: auth.salonId };
   if (staffId) where.staffId = staffId;
   if (month) {
     const [year, mon] = month.split("-").map(Number);
@@ -43,10 +29,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const salonId = await getSalonId();
-    if (!salonId) {
-      return unauthorizedResponse();
-    }
+    const auth = await getAuthPayload();
+    if (!auth?.salonId) return unauthorizedResponse();
 
     const body = await req.json();
     const { staffId, date, isDayOff, startTime, endTime, note } = body;
@@ -61,7 +45,7 @@ export async function POST(req: NextRequest) {
     const override = await prisma.staffScheduleOverride.upsert({
       where: { staffId_date: { staffId, date: dateObj } },
       create: {
-        salonId,
+        salonId: auth.salonId,
         staffId,
         date: dateObj,
         isDayOff: isDayOff ?? false,
@@ -85,8 +69,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const salonId = await getSalonId();
-  if (!salonId) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
   const { id, date, isDayOff, startTime, endTime, note } = body;

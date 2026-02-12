@@ -2,19 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 
-async function getSalonId(): Promise<string | null> {
-  const auth = await getAuthPayload();
-  if (auth?.salonId) return auth.salonId;
-  return "heranailspa";
-}
-
 export async function GET(req: NextRequest) {
-  const salonId = await getSalonId();
-  if (!salonId) return NextResponse.json([]);
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const staffId = req.nextUrl.searchParams.get("staffId");
-  
-  const where: any = { salonId };
+
+  const where: any = { salonId: auth.salonId };
   if (staffId) where.staffId = staffId;
 
   const workingHours = await prisma.workingHours.findMany({
@@ -27,8 +21,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const salonId = await getSalonId();
-  if (!salonId) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
   const { staffId, dayOfWeek, startTime, endTime, isWorking } = body;
@@ -40,7 +34,7 @@ export async function POST(req: NextRequest) {
   const workingHours = await prisma.workingHours.upsert({
     where: { staffId_dayOfWeek: { staffId, dayOfWeek } },
     create: {
-      salonId,
+      salonId: auth.salonId,
       staffId,
       dayOfWeek,
       startTime: startTime || "09:00",

@@ -2,18 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 
-async function getSalonId(): Promise<string | null> {
-  const auth = await getAuthPayload();
-  if (auth?.salonId) return auth.salonId;
-  return "heranailspa";
-}
-
 export async function GET() {
-  const salonId = await getSalonId();
-  if (!salonId) return NextResponse.json([]);
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const staff = await prisma.staff.findMany({
-    where: { salonId },
+    where: { salonId: auth.salonId },
     include: { staffServices: { select: { serviceId: true } } },
     orderBy: { name: "asc" },
   });
@@ -28,8 +22,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const salonId = await getSalonId();
-  if (!salonId) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
   const { name, role } = body;
@@ -40,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const staff = await prisma.staff.create({
     data: {
-      salonId,
+      salonId: auth.salonId,
       name,
       role: role || null,
     },
@@ -50,7 +44,7 @@ export async function POST(req: NextRequest) {
   const defaultWorkingHours = [];
   for (let day = 1; day <= 6; day++) { // 1=Monday to 6=Saturday
     defaultWorkingHours.push({
-      salonId,
+      salonId: auth.salonId,
       staffId: staff.id,
       dayOfWeek: day,
       startTime: "09:00",
@@ -60,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
   // Sunday off
   defaultWorkingHours.push({
-    salonId,
+    salonId: auth.salonId,
     staffId: staff.id,
     dayOfWeek: 0,
     startTime: "09:00",

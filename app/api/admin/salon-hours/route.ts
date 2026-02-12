@@ -2,18 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 
-async function getSalonId(): Promise<string | null> {
-  const auth = await getAuthPayload();
-  if (auth?.salonId) return auth.salonId;
-  return "heranailspa";
-}
-
 export async function GET() {
-  const salonId = await getSalonId();
-  if (!salonId) return NextResponse.json([]);
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const hours = await prisma.salonWorkingHours.findMany({
-    where: { salonId },
+    where: { salonId: auth.salonId },
     orderBy: { dayOfWeek: "asc" },
   });
 
@@ -21,8 +15,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const salonId = await getSalonId();
-  if (!salonId) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
   const { dayOfWeek, startTime, endTime, isOpen } = body;
@@ -32,9 +26,9 @@ export async function POST(req: NextRequest) {
   }
 
   const hours = await prisma.salonWorkingHours.upsert({
-    where: { salonId_dayOfWeek: { salonId, dayOfWeek } },
+    where: { salonId_dayOfWeek: { salonId: auth.salonId, dayOfWeek } },
     create: {
-      salonId,
+      salonId: auth.salonId,
       dayOfWeek,
       startTime: startTime || "09:00",
       endTime: endTime || "18:00",
@@ -51,8 +45,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const salonId = await getSalonId();
-  if (!salonId) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
   const { hours } = body; // Array of { dayOfWeek, startTime, endTime, isOpen }
@@ -65,9 +59,9 @@ export async function PUT(req: NextRequest) {
   const results = await prisma.$transaction(
     hours.map((h: { dayOfWeek: number; startTime: string; endTime: string; isOpen: boolean }) =>
       prisma.salonWorkingHours.upsert({
-        where: { salonId_dayOfWeek: { salonId, dayOfWeek: h.dayOfWeek } },
+        where: { salonId_dayOfWeek: { salonId: auth.salonId, dayOfWeek: h.dayOfWeek } },
         create: {
-          salonId,
+          salonId: auth.salonId,
           dayOfWeek: h.dayOfWeek,
           startTime: h.startTime || "09:00",
           endTime: h.endTime || "18:00",
