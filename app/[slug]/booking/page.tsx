@@ -826,7 +826,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Select the service you would like to book</p>
 
                 {/* Category Accordions */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingBottom: isMobile ? 120 : 0 }}>
                   {categories.map((cat) => {
                     const categoryServices = services.filter(s => s.categoryId === cat.id);
                     const isExpanded = selectedCategoryId === cat.id;
@@ -1540,7 +1540,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   setError(null); goNext();
                 } else if (step === 3) {
                   if (!selectedTime) { setError("Please select a time"); return; }
-                  if (!policyAgreed) { setError("Please agree to the booking policy"); return; }
                   setError(null); goNext();
                 } else if (step === 4) {
                   // Trigger form submit
