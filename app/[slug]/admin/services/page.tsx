@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SERVICE_TEMPLATES } from "@/lib/service-templates";
 
 type ServiceCategory = {
   id: string;
@@ -43,6 +44,9 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [editingCategory, setEditingCategory] = useState<ServiceCategory | null>(null);
@@ -263,6 +267,30 @@ export default function ServicesPage() {
     setShowCategoryModal(true);
   }
 
+  async function applyTemplate() {
+    setApplyingTemplate(true);
+    try {
+      const res = await fetch("/api/admin/services/apply-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ templateId: "nail-salon" }),
+      });
+      if (!res.ok) throw new Error("Failed to apply template");
+      const result = await res.json();
+      setShowTemplateModal(false);
+      setSuccessMessage(`Added ${result.created.services} services across ${result.created.categories} categories`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+      loadData();
+    } catch (err) {
+      alert("Error applying template");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  }
+
+  const totalTemplateServices = SERVICE_TEMPLATES.categories.reduce((sum, cat) => sum + cat.services.length, 0);
+
   // Get the best (highest) discount for a service
   function getDiscountForService(serviceId: string): Discount | null {
     const applicable = discounts.filter(d => d.serviceIds.includes(serviceId));
@@ -291,6 +319,30 @@ export default function ServicesPage() {
 
   return (
     <div style={{ maxWidth: 1200 }}>
+      {/* Success Toast */}
+      {successMessage && (
+        <div style={{
+          position: "fixed",
+          top: 24,
+          right: 24,
+          backgroundColor: "#059669",
+          color: "white",
+          padding: "14px 20px",
+          borderRadius: 12,
+          fontSize: 14,
+          fontWeight: 500,
+          fontFamily: "var(--font-body)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 2000,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}>
+          <span style={{ fontSize: 18 }}>✓</span>
+          {successMessage}
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
         <div>
@@ -301,7 +353,28 @@ export default function ServicesPage() {
             Manage your service menu and pricing
           </p>
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {services.length > 0 && (
+            <button
+              onClick={() => setShowTemplateModal(true)}
+              style={{
+                padding: "10px 16px",
+                backgroundColor: "transparent",
+                color: "var(--ink-muted)",
+                border: "none",
+                borderRadius: 50,
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "var(--font-body)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseOver={(e) => e.currentTarget.style.color = "var(--ink)"}
+              onMouseOut={(e) => e.currentTarget.style.color = "var(--ink-muted)"}
+            >
+              📋 Browse templates
+            </button>
+          )}
           <button onClick={openAddCategoryModal} style={{ padding: "12px 24px", backgroundColor: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)", transition: "all 0.2s ease" }}>
             + Category
           </button>
@@ -387,12 +460,122 @@ export default function ServicesPage() {
       )}
 
       {services.length === 0 && (
-        <div style={{ textAlign: "center", padding: 80, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>
-          <div style={{ width: 80, height: 80, borderRadius: "50%", backgroundColor: "var(--cream-dark)", margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>✨</div>
-          <p style={{ marginBottom: 20 }}>No services yet</p>
-          <button onClick={openAddModal} style={{ padding: "12px 28px", backgroundColor: "var(--rose)", color: "var(--white)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
-            Add your first service
-          </button>
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "60px 20px",
+          minHeight: "50vh",
+        }}>
+          <div style={{
+            backgroundColor: "var(--white)",
+            borderRadius: 24,
+            padding: "48px 40px",
+            maxWidth: 480,
+            width: "100%",
+            textAlign: "center",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
+            border: "1px solid var(--cream-dark)",
+          }}>
+            <div style={{
+              width: 72,
+              height: 72,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+              margin: "0 auto 24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 32,
+            }}>
+              🚀
+            </div>
+            <h2 style={{
+              fontSize: 24,
+              fontWeight: 600,
+              color: "var(--ink)",
+              margin: "0 0 12px",
+              fontFamily: "var(--font-heading)",
+            }}>
+              Get started quickly
+            </h2>
+            <p style={{
+              fontSize: 15,
+              color: "var(--ink-muted)",
+              margin: "0 0 28px",
+              lineHeight: 1.6,
+              fontFamily: "var(--font-body)",
+            }}>
+              Start with our recommended nail salon services. You can customise names, prices, and durations later.
+            </p>
+            <button
+              onClick={applyTemplate}
+              disabled={applyingTemplate}
+              style={{
+                width: "100%",
+                padding: "16px 32px",
+                backgroundColor: "var(--ink)",
+                color: "var(--cream)",
+                border: "none",
+                borderRadius: 50,
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: applyingTemplate ? "wait" : "pointer",
+                fontFamily: "var(--font-body)",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              {applyingTemplate ? (
+                <>
+                  <span style={{
+                    width: 18,
+                    height: 18,
+                    border: "2px solid var(--cream)",
+                    borderTopColor: "transparent",
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                  }} />
+                  Creating services...
+                </>
+              ) : (
+                "Use Nail Salon Template"
+              )}
+            </button>
+            <p style={{
+              fontSize: 13,
+              color: "var(--ink-muted)",
+              marginTop: 20,
+              fontFamily: "var(--font-body)",
+            }}>
+              Or start from scratch with{" "}
+              <button
+                onClick={openAddModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--rose)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 13,
+                  textDecoration: "underline",
+                  padding: 0,
+                }}
+              >
+                + Add Service
+              </button>
+            </p>
+          </div>
+          <style>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
         </div>
       )}
 
@@ -468,6 +651,81 @@ export default function ServicesPage() {
               <button onClick={handleSaveCategory} disabled={saving} style={{ padding: "12px 24px", backgroundColor: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-body)" }}>
                 {saving ? "Saving..." : "Save Category"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Modal */}
+      {showTemplateModal && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(26,23,21,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div style={{ backgroundColor: "var(--white)", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "85vh", overflow: "hidden", boxShadow: "var(--shadow-lg)", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--cream-dark)", flexShrink: 0 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-heading)" }}>
+                  {SERVICE_TEMPLATES.name}
+                </h2>
+                <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "4px 0 0", fontFamily: "var(--font-body)" }}>
+                  {SERVICE_TEMPLATES.description}
+                </p>
+              </div>
+              <button onClick={() => setShowTemplateModal(false)} style={{ width: 32, height: 32, border: "none", backgroundColor: "var(--cream)", borderRadius: 8, fontSize: 18, cursor: "pointer", color: "var(--ink-muted)" }}>×</button>
+            </div>
+            <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+              {SERVICE_TEMPLATES.categories.map((cat, catIdx) => (
+                <div key={catIdx} style={{ marginBottom: catIdx < SERVICE_TEMPLATES.categories.length - 1 ? 24 : 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", margin: 0, fontFamily: "var(--font-body)" }}>
+                      {cat.name}
+                    </h3>
+                    <span style={{ fontSize: 12, color: "var(--ink-muted)", backgroundColor: "var(--cream)", padding: "2px 8px", borderRadius: 50, fontFamily: "var(--font-body)" }}>
+                      {cat.services.length} services
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {cat.services.map((svc, svcIdx) => (
+                      <div key={svcIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", backgroundColor: "var(--cream)", borderRadius: 10 }}>
+                        <span style={{ fontSize: 13, color: "var(--ink)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {svc.name}
+                        </span>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
+                          <span style={{ fontSize: 12, color: "var(--ink-muted)", fontFamily: "var(--font-body)" }}>{svc.duration}min</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", fontFamily: "var(--font-body)" }}>£{svc.price}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "16px 24px", borderTop: "1px solid var(--cream-dark)", backgroundColor: "var(--cream)", flexShrink: 0 }}>
+              <p style={{ fontSize: 12, color: "var(--ink-muted)", margin: "0 0 16px", fontFamily: "var(--font-body)", textAlign: "center" }}>
+                This will add {totalTemplateServices} services. Existing services will not be affected.
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                <button onClick={() => setShowTemplateModal(false)} style={{ padding: "12px 24px", backgroundColor: "var(--white)", color: "var(--ink-light)", border: "1px solid var(--cream-dark)", borderRadius: 50, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "var(--font-body)" }}>Cancel</button>
+                <button
+                  onClick={applyTemplate}
+                  disabled={applyingTemplate}
+                  style={{ padding: "12px 24px", backgroundColor: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 14, fontWeight: 600, cursor: applyingTemplate ? "wait" : "pointer", fontFamily: "var(--font-body)", display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  {applyingTemplate ? (
+                    <>
+                      <span style={{
+                        width: 14,
+                        height: 14,
+                        border: "2px solid var(--cream)",
+                        borderTopColor: "transparent",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                      }} />
+                      Applying...
+                    </>
+                  ) : (
+                    "Apply template"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
