@@ -56,6 +56,10 @@ export default function ServicesPage() {
   const [catName, setCatName] = useState("");
   const [catDescription, setCatDescription] = useState("");
 
+  // Drag and drop state
+  const [draggedService, setDraggedService] = useState<Service | null>(null);
+  const [dragOverServiceId, setDragOverServiceId] = useState<string | null>(null);
+
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
@@ -171,6 +175,68 @@ export default function ServicesPage() {
     }
   }
 
+  // Drag and drop handlers
+  function handleDragStart(service: Service) {
+    setDraggedService(service);
+  }
+
+  function handleDragOver(e: React.DragEvent, targetService: Service) {
+    e.preventDefault();
+    // Only allow drop within the same category
+    if (draggedService && draggedService.categoryId === targetService.categoryId && draggedService.id !== targetService.id) {
+      setDragOverServiceId(targetService.id);
+    }
+  }
+
+  function handleDragLeave() {
+    setDragOverServiceId(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedService(null);
+    setDragOverServiceId(null);
+  }
+
+  async function handleDrop(e: React.DragEvent, targetService: Service) {
+    e.preventDefault();
+    setDragOverServiceId(null);
+
+    if (!draggedService || draggedService.id === targetService.id) return;
+    if (draggedService.categoryId !== targetService.categoryId) return;
+
+    // Get services in this category
+    const categoryId = targetService.categoryId;
+    const catServices = categoryId ? (servicesByCategory[categoryId] || []) : uncategorized;
+
+    // Reorder
+    const dragIndex = catServices.findIndex(s => s.id === draggedService.id);
+    const dropIndex = catServices.findIndex(s => s.id === targetService.id);
+
+    const reordered = [...catServices];
+    reordered.splice(dragIndex, 1);
+    reordered.splice(dropIndex, 0, draggedService);
+
+    // Update state immediately for smooth UX
+    const updatedServices = services.filter(s => s.categoryId !== categoryId);
+    setServices([...updatedServices, ...reordered]);
+
+    // Save to API
+    try {
+      const res = await fetch("/api/admin/services/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ serviceIds: reordered.map(s => s.id) }),
+      });
+      if (!res.ok) throw new Error("Failed to save order");
+    } catch (err) {
+      console.error("Error saving order:", err);
+      loadData(); // Reload on error
+    }
+
+    setDraggedService(null);
+  }
+
   function resetForm() {
     setFormName(""); setFormDescription(""); setFormDuration("60"); setFormPrice(""); setFormCategoryId(""); setEditingService(null);
   }
@@ -275,7 +341,20 @@ export default function ServicesPage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
               {catServices.map((service) => (
-                <ServiceCard key={service.id} service={service} discount={getDiscountForService(service.id)} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
+                <ServiceCard
+                  key={service.id}
+                  service={service}
+                  discount={getDiscountForService(service.id)}
+                  onEdit={openEditModal}
+                  onDelete={handleDelete}
+                  onToggle={handleToggleActive}
+                  isDragOver={dragOverServiceId === service.id}
+                  onDragStart={() => handleDragStart(service)}
+                  onDragOver={(e) => handleDragOver(e, service)}
+                  onDragLeave={handleDragLeave}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDrop(e, service)}
+                />
               ))}
             </div>
           </div>
@@ -288,7 +367,20 @@ export default function ServicesPage() {
           <h2 style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", margin: "0 0 16px", fontFamily: "var(--font-heading)" }}>Other Services</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
             {uncategorized.map((service) => (
-              <ServiceCard key={service.id} service={service} discount={getDiscountForService(service.id)} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
+              <ServiceCard
+                key={service.id}
+                service={service}
+                discount={getDiscountForService(service.id)}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+                onToggle={handleToggleActive}
+                isDragOver={dragOverServiceId === service.id}
+                onDragStart={() => handleDragStart(service)}
+                onDragOver={(e) => handleDragOver(e, service)}
+                onDragLeave={handleDragLeave}
+                onDragEnd={handleDragEnd}
+                onDrop={(e) => handleDrop(e, service)}
+              />
             ))}
           </div>
         </div>
@@ -384,11 +476,70 @@ export default function ServicesPage() {
   );
 }
 
-function ServiceCard({ service, discount, onEdit, onDelete, onToggle }: { service: Service; discount: Discount | null; onEdit: (s: Service) => void; onDelete: (s: Service) => void; onToggle: (s: Service) => void }) {
+function ServiceCard({
+  service,
+  discount,
+  onEdit,
+  onDelete,
+  onToggle,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDragEnd,
+  onDrop,
+}: {
+  service: Service;
+  discount: Discount | null;
+  onEdit: (s: Service) => void;
+  onDelete: (s: Service) => void;
+  onToggle: (s: Service) => void;
+  isDragOver: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDragEnd: () => void;
+  onDrop: (e: React.DragEvent) => void;
+}) {
   const discountedPrice = discount ? service.price * (1 - discount.discountPercent / 100) : null;
 
   return (
-    <div style={{ backgroundColor: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", padding: 20, transition: "all 0.2s ease", boxShadow: "var(--shadow-sm)", opacity: service.isActive ? 1 : 0.5 }}>
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDragEnd={onDragEnd}
+      onDrop={onDrop}
+      style={{
+        backgroundColor: "var(--white)",
+        borderRadius: 16,
+        border: isDragOver ? "2px solid #3b82f6" : "1px solid var(--cream-dark)",
+        padding: 20,
+        transition: "border 0.15s ease",
+        boxShadow: "var(--shadow-sm)",
+        opacity: service.isActive ? 1 : 0.5,
+        display: "flex",
+        gap: 12,
+      }}
+    >
+      {/* Drag handle */}
+      <div
+        style={{
+          cursor: "grab",
+          color: "var(--ink-muted)",
+          fontSize: 16,
+          display: "flex",
+          alignItems: "flex-start",
+          paddingTop: 2,
+          userSelect: "none",
+        }}
+        title="Drag to reorder"
+      >
+        ⠿
+      </div>
+      {/* Card content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.05em", backgroundColor: "var(--rose-pale)", padding: "4px 10px", borderRadius: 50, fontFamily: "var(--font-body)" }}>
@@ -499,6 +650,7 @@ function ServiceCard({ service, discount, onEdit, onDelete, onToggle }: { servic
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );
