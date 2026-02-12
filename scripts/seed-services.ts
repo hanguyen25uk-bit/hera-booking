@@ -9,7 +9,7 @@ const categories = [
   { name: "BIAB- Builder Gel", sortOrder: 0 },
   { name: "Manicure, Pedicure", sortOrder: 1 },
   { name: "Shellac/ Gel", sortOrder: 2 },
-  { name: "Nail Extensions", sortOrder: 3 },
+  { name: "Nail Extensions (with Shellac/Gel)", sortOrder: 3 },
 ];
 
 // Services for BIAB- Builder Gel category
@@ -93,6 +93,199 @@ const biabServices = [
   },
 ];
 
+// Services for Manicure, Pedicure category
+const maniPediServices = [
+  {
+    name: "Normal Pedicure",
+    description: "Includes 5 min buffer",
+    durationMinutes: 45,
+    price: 30,
+    sortOrder: 0,
+  },
+  {
+    name: "French Shellac Pedicure",
+    description: "Includes 5 min buffer",
+    durationMinutes: 45,
+    price: 43,
+    sortOrder: 1,
+  },
+  {
+    name: "French Shellac Manicure",
+    description: "Includes 5 min buffer",
+    durationMinutes: 45,
+    price: 35,
+    sortOrder: 2,
+  },
+  {
+    name: "Shellac Mani & Pedi",
+    description: "Includes 5 min buffer",
+    durationMinutes: 90,
+    price: 65,
+    sortOrder: 3,
+  },
+  {
+    name: "Shellac/Gel Manicure",
+    description: null,
+    durationMinutes: 30,
+    price: 30,
+    sortOrder: 4,
+  },
+  {
+    name: "Shellac/Gel Pedicure",
+    description: null,
+    durationMinutes: 60,
+    price: 38,
+    sortOrder: 5,
+  },
+];
+
+// Services for Shellac/ Gel category
+const shellacGelServices = [
+  {
+    name: "French Shellac Toes",
+    description: "Includes 5 min buffer",
+    durationMinutes: 30,
+    price: 33,
+    sortOrder: 0,
+  },
+  {
+    name: "French Shellac Hands",
+    description: null,
+    durationMinutes: 40,
+    price: 28,
+    sortOrder: 1,
+  },
+  {
+    name: "Shellac/Gel Toes",
+    description: "Includes 5 min buffer",
+    durationMinutes: 30,
+    price: 28,
+    sortOrder: 2,
+  },
+  {
+    name: "Removal & Redo Shellac/Gel Hands",
+    description: "Includes 5 min buffer",
+    durationMinutes: 30,
+    price: 28,
+    sortOrder: 3,
+  },
+  {
+    name: "Shellac/Gel Hands",
+    description: "Includes 5 min buffer",
+    durationMinutes: 30,
+    price: 23,
+    sortOrder: 4,
+  },
+];
+
+// Services for Nail Extensions (with Shellac/Gel) category
+const nailExtensionsServices = [
+  {
+    name: "A fullset acrylic with complex nail art",
+    description: null,
+    durationMinutes: 90,
+    price: 70,
+    sortOrder: 0,
+  },
+  {
+    name: "Infill Acrylic with French Tips",
+    description: null,
+    durationMinutes: 45,
+    price: 35,
+    sortOrder: 1,
+  },
+  {
+    name: "Infill Acrylic Powder (with Shellac/Gel)",
+    description: "Includes 5 min buffer",
+    durationMinutes: 30,
+    price: 30,
+    sortOrder: 2,
+  },
+  {
+    name: "SNS Dipping Powder Overlay (Natural Nails)",
+    description: "Includes 5 min buffer",
+    durationMinutes: 45,
+    price: 35,
+    sortOrder: 3,
+  },
+  {
+    name: "Ombre Nail Extensions",
+    description: "Includes 5 min buffer",
+    durationMinutes: 60,
+    price: 42,
+    sortOrder: 4,
+  },
+  {
+    name: "Removal & Redo New Set Acrylic Nail Extensions",
+    description: "Includes 5 min buffer",
+    durationMinutes: 75,
+    price: 43,
+    sortOrder: 5,
+  },
+  {
+    name: "Acrylic Nail Extensions with French Tips",
+    description: "Includes 5 min buffer",
+    durationMinutes: 60,
+    price: 43,
+    sortOrder: 6,
+  },
+  {
+    name: "Acrylic Powder Nail Extensions with shellac/gel",
+    description: "Includes 5 min buffer",
+    durationMinutes: 60,
+    price: 38,
+    sortOrder: 7,
+  },
+];
+
+// Helper function to create services for a category
+async function createServicesForCategory(
+  services: Array<{ name: string; description: string | null; durationMinutes: number; price: number; sortOrder: number }>,
+  categoryId: string,
+  categoryName: string,
+  salonId: string,
+  activeStaff: Array<{ id: string; name: string }>,
+  created: { categories: number; services: number; staffAssignments: number }
+) {
+  console.log(`\n💅 Creating ${categoryName} services...`);
+
+  for (const service of services) {
+    const existing = await prisma.service.findFirst({
+      where: { salonId: salonId, name: service.name },
+    });
+
+    if (existing) {
+      console.log(`   ⏭️  Service "${service.name}" already exists`);
+    } else {
+      const newService = await prisma.service.create({
+        data: {
+          salonId: salonId,
+          name: service.name,
+          description: service.description,
+          durationMinutes: service.durationMinutes,
+          price: service.price,
+          categoryId: categoryId,
+          sortOrder: service.sortOrder,
+        },
+      });
+      console.log(`   ✅ Created service "${service.name}" (£${service.price}, ${service.durationMinutes}min)`);
+      created.services++;
+
+      // Assign all active staff to this service
+      for (const staff of activeStaff) {
+        await prisma.staffService.create({
+          data: {
+            staffId: staff.id,
+            serviceId: newService.id,
+          },
+        });
+        created.staffAssignments++;
+      }
+      console.log(`      👥 Assigned ${activeStaff.length} staff members`);
+    }
+  }
+}
+
 async function main() {
   console.log("🌱 Starting seed script for heranailspa services...\n");
 
@@ -148,45 +341,42 @@ async function main() {
     }
   }
 
-  // Create BIAB services
-  console.log("\n💅 Creating BIAB services...");
-  const biabCategoryId = categoryMap["BIAB- Builder Gel"];
+  // Create services for each category
+  await createServicesForCategory(
+    biabServices,
+    categoryMap["BIAB- Builder Gel"],
+    "BIAB- Builder Gel",
+    salon.id,
+    activeStaff,
+    created
+  );
 
-  for (const service of biabServices) {
-    const existing = await prisma.service.findFirst({
-      where: { salonId: salon.id, name: service.name },
-    });
+  await createServicesForCategory(
+    maniPediServices,
+    categoryMap["Manicure, Pedicure"],
+    "Manicure, Pedicure",
+    salon.id,
+    activeStaff,
+    created
+  );
 
-    if (existing) {
-      console.log(`   ⏭️  Service "${service.name}" already exists`);
-    } else {
-      const newService = await prisma.service.create({
-        data: {
-          salonId: salon.id,
-          name: service.name,
-          description: service.description,
-          durationMinutes: service.durationMinutes,
-          price: service.price,
-          categoryId: biabCategoryId,
-          sortOrder: service.sortOrder,
-        },
-      });
-      console.log(`   ✅ Created service "${service.name}" (£${service.price}, ${service.durationMinutes}min)`);
-      created.services++;
+  await createServicesForCategory(
+    shellacGelServices,
+    categoryMap["Shellac/ Gel"],
+    "Shellac/ Gel",
+    salon.id,
+    activeStaff,
+    created
+  );
 
-      // Assign all active staff to this service
-      for (const staff of activeStaff) {
-        await prisma.staffService.create({
-          data: {
-            staffId: staff.id,
-            serviceId: newService.id,
-          },
-        });
-        created.staffAssignments++;
-      }
-      console.log(`      👥 Assigned ${activeStaff.length} staff members`);
-    }
-  }
+  await createServicesForCategory(
+    nailExtensionsServices,
+    categoryMap["Nail Extensions (with Shellac/Gel)"],
+    "Nail Extensions (with Shellac/Gel)",
+    salon.id,
+    activeStaff,
+    created
+  );
 
   // Print summary
   console.log("\n" + "=".repeat(50));
