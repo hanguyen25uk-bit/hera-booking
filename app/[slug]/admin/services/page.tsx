@@ -20,9 +20,20 @@ type Service = {
   isActive: boolean;
 };
 
+type Discount = {
+  id: string;
+  name: string;
+  discountPercent: number;
+  serviceIds: string[];
+  isActive: boolean;
+  validFrom: string | null;
+  validUntil: string | null;
+};
+
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -43,12 +54,23 @@ export default function ServicesPage() {
 
   async function loadData() {
     try {
-      const [servicesRes, categoriesRes] = await Promise.all([
+      const [servicesRes, categoriesRes, discountsRes] = await Promise.all([
         fetch("/api/admin/services", { credentials: "include" }),
         fetch("/api/categories", { credentials: "include" }),
+        fetch("/api/admin/discounts", { credentials: "include" }),
       ]);
       setServices(await servicesRes.json());
       setCategories(await categoriesRes.json());
+      const allDiscounts = await discountsRes.json();
+      // Filter to only active and currently valid discounts
+      const now = new Date();
+      const activeDiscounts = allDiscounts.filter((d: Discount) => {
+        if (!d.isActive) return false;
+        if (d.validFrom && new Date(d.validFrom) > now) return false;
+        if (d.validUntil && new Date(d.validUntil) < now) return false;
+        return true;
+      });
+      setDiscounts(activeDiscounts);
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
@@ -169,6 +191,13 @@ export default function ServicesPage() {
     setShowCategoryModal(true);
   }
 
+  // Get the best (highest) discount for a service
+  function getDiscountForService(serviceId: string): Discount | null {
+    const applicable = discounts.filter(d => d.serviceIds.includes(serviceId));
+    if (applicable.length === 0) return null;
+    return applicable.reduce((best, d) => d.discountPercent > best.discountPercent ? d : best);
+  }
+
   const servicesByCategory: { [key: string]: Service[] } = {};
   const uncategorized: Service[] = [];
   services.forEach((service) => {
@@ -240,7 +269,7 @@ export default function ServicesPage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
               {catServices.map((service) => (
-                <ServiceCard key={service.id} service={service} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
+                <ServiceCard key={service.id} service={service} discount={getDiscountForService(service.id)} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
               ))}
             </div>
           </div>
@@ -253,7 +282,7 @@ export default function ServicesPage() {
           <h2 style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", margin: "0 0 16px", fontFamily: "var(--font-heading)" }}>Other Services</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
             {uncategorized.map((service) => (
-              <ServiceCard key={service.id} service={service} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
+              <ServiceCard key={service.id} service={service} discount={getDiscountForService(service.id)} onEdit={openEditModal} onDelete={handleDelete} onToggle={handleToggleActive} />
             ))}
           </div>
         </div>
@@ -349,13 +378,22 @@ export default function ServicesPage() {
   );
 }
 
-function ServiceCard({ service, onEdit, onDelete, onToggle }: { service: Service; onEdit: (s: Service) => void; onDelete: (s: Service) => void; onToggle: (s: Service) => void }) {
+function ServiceCard({ service, discount, onEdit, onDelete, onToggle }: { service: Service; discount: Discount | null; onEdit: (s: Service) => void; onDelete: (s: Service) => void; onToggle: (s: Service) => void }) {
+  const discountedPrice = discount ? service.price * (1 - discount.discountPercent / 100) : null;
+
   return (
     <div style={{ backgroundColor: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", padding: 20, transition: "all 0.2s ease", boxShadow: "var(--shadow-sm)", opacity: service.isActive ? 1 : 0.5 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.05em", backgroundColor: "var(--rose-pale)", padding: "4px 10px", borderRadius: 50, fontFamily: "var(--font-body)" }}>
-          {service.serviceCategory?.name || service.category || "General"}
-        </span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--rose)", textTransform: "uppercase", letterSpacing: "0.05em", backgroundColor: "var(--rose-pale)", padding: "4px 10px", borderRadius: 50, fontFamily: "var(--font-body)" }}>
+            {service.serviceCategory?.name || service.category || "General"}
+          </span>
+          {discount && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#92400e", backgroundColor: "#fef3c7", padding: "4px 8px", borderRadius: 50, fontFamily: "var(--font-body)" }}>
+              {discount.discountPercent}% OFF
+            </span>
+          )}
+        </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
             onClick={() => onToggle(service)}
@@ -389,7 +427,17 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: { service: Service
       </div>
       <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--ink)", margin: "0 0 8px", fontFamily: "var(--font-body)" }}>{service.name}</h3>
       {service.description && (
-        <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 16px", lineHeight: 1.5, fontFamily: "var(--font-body)" }}>{service.description}</p>
+        <p style={{
+          fontSize: 13,
+          color: "var(--ink-muted)",
+          margin: "0 0 16px",
+          lineHeight: 1.5,
+          fontFamily: "var(--font-body)",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>{service.description}</p>
       )}
       <div style={{ display: "flex", gap: 24 }}>
         <div>
@@ -398,7 +446,14 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: { service: Service
         </div>
         <div>
           <span style={{ display: "block", fontSize: 11, color: "var(--ink-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2, fontFamily: "var(--font-body)" }}>Price</span>
-          <span style={{ fontSize: 18, fontWeight: 600, color: "var(--sage)", fontFamily: "var(--font-heading)" }}>£{service.price}</span>
+          {discountedPrice !== null ? (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-muted)", textDecoration: "line-through", fontFamily: "var(--font-body)" }}>£{service.price}</span>
+              <span style={{ fontSize: 18, fontWeight: 600, color: "#16a34a", fontFamily: "var(--font-heading)" }}>£{discountedPrice.toFixed(0)}</span>
+            </div>
+          ) : (
+            <span style={{ fontSize: 18, fontWeight: 600, color: "var(--sage)", fontFamily: "var(--font-heading)" }}>£{service.price}</span>
+          )}
         </div>
       </div>
     </div>
