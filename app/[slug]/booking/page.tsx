@@ -739,8 +739,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 1: Service */}
             {step === 1 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Service</h1>
-                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Select the service you would like to book</p>
+                <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Service</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Select the service you would like to book</p>
 
                 {/* Category Tabs - Scrollable on mobile */}
                 <div className="category-tabs" style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", paddingBottom: 4 }}>
@@ -881,8 +881,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 2: Staff */}
             {step === 2 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Specialist</h1>
-                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Select your preferred technician or let us assign one</p>
+                <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Specialist</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Select your preferred technician or let us assign one</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div onClick={() => { setSelectedStaffId("any"); setAssignedStaffId(""); setSelectedTime(""); }} style={{
                     display: "flex",
@@ -931,8 +931,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 3: Date & Time */}
             {step === 3 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Pick Date & Time</h1>
-                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>Choose when you would like to visit</p>
+                <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Pick Date & Time</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Choose when you would like to visit</p>
                 <div style={{ marginBottom: 24 }}>
                   <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Date</label>
                   <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{
@@ -1078,9 +1078,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 )}
                 {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 16, background: "var(--sage-light)", borderRadius: 12, color: "var(--ink)", marginBottom: 24, fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: "var(--sage)" }}>✓</span> {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
                 {reservationTimer > 0 && <div style={{ padding: 16, background: "var(--gold-light)", borderRadius: 12, color: "var(--ink)", textAlign: "center", marginBottom: 24, fontSize: 14 }}>⏱ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
-                <div style={{ padding: 20, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", marginBottom: 24 }}>
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: 14, cursor: "pointer" }}>
-                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 22, height: 22, marginTop: 2, accentColor: "var(--rose)" }} />
+                <div style={{ padding: isMobile ? 16 : 20, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", marginBottom: 24 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer", minHeight: 44 }}>
+                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 24, height: 24, minWidth: 24, marginTop: 0, accentColor: "var(--rose)", cursor: "pointer" }} />
                     <span style={{ fontSize: 14, color: "var(--ink-light)", lineHeight: 1.6 }}>I have read and agree to the <strong style={{ color: "var(--ink)" }}>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
                   </label>
                 </div>
@@ -1094,48 +1094,89 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 4: Customer Info */}
             {step === 4 && (
               <>
-                <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Your Details</h1>
-                <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 15 }}>We will send your confirmation here</p>
-                {reservationTimer > 0 && <div style={{ padding: 16, background: "var(--gold-light)", borderRadius: 12, color: "var(--ink)", textAlign: "center", marginBottom: 24, fontSize: 14 }}>⏱ Complete within <strong>{formatTimer(reservationTimer)}</strong></div>}
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <h1 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 600, marginBottom: 8, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Your Details</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 15 }}>We will send your confirmation here</p>
+                {reservationTimer > 0 && (
+                  <div style={{ padding: 14, background: "var(--gold-light)", borderRadius: 12, color: "var(--ink)", textAlign: "center", marginBottom: 20, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <span>⏱</span>
+                    <span>Complete within <strong>{formatTimer(reservationTimer)}</strong></span>
+                  </div>
+                )}
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: isMobile ? 16 : 20 }}>
                   <div>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Full Name</label>
-                    <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter your name" required style={{
-                      width: "100%",
-                      padding: 16,
-                      border: "1px solid var(--cream-dark)",
-                      borderRadius: 12,
-                      fontSize: 16,
-                      background: "var(--white)",
-                      color: "var(--ink)",
-                      fontFamily: "var(--font-body)"
-                    }} />
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "var(--ink-light)" }}>Full Name</label>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      onFocus={(e) => { if (isMobile) setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }}
+                      placeholder="Enter your name"
+                      required
+                      autoComplete="name"
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        minHeight: 52,
+                        border: "1px solid var(--cream-dark)",
+                        borderRadius: 12,
+                        fontSize: 16,
+                        background: "var(--white)",
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)",
+                        boxSizing: "border-box",
+                        WebkitAppearance: "none"
+                      }}
+                    />
                   </div>
                   <div>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Phone</label>
-                    <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="07xxx xxxxxx" required style={{
-                      width: "100%",
-                      padding: 16,
-                      border: "1px solid var(--cream-dark)",
-                      borderRadius: 12,
-                      fontSize: 16,
-                      background: "var(--white)",
-                      color: "var(--ink)",
-                      fontFamily: "var(--font-body)"
-                    }} />
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "var(--ink-light)" }}>Phone</label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      onFocus={(e) => { if (isMobile) setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }}
+                      placeholder="07xxx xxxxxx"
+                      required
+                      autoComplete="tel"
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        minHeight: 52,
+                        border: "1px solid var(--cream-dark)",
+                        borderRadius: 12,
+                        fontSize: 16,
+                        background: "var(--white)",
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)",
+                        boxSizing: "border-box",
+                        WebkitAppearance: "none"
+                      }}
+                    />
                   </div>
                   <div>
-                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Email</label>
-                    <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="you@example.com" required style={{
-                      width: "100%",
-                      padding: 16,
-                      border: "1px solid var(--cream-dark)",
-                      borderRadius: 12,
-                      fontSize: 16,
-                      background: "var(--white)",
-                      color: "var(--ink)",
-                      fontFamily: "var(--font-body)"
-                    }} />
+                    <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "var(--ink-light)" }}>Email</label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      onFocus={(e) => { if (isMobile) setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }}
+                      placeholder="you@example.com"
+                      required
+                      autoComplete="email"
+                      style={{
+                        width: "100%",
+                        padding: "14px 16px",
+                        minHeight: 52,
+                        border: "1px solid var(--cream-dark)",
+                        borderRadius: 12,
+                        fontSize: 16,
+                        background: "var(--white)",
+                        color: "var(--ink)",
+                        fontFamily: "var(--font-body)",
+                        boxSizing: "border-box",
+                        WebkitAppearance: "none"
+                      }}
+                    />
                   </div>
                   <div className="desktop-buttons" style={{ display: "flex", gap: 12, marginTop: 12 }}>
                     <button type="button" onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
