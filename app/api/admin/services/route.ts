@@ -8,7 +8,14 @@ export async function GET() {
 
   const services = await prisma.service.findMany({
     where: { salonId: auth.salonId },
-    include: { serviceCategory: true },
+    include: {
+      serviceCategory: true,
+      staffServices: {
+        include: {
+          staff: { select: { id: true, name: true } },
+        },
+      },
+    },
     orderBy: { sortOrder: "asc" },
   });
   return NextResponse.json(services);

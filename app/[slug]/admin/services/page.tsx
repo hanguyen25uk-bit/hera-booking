@@ -8,6 +8,11 @@ type ServiceCategory = {
   description: string | null;
 };
 
+type StaffMember = {
+  id: string;
+  name: string;
+};
+
 type Service = {
   id: string;
   name: string;
@@ -18,6 +23,7 @@ type Service = {
   categoryId: string | null;
   serviceCategory: ServiceCategory | null;
   isActive: boolean;
+  staffServices: { staff: StaffMember }[];
 };
 
 type Discount = {
@@ -455,6 +461,44 @@ function ServiceCard({ service, discount, onEdit, onDelete, onToggle }: { servic
             <span style={{ fontSize: 18, fontWeight: 600, color: "var(--sage)", fontFamily: "var(--font-heading)" }}>£{service.price}</span>
           )}
         </div>
+      </div>
+      {/* Staff avatars */}
+      <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
+        {service.staffServices.length === 0 ? (
+          <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "var(--font-body)" }}>No staff assigned</span>
+        ) : (
+          <>
+            {service.staffServices.slice(0, 3).map(({ staff }) => {
+              const initials = staff.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+              return (
+                <div
+                  key={staff.id}
+                  title={staff.name}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    backgroundColor: "var(--ink)",
+                    color: "white",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "var(--font-body)",
+                  }}
+                >
+                  {initials}
+                </div>
+              );
+            })}
+            {service.staffServices.length > 3 && (
+              <span style={{ fontSize: 11, color: "var(--ink-muted)", fontFamily: "var(--font-body)", marginLeft: 4 }}>
+                +{service.staffServices.length - 3}
+              </span>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
