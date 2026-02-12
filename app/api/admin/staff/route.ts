@@ -40,29 +40,41 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Create default working hours (Monday-Saturday, 09:00-18:00)
-  const defaultWorkingHours = [];
-  for (let day = 1; day <= 6; day++) { // 1=Monday to 6=Saturday
-    defaultWorkingHours.push({
-      salonId: auth.salonId,
-      staffId: staff.id,
-      dayOfWeek: day,
-      startTime: "09:00",
-      endTime: "18:00",
-      isWorking: true,
-    });
-  }
-  // Sunday off
-  defaultWorkingHours.push({
-    salonId: auth.salonId,
-    staffId: staff.id,
-    dayOfWeek: 0,
-    startTime: "09:00",
-    endTime: "18:00",
-    isWorking: false,
+  // Get salon working hours to use as default for new staff
+  const salonHours = await prisma.salonWorkingHours.findMany({
+    where: { salonId: auth.salonId },
   });
 
-  await prisma.workingHours.createMany({ data: defaultWorkingHours });
+  // Create working hours based on salon hours (or use defaults if salon hours not set)
+  const workingHoursData = [];
+
+  if (salonHours.length > 0) {
+    // Use salon hours
+    for (const sh of salonHours) {
+      workingHoursData.push({
+        salonId: auth.salonId,
+        staffId: staff.id,
+        dayOfWeek: sh.dayOfWeek,
+        startTime: sh.startTime,
+        endTime: sh.endTime,
+        isWorking: sh.isOpen,
+      });
+    }
+  } else {
+    // Fallback to default hours if salon hours not configured
+    for (let day = 0; day <= 6; day++) {
+      workingHoursData.push({
+        salonId: auth.salonId,
+        staffId: staff.id,
+        dayOfWeek: day,
+        startTime: "09:00",
+        endTime: "18:00",
+        isWorking: day !== 0, // Sunday off by default
+      });
+    }
+  }
+
+  await prisma.workingHours.createMany({ data: workingHoursData });
 
   return NextResponse.json(staff);
 }
