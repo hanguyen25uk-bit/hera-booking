@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getAuthPayload } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
@@ -6,9 +7,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthPayload();
+    if (!auth?.salonId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await req.json();
     const { name, price, sortOrder, isActive } = body;
+
+    // Verify the extra belongs to this salon
+    const existing = await prisma.extra.findFirst({
+      where: { id, salonId: auth.salonId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Extra not found" }, { status: 404 });
+    }
 
     const extra = await prisma.extra.update({
       where: { id },
@@ -32,7 +46,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthPayload();
+    if (!auth?.salonId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
+
+    // Verify the extra belongs to this salon
+    const existing = await prisma.extra.findFirst({
+      where: { id, salonId: auth.salonId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Extra not found" }, { status: 404 });
+    }
 
     await prisma.extra.delete({
       where: { id },

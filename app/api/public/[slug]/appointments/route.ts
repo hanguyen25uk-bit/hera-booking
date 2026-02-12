@@ -3,6 +3,7 @@ import { getSalonBySlug } from "@/lib/tenant";
 import { validateBookingInput } from "@/lib/validation";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders } from "@/lib/rate-limit";
 import { sendBookingConfirmation } from "@/lib/email";
+import { getApplicableDiscount, calculateDiscountedPrice, type Discount } from "@/lib/discount";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
@@ -62,9 +63,6 @@ export async function POST(
 
     const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.sanitized!;
 
-    // Extract optional discount info from the request
-    const { originalPrice, discountedPrice, discountName } = body;
-
     // 2. Rate limiting
     const clientIP = getClientIP(req);
     const rateLimitResult = checkBookingRateLimit(clientIP, customerEmail);
@@ -108,7 +106,44 @@ export async function POST(
     const start = new Date(startTime);
     const end = new Date(start.getTime() + service.durationMinutes * 60000);
 
-    // 7. Check for double booking
+    // 7. Calculate pricing server-side (never trust frontend prices)
+    const originalPrice = service.price;
+    let discountedPrice: number | null = null;
+    let discountName: string | null = null;
+
+    // Fetch active discounts and check if any apply
+    const now = new Date();
+    const activeDiscounts = await prisma.discount.findMany({
+      where: {
+        salonId: salon.id,
+        isActive: true,
+        OR: [
+          { validFrom: null, validUntil: null },
+          { validFrom: { lte: now }, validUntil: null },
+          { validFrom: null, validUntil: { gte: now } },
+          { validFrom: { lte: now }, validUntil: { gte: now } },
+        ],
+      },
+    });
+
+    // Format time as HH:MM for discount check
+    const timeStr = start.toTimeString().slice(0, 5);
+
+    // Find applicable discount
+    const applicableDiscount = getApplicableDiscount(
+      activeDiscounts as Discount[],
+      serviceId,
+      start,
+      timeStr,
+      staffId
+    );
+
+    if (applicableDiscount) {
+      discountedPrice = calculateDiscountedPrice(originalPrice, applicableDiscount);
+      discountName = applicableDiscount.name;
+    }
+
+    // 8. Check for double booking
     const conflict = await prisma.appointment.findFirst({
       where: {
         salonId: salon.id,
@@ -126,7 +161,7 @@ export async function POST(
       );
     }
 
-    // 8. Create or get customer
+    // 9. Create or get customer
     const manageToken = crypto.randomBytes(32).toString("hex");
     let customer = existingCustomer;
 
@@ -141,7 +176,7 @@ export async function POST(
       });
     }
 
-    // 9. Create appointment with discount info
+    // 10. Create appointment with server-calculated prices
     const appointment = await prisma.appointment.create({
       data: {
         salonId: salon.id,
@@ -155,19 +190,19 @@ export async function POST(
         endTime: end,
         manageToken,
         status: "confirmed",
-        originalPrice: originalPrice !== undefined ? Number(originalPrice) : service.price,
-        discountedPrice: discountedPrice !== undefined ? Number(discountedPrice) : null,
-        discountName: discountName || null,
+        originalPrice,
+        discountedPrice,
+        discountName,
       },
       include: { service: true, staff: true },
     });
 
-    // 10. Clear slot reservation
+    // 11. Clear slot reservation
     await prisma.slotReservation.deleteMany({
       where: { salonId: salon.id, staffId, startTime: start },
     });
 
-    // 11. Send confirmation email with salon info and pricing
+    // 12. Send confirmation email with salon info and pricing
     try {
       await sendBookingConfirmation({
         customerEmail,
@@ -182,9 +217,9 @@ export async function POST(
         salonPhone: salon.phone || "",
         salonAddress: salon.address || "",
         salonSlug: salon.slug,
-        originalPrice: originalPrice !== undefined ? Number(originalPrice) : service.price,
-        discountedPrice: discountedPrice !== undefined ? Number(discountedPrice) : undefined,
-        discountName: discountName || undefined,
+        originalPrice,
+        discountedPrice: discountedPrice ?? undefined,
+        discountName: discountName ?? undefined,
       });
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);

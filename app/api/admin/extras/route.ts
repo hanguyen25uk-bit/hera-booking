@@ -1,19 +1,16 @@
 import { prisma } from "@/lib/prisma";
+import { getAuthPayload } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
-
-async function getDefaultSalonId() {
-  return "heranailspa";
-}
 
 export async function GET() {
   try {
-    const salonId = await getDefaultSalonId();
-    if (!salonId) {
-      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    const auth = await getAuthPayload();
+    if (!auth?.salonId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const extras = await prisma.extra.findMany({
-      where: { salonId },
+      where: { salonId: auth.salonId },
       orderBy: { sortOrder: "asc" },
     });
 
@@ -26,9 +23,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const salonId = await getDefaultSalonId();
-    if (!salonId) {
-      return NextResponse.json({ error: "No salon found" }, { status: 404 });
+    const auth = await getAuthPayload();
+    if (!auth?.salonId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -44,7 +41,7 @@ export async function POST(req: NextRequest) {
         price: parseFloat(price),
         sortOrder,
         isActive,
-        salonId,
+        salonId: auth.salonId,
       },
     });
 
