@@ -144,12 +144,17 @@ export default function SchedulePage() {
         }
       }
 
-      setShowModal(false);
-      resetForm();
-      // Force refresh the overrides list
+      // Force refresh the overrides list FIRST
       const overridesRes = await fetch("/api/admin/schedule-override", { credentials: "include" });
       const newOverrides = await overridesRes.json();
       setOverrides(newOverrides);
+
+      // Switch to the correct tab based on what was saved
+      setActiveTab(formAllDay ? "time-off" : "custom-hours");
+
+      // Then close modal and reset form
+      setShowModal(false);
+      resetForm();
     } catch (err: any) {
       alert("Error: " + (err.message || "Failed to save"));
     } finally {
@@ -161,7 +166,9 @@ export default function SchedulePage() {
     if (!confirm("Delete this entry?")) return;
     try {
       await fetch(`/api/admin/schedule-override?id=${id}`, { method: "DELETE", credentials: "include" });
-      loadData();
+      // Refresh overrides immediately
+      const overridesRes = await fetch("/api/admin/schedule-override", { credentials: "include" });
+      setOverrides(await overridesRes.json());
     } catch (err) {
       alert("Error deleting");
     }
