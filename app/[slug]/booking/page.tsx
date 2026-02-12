@@ -47,6 +47,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [allStaffAvailability, setAllStaffAvailability] = useState<Record<string, StaffAvailability>>({});
   const [reservedSlots, setReservedSlots] = useState<ReservedSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<ReservedSlot[]>([]);
@@ -68,6 +72,82 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const currentService = services.find((s) => s.id === selectedServiceId);
   const isAnyStaff = selectedStaffId === "any";
   const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
+
+  // Calendar helper functions
+  const getCalendarDays = () => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    // Get the day of week for the first day (0 = Sunday, we want Monday = 0)
+    let startDayOfWeek = firstDay.getDay() - 1;
+    if (startDayOfWeek < 0) startDayOfWeek = 6; // Sunday becomes 6
+
+    const days: (Date | null)[] = [];
+
+    // Add empty slots for days before the first day of month
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Add all days in the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+
+    return days;
+  };
+
+  const formatDateForState = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const isDatePast = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const compareDate = new Date(date);
+    compareDate.setHours(0, 0, 0, 0);
+    return compareDate < today;
+  };
+
+  const isDateSelected = (date: Date) => {
+    return selectedDate === formatDateForState(date);
+  };
+
+  const isDateToday = (date: Date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  };
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const goToPrevMonth = () => {
+    const now = new Date();
+    const prevMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    // Don't go before current month
+    if (prevMonth.getFullYear() > now.getFullYear() ||
+        (prevMonth.getFullYear() === now.getFullYear() && prevMonth.getMonth() >= now.getMonth())) {
+      setCalendarMonth(prevMonth);
+    }
+  };
+
+  const goToNextMonth = () => {
+    setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
+  };
+
+  const canGoPrevMonth = () => {
+    const now = new Date();
+    return calendarMonth.getFullYear() > now.getFullYear() ||
+           (calendarMonth.getFullYear() === now.getFullYear() && calendarMonth.getMonth() > now.getMonth());
+  };
 
   // Helper to convert time string to minutes for proper comparison
   function timeToMinutes(time: string): number {
@@ -977,19 +1057,124 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               <>
                 <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Pick Date & Time</h1>
                 <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Choose when you would like to visit</p>
-                <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--ink-light)" }}>Date</label>
-                  <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(""); setReservationExpiry(null); }} min={new Date().toISOString().split("T")[0]} style={{
-                    width: "100%",
-                    padding: 14,
-                    border: "1px solid var(--cream-dark)",
-                    borderRadius: 12,
-                    fontSize: 16,
-                    background: "var(--white)",
-                    color: "var(--ink)",
-                    fontFamily: "var(--font-body)"
-                  }} />
+                {/* Calendar View */}
+                <div style={{ marginBottom: 24, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", overflow: "hidden" }}>
+                  {/* Calendar Header */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "12px 12px" : "14px 16px", background: "var(--ink)", color: "var(--cream)" }}>
+                    <button
+                      onClick={goToPrevMonth}
+                      disabled={!canGoPrevMonth()}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: canGoPrevMonth() ? "rgba(251,248,244,0.15)" : "transparent",
+                        color: canGoPrevMonth() ? "var(--cream)" : "rgba(251,248,244,0.3)",
+                        fontSize: 18,
+                        cursor: canGoPrevMonth() ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      ‹
+                    </button>
+                    <span style={{ fontWeight: 600, fontSize: isMobile ? 15 : 16, fontFamily: "var(--font-heading)" }}>
+                      {monthNames[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+                    </span>
+                    <button
+                      onClick={goToNextMonth}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: "rgba(251,248,244,0.15)",
+                        color: "var(--cream)",
+                        fontSize: 18,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      ›
+                    </button>
+                  </div>
+
+                  {/* Day Names Header */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid var(--cream-dark)" }}>
+                    {dayNames.map((day) => (
+                      <div key={day} style={{
+                        padding: isMobile ? "8px 0" : "10px 0",
+                        textAlign: "center",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "var(--ink-muted)",
+                        textTransform: "uppercase"
+                      }}>
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: isMobile ? 6 : 8, gap: isMobile ? 4 : 6 }}>
+                    {getCalendarDays().map((date, index) => {
+                      if (!date) {
+                        return <div key={`empty-${index}`} style={{ aspectRatio: "1", minHeight: isMobile ? 40 : 44 }} />;
+                      }
+
+                      const isPast = isDatePast(date);
+                      const isSelected = isDateSelected(date);
+                      const isToday = isDateToday(date);
+
+                      return (
+                        <button
+                          key={date.toISOString()}
+                          onClick={() => {
+                            if (!isPast) {
+                              setSelectedDate(formatDateForState(date));
+                              setSelectedTime("");
+                              setReservationExpiry(null);
+                            }
+                          }}
+                          disabled={isPast}
+                          style={{
+                            aspectRatio: "1",
+                            minHeight: isMobile ? 40 : 44,
+                            border: isSelected ? "2px solid var(--rose)" : isToday ? "2px solid var(--ink)" : "1px solid transparent",
+                            borderRadius: isMobile ? 10 : 12,
+                            background: isSelected ? "var(--rose)" : isPast ? "transparent" : "var(--cream)",
+                            color: isSelected ? "var(--white)" : isPast ? "var(--ink-muted)" : "var(--ink)",
+                            fontSize: isMobile ? 14 : 15,
+                            fontWeight: isSelected || isToday ? 600 : 500,
+                            cursor: isPast ? "not-allowed" : "pointer",
+                            opacity: isPast ? 0.4 : 1,
+                            transition: "all 0.15s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontFamily: "var(--font-body)"
+                          }}
+                        >
+                          {date.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Selected Date Display */}
+                {selectedDate && (
+                  <div style={{ marginBottom: 20, padding: "12px 16px", background: "var(--rose-pale)", borderRadius: 12, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>📅</span>
+                    <span style={{ fontSize: 14, color: "var(--ink)", fontWeight: 500 }}>
+                      {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
                 {loadingAvailability ? <p style={{ color: "var(--ink-muted)" }}>Checking availability...</p> : isSelectedStaffOff ? (
                   <div style={{ padding: 18, background: "var(--gold-light)", borderRadius: 16, marginBottom: 24 }}>
                     <strong style={{ color: "var(--ink)" }}>{currentStaff?.name || "This specialist"} is not available on this date</strong>
