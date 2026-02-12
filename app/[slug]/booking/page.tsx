@@ -68,7 +68,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const currentService = services.find((s) => s.id === selectedServiceId);
   const isAnyStaff = selectedStaffId === "any";
   const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
-  const filteredServices = selectedCategoryId ? services.filter(s => s.categoryId === selectedCategoryId) : services;
 
   // Helper to convert time string to minutes for proper comparison
   function timeToMinutes(time: string): number {
@@ -167,6 +166,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         setPolicyItems(data.policy?.policies || []);
         setSalonName(data.salon?.name || slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
         setDiscounts(data.discounts || []);
+        // Auto-expand first category
+        if (data.categories?.length > 0) {
+          setSelectedCategoryId(data.categories[0].id);
+        }
       } catch (err) {
         setError("Failed to load. Please refresh.");
       } finally {
@@ -742,120 +745,161 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Service</h1>
                 <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Select the service you would like to book</p>
 
-                {/* Category Tabs - Scrollable on mobile */}
-                <div className="category-tabs" style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", paddingBottom: 4 }}>
-                  <button className="category-tab" onClick={() => setSelectedCategoryId(null)} style={{
-                    padding: "10px 16px",
-                    borderRadius: 50,
-                    border: "none",
-                    background: !selectedCategoryId ? "var(--ink)" : "var(--cream-dark)",
-                    color: !selectedCategoryId ? "var(--cream)" : "var(--ink-light)",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    whiteSpace: "nowrap"
-                  }}>All</button>
-                  {categories.map((cat) => (
-                    <button className="category-tab" key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} style={{
-                      padding: "10px 16px",
-                      borderRadius: 50,
-                      border: "none",
-                      background: selectedCategoryId === cat.id ? "var(--ink)" : "var(--cream-dark)",
-                      color: selectedCategoryId === cat.id ? "var(--cream)" : "var(--ink-light)",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      whiteSpace: "nowrap"
-                    }}>{cat.name}</button>
-                  ))}
-                </div>
-
-                {/* Services */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {filteredServices.map((service) => {
-                    // Find the best CURRENTLY VALID discount available for this service
-                    const today = new Date().toISOString().split('T')[0];
-                    const serviceDiscounts = discounts.filter(d => {
-                      if (!d.serviceIds.includes(service.id)) return false;
-                      // Check validity period
-                      if (d.validFrom && today < d.validFrom.split('T')[0]) return false;
-                      if (d.validUntil && today > d.validUntil.split('T')[0]) return false;
-                      return true;
-                    });
-                    const bestDiscount = serviceDiscounts.length > 0
-                      ? serviceDiscounts.reduce((max, d) => d.discountPercent > max.discountPercent ? d : max)
-                      : null;
-                    const discountedPrice = bestDiscount
-                      ? service.price * (1 - bestDiscount.discountPercent / 100)
-                      : service.price;
+                {/* Category Accordions */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {categories.map((cat) => {
+                    const categoryServices = services.filter(s => s.categoryId === cat.id);
+                    const isExpanded = selectedCategoryId === cat.id;
+                    const hasSelectedService = categoryServices.some(s => s.id === selectedServiceId);
 
                     return (
-                      <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{
-                        padding: 20,
+                      <div key={cat.id} style={{
                         borderRadius: 16,
-                        border: selectedServiceId === service.id ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
-                        background: selectedServiceId === service.id ? "var(--rose-pale)" : "var(--white)",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                        boxShadow: selectedServiceId === service.id ? "var(--shadow-md)" : "none"
+                        border: hasSelectedService ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                        background: "var(--white)",
+                        overflow: "hidden",
+                        transition: "all 0.2s ease"
                       }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                              <span style={{ fontWeight: 600, fontSize: 16, color: "var(--ink)" }}>{service.name}</span>
-                              {bestDiscount && (
-                                <span style={{
-                                  padding: "4px 10px",
-                                  borderRadius: 50,
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  background: "var(--gold-light)",
-                                  color: "var(--gold)",
-                                }}>
-                                  {bestDiscount.discountPercent}% OFF
-                                </span>
-                              )}
-                            </div>
-                            {service.description && (
-                              <div style={{ color: "var(--ink-light)", fontSize: 14, marginBottom: 8, lineHeight: 1.5 }}>
-                                {selectedServiceId === service.id
-                                  ? service.description
-                                  : service.description.length > 60
-                                    ? service.description.slice(0, 60) + '...'
-                                    : service.description}
-                              </div>
-                            )}
-                            <div style={{
-                              display: "inline-flex",
-                              padding: "4px 12px",
-                              background: "var(--cream)",
+                        {/* Category Header - Accordion Toggle */}
+                        <button
+                          onClick={() => setSelectedCategoryId(isExpanded ? null : cat.id)}
+                          style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: isMobile ? "14px 16px" : "16px 20px",
+                            background: isExpanded ? "var(--ink)" : "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease"
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <span style={{
+                              fontWeight: 600,
+                              fontSize: isMobile ? 15 : 16,
+                              color: isExpanded ? "var(--cream)" : "var(--ink)",
+                              fontFamily: "var(--font-heading)"
+                            }}>
+                              {cat.name}
+                            </span>
+                            <span style={{
+                              padding: "2px 8px",
                               borderRadius: 50,
-                              color: "var(--ink-muted)",
-                              fontSize: 13
-                            }}>{service.durationMinutes} min</div>
-                          </div>
-                          <div style={{ textAlign: "right", marginLeft: 16 }}>
-                            {bestDiscount ? (
-                              <>
-                                <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }}>
-                                  from £{discountedPrice.toFixed(2)}
-                                </div>
-                                <div style={{
-                                  fontSize: 13,
-                                  color: "var(--ink-muted)",
-                                  textDecoration: "line-through",
-                                  marginTop: 2
-                                }}>
-                                  £{service.price}
-                                </div>
-                              </>
-                            ) : (
-                              <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }}>£{service.price}</div>
+                              fontSize: 12,
+                              fontWeight: 500,
+                              background: isExpanded ? "rgba(251,248,244,0.2)" : "var(--cream-dark)",
+                              color: isExpanded ? "var(--cream)" : "var(--ink-muted)"
+                            }}>
+                              {categoryServices.length}
+                            </span>
+                            {hasSelectedService && !isExpanded && (
+                              <span style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: "var(--rose)"
+                              }} />
                             )}
                           </div>
-                        </div>
+                          <span style={{
+                            fontSize: 18,
+                            color: isExpanded ? "var(--cream)" : "var(--ink-muted)",
+                            transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                            transition: "transform 0.2s ease"
+                          }}>
+                            ▼
+                          </span>
+                        </button>
+
+                        {/* Services List - Collapsible */}
+                        {isExpanded && (
+                          <div style={{ padding: isMobile ? "8px 12px 12px" : "12px 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                            {categoryServices.map((service) => {
+                              // Find the best CURRENTLY VALID discount available for this service
+                              const today = new Date().toISOString().split('T')[0];
+                              const serviceDiscounts = discounts.filter(d => {
+                                if (!d.serviceIds.includes(service.id)) return false;
+                                if (d.validFrom && today < d.validFrom.split('T')[0]) return false;
+                                if (d.validUntil && today > d.validUntil.split('T')[0]) return false;
+                                return true;
+                              });
+                              const bestDiscount = serviceDiscounts.length > 0
+                                ? serviceDiscounts.reduce((max, d) => d.discountPercent > max.discountPercent ? d : max)
+                                : null;
+                              const discountedPrice = bestDiscount
+                                ? service.price * (1 - bestDiscount.discountPercent / 100)
+                                : service.price;
+
+                              return (
+                                <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{
+                                  padding: isMobile ? 14 : 16,
+                                  borderRadius: 12,
+                                  border: selectedServiceId === service.id ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                                  background: selectedServiceId === service.id ? "var(--rose-pale)" : "var(--cream)",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease"
+                                }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                                        <span style={{ fontWeight: 600, fontSize: isMobile ? 14 : 15, color: "var(--ink)" }}>{service.name}</span>
+                                        {bestDiscount && (
+                                          <span style={{
+                                            padding: "3px 8px",
+                                            borderRadius: 50,
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                            background: "var(--gold-light)",
+                                            color: "var(--gold)",
+                                          }}>
+                                            {bestDiscount.discountPercent}% OFF
+                                          </span>
+                                        )}
+                                      </div>
+                                      {service.description && (
+                                        <div style={{ color: "var(--ink-light)", fontSize: 13, marginBottom: 6, lineHeight: 1.4 }}>
+                                          {selectedServiceId === service.id
+                                            ? service.description
+                                            : service.description.length > 50
+                                              ? service.description.slice(0, 50) + '...'
+                                              : service.description}
+                                        </div>
+                                      )}
+                                      <div style={{
+                                        display: "inline-flex",
+                                        padding: "3px 10px",
+                                        background: selectedServiceId === service.id ? "var(--white)" : "var(--white)",
+                                        borderRadius: 50,
+                                        color: "var(--ink-muted)",
+                                        fontSize: 12
+                                      }}>{service.durationMinutes} min</div>
+                                    </div>
+                                    <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
+                                      {bestDiscount ? (
+                                        <>
+                                          <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: isMobile ? 15 : 16, color: "var(--ink)" }}>
+                                            £{discountedPrice.toFixed(2)}
+                                          </div>
+                                          <div style={{
+                                            fontSize: 12,
+                                            color: "var(--ink-muted)",
+                                            textDecoration: "line-through"
+                                          }}>
+                                            £{service.price}
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div style={{ fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: isMobile ? 15 : 16, color: "var(--ink)" }}>£{service.price}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
