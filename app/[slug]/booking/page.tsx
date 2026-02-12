@@ -637,8 +637,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const canProceed = () => {
     if (step === 1) return !!selectedServiceId;
     if (step === 2) return !!selectedStaffId;
-    if (step === 3) return !!selectedTime && policyAgreed;
-    if (step === 4) return !!customerName && !!customerPhone && !!customerEmail && reservationTimer > 0;
+    if (step === 3) return !!selectedTime;
+    if (step === 4) return !!customerName && !!customerPhone && !!customerEmail && policyAgreed && reservationTimer > 0;
     return false;
   };
 
@@ -654,11 +654,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     }
     if (step === 3) {
       if (!selectedTime) return "Select a time";
-      if (!policyAgreed) return "Agree to policy to continue";
       return `${selectedTime} · ${currentService?.name}`;
     }
     if (step === 4) {
       if (!customerName || !customerPhone || !customerEmail) return "Fill in your details";
+      if (!policyAgreed) return "Agree to policy to confirm";
       return "Confirm your booking";
     }
     return "";
@@ -1307,15 +1307,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 )}
                 {isAnyStaff && assignedStaffId && selectedTime && <div style={{ padding: 16, background: "var(--sage-light)", borderRadius: 12, color: "var(--ink)", marginBottom: 24, fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: "var(--sage)" }}>✓</span> {staff.find(s => s.id === assignedStaffId)?.name} will be your specialist</div>}
                 {reservationTimer > 0 && <div style={{ padding: 16, background: "var(--gold-light)", borderRadius: 12, color: "var(--ink)", textAlign: "center", marginBottom: 24, fontSize: 14 }}>⏱ Slot reserved for <strong>{formatTimer(reservationTimer)}</strong></div>}
-                <div style={{ padding: isMobile ? 16 : 20, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", marginBottom: 24 }}>
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer", minHeight: 44 }}>
-                    <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 24, height: 24, minWidth: 24, marginTop: 0, accentColor: "var(--rose)", cursor: "pointer" }} />
-                    <span style={{ fontSize: 14, color: "var(--ink-light)", lineHeight: 1.6 }}>I have read and agree to the <strong style={{ color: "var(--ink)" }}>Booking Policy</strong>. I understand the payment terms and cancellation policy.</span>
-                  </label>
-                </div>
                 <div className="desktop-buttons" style={{ display: "flex", gap: 12 }}>
                   <button onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
-                  <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } if (!policyAgreed) { setError("Please agree to the booking policy"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 16, background: policyAgreed ? "var(--ink)" : "var(--cream-dark)", color: policyAgreed ? "var(--cream)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed", transition: "all 0.2s ease" }}>Continue</button>
+                  <button onClick={() => { if (!selectedTime) { setError("Please select a time"); return; } setError(null); goNext(); }} style={{ flex: 1, padding: 16, background: selectedTime ? "var(--ink)" : "var(--cream-dark)", color: selectedTime ? "var(--cream)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: selectedTime ? "pointer" : "not-allowed", transition: "all 0.2s ease" }}>Continue</button>
                 </div>
               </>
             )}
@@ -1407,9 +1401,33 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       }}
                     />
                   </div>
-                  <div className="desktop-buttons" style={{ display: "flex", gap: 12, marginTop: 12 }}>
+
+                  {/* Policy Summary */}
+                  <div style={{ background: "var(--cream)", borderRadius: 16, padding: isMobile ? 16 : 20, marginTop: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 12 }}>Booking Policy</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <span style={{ fontSize: 16, flexShrink: 0 }}>💷</span>
+                        <span style={{ fontSize: 13, color: "var(--ink-light)", lineHeight: 1.4 }}><strong style={{ color: "var(--ink)" }}>Cash only</strong> — Payment is due at the salon</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <span style={{ fontSize: 16, flexShrink: 0 }}>⏰</span>
+                        <span style={{ fontSize: 13, color: "var(--ink-light)", lineHeight: 1.4 }}><strong style={{ color: "var(--ink)" }}>2hr cancellation</strong> — Please cancel at least 2 hours before your appointment</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <span style={{ fontSize: 16, flexShrink: 0 }}>🚫</span>
+                        <span style={{ fontSize: 13, color: "var(--ink-light)", lineHeight: 1.4 }}><strong style={{ color: "var(--ink)" }}>3 no-shows</strong> — Accounts with 3+ no-shows may be restricted</span>
+                      </div>
+                    </div>
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer", padding: "12px 0 0", borderTop: "1px solid var(--cream-dark)" }}>
+                      <input type="checkbox" checked={policyAgreed} onChange={(e) => setPolicyAgreed(e.target.checked)} style={{ width: 22, height: 22, minWidth: 22, marginTop: 2, accentColor: "var(--rose)", cursor: "pointer" }} />
+                      <span style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.5 }}>I agree to the booking policy</span>
+                    </label>
+                  </div>
+
+                  <div className="desktop-buttons" style={{ display: "flex", gap: 12, marginTop: 16 }}>
                     <button type="button" onClick={goBack} style={{ padding: "14px 24px", background: "var(--white)", color: "var(--ink)", border: "1.5px solid var(--ink)", borderRadius: 50, fontSize: 15, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>Back</button>
-                    <button type="submit" disabled={submitting || reservationTimer === 0} style={{ flex: 1, padding: 16, background: "var(--ink)", color: "var(--cream)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: "pointer", opacity: submitting || reservationTimer === 0 ? 0.5 : 1, transition: "all 0.2s ease" }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
+                    <button type="submit" disabled={submitting || reservationTimer === 0 || !policyAgreed} style={{ flex: 1, padding: 16, background: policyAgreed ? "var(--ink)" : "var(--cream-dark)", color: policyAgreed ? "var(--cream)" : "var(--ink-muted)", border: "none", borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: policyAgreed ? "pointer" : "not-allowed", opacity: submitting || reservationTimer === 0 ? 0.5 : 1, transition: "all 0.2s ease" }}>{submitting ? "Booking..." : "Confirm Booking"}</button>
                   </div>
                 </form>
               </>
