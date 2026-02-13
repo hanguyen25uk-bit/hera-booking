@@ -496,6 +496,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   };
 
   const timeSlots = generateTimeSlots();
+  // Filter out past time slots when today is selected
+  const availableTimeSlots = timeSlots.filter(time => !isTimeSlotPast(time));
   const selectedStaffAvailability = selectedStaffId && selectedStaffId !== "any" ? allStaffAvailability[selectedStaffId] : null;
   const isSelectedStaffOff = selectedStaffAvailability && !selectedStaffAvailability.available;
   const noStaffAvailable = selectedStaffId === "any" && Object.values(allStaffAvailability).every(a => !a.available);
@@ -1185,7 +1187,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     <strong style={{ color: "var(--ink)" }}>No staff available on this date</strong>
                     <p style={{ color: "var(--ink-light)", margin: "6px 0 0", fontSize: 14 }}>Please select another date.</p>
                   </div>
-                ) : timeSlots.length === 0 ? (
+                ) : availableTimeSlots.length === 0 ? (
                   <div style={{ padding: 20, background: "var(--rose-pale)", borderRadius: 16, color: "var(--rose)", textAlign: "center", fontSize: 14 }}>No available times. Please select another date.</div>
                 ) : (
                   <div style={{ marginBottom: 24 }}>
@@ -1211,8 +1213,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     )}
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {timeSlots.map((time) => {
-                        const past = isTimeSlotPast(time);
+                      {availableTimeSlots.map((time) => {
                         const slotDiscount = currentService ? getApplicableDiscount(currentService.id, selectedDate, time, isAnyStaff ? undefined : selectedStaffId) : null;
                         const originalPrice = currentService?.price || 0;
                         const discountedPrice = slotDiscount ? getDiscountedPrice(originalPrice, slotDiscount) : originalPrice;
@@ -1223,11 +1224,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                           <button
                             type="button"
                             key={time}
-                            disabled={past || reserving}
+                            disabled={reserving}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              if (!past && !reserving) {
+                              if (!reserving) {
                                 handleTimeSelect(time);
                               }
                             }}
@@ -1239,9 +1240,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                               padding: "16px 18px",
                               borderRadius: 12,
                               border: isSelected ? "2px solid var(--rose)" : isOffPeak ? "1px solid var(--gold)" : "1px solid var(--cream-dark)",
-                              background: isSelected ? "var(--rose)" : past ? "var(--cream)" : isOffPeak ? "var(--gold-light)" : "var(--white)",
-                              cursor: past || reserving ? "not-allowed" : "pointer",
-                              opacity: past ? 0.5 : 1,
+                              background: isSelected ? "var(--rose)" : isOffPeak ? "var(--gold-light)" : "var(--white)",
+                              cursor: reserving ? "not-allowed" : "pointer",
                               transition: "all 0.2s ease",
                               position: "relative",
                               zIndex: 1,
