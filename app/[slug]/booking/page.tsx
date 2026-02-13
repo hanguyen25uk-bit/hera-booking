@@ -1325,7 +1325,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     <span>Complete within <strong>{formatTimer(reservationTimer)}</strong></span>
                   </div>
                 )}
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: isMobile ? 16 : 20 }}>
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: isMobile ? 16 : 20, paddingBottom: isMobile ? 180 : 0 }}>
                   <div>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "var(--ink-light)" }}>Full Name</label>
                     <input
