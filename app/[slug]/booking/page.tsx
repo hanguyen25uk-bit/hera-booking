@@ -495,13 +495,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return !hasConflict && !isReserved && !isExcluded;
   };
 
-  const timeSlots = generateTimeSlots();
-  // Filter out past time slots when today is selected
-  const availableTimeSlots = timeSlots.filter(time => !isTimeSlotPast(time));
-  const selectedStaffAvailability = selectedStaffId && selectedStaffId !== "any" ? allStaffAvailability[selectedStaffId] : null;
-  const isSelectedStaffOff = selectedStaffAvailability && !selectedStaffAvailability.available;
-  const noStaffAvailable = selectedStaffId === "any" && Object.values(allStaffAvailability).every(a => !a.available);
-
   const isTimeSlotPast = (time: string) => {
     const now = new Date(), today = now.toISOString().split("T")[0];
     if (selectedDate > today) return false;
@@ -510,6 +503,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     const slot = new Date(); slot.setHours(h, m, 0, 0);
     return slot <= now;
   };
+
+  const timeSlots = generateTimeSlots();
+  // Filter out past time slots when today is selected
+  const availableTimeSlots = timeSlots.filter(time => !isTimeSlotPast(time));
+  const selectedStaffAvailability = selectedStaffId && selectedStaffId !== "any" ? allStaffAvailability[selectedStaffId] : null;
+  const isSelectedStaffOff = selectedStaffAvailability && !selectedStaffAvailability.available;
+  const noStaffAvailable = selectedStaffId === "any" && Object.values(allStaffAvailability).every(a => !a.available);
 
   const handleTimeSelect = async (time: string) => {
     const isAnyStaff = selectedStaffId === "any";
