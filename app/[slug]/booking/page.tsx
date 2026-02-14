@@ -1010,8 +1010,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   })}
                 </div>
 
-                {/* Extras/Additions for BIAB services */}
-                {selectedServiceId && isBIABService && applicableExtras.length > 0 && (
+                {/* Extras/Additions for all services */}
+                {selectedServiceId && applicableExtras.length > 0 && (
                   <div style={{ marginTop: 24, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", overflow: "hidden" }}>
                     <div style={{ padding: isMobile ? "14px 16px" : "16px 20px", background: "var(--sage)", color: "var(--white)" }}>
                       <div style={{ fontWeight: 600, fontSize: isMobile ? 15 : 16, fontFamily: "var(--font-heading)" }}>Add Extras</div>
