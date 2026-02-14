@@ -62,6 +62,7 @@ export async function POST(
     }
 
     const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.sanitized!;
+    const selectedExtras = body.extras || []; // Array of { id, name, price }
 
     // 2. Rate limiting
     const clientIP = getClientIP(req);
@@ -193,6 +194,7 @@ export async function POST(
         originalPrice,
         discountedPrice,
         discountName,
+        extrasJson: selectedExtras.length > 0 ? JSON.stringify(selectedExtras) : null,
       },
       include: { service: true, staff: true },
     });

@@ -210,6 +210,9 @@ model Appointment {
   discountedPrice Float?
   discountName    String?
 
+  // Selected extras as JSON: [{ id, name, price }]
+  extrasJson      String?  @db.Text
+
   manageToken   String   @unique @default(cuid())
   
   salonId       String
@@ -306,11 +309,13 @@ model SalonWorkingHours {
 // ============ EXTRAS ============
 
 model Extra {
-  id        String   @id @default(cuid())
-  name      String   // e.g., "Chrome", "Cat Eyes"
-  price     Float    // e.g., 8.00
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Chrome", "Cat Eyes"
+  price       Float    // e.g., 8.00
+  priceFrom   Boolean  @default(false) // true = "from £X", false = "£X"
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  categoryIds String[] // Category IDs this extra applies to (empty = all categories)
 
   salonId   String
   salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
