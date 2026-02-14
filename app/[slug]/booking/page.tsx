@@ -246,10 +246,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         setPolicyItems(data.policy?.policies || []);
         setSalonName(data.salon?.name || slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
         setDiscounts(data.discounts || []);
-        // Auto-expand first category
-        if (data.categories?.length > 0) {
-          setSelectedCategoryId(data.categories[0].id);
-        }
       } catch (err) {
         setError("Failed to load. Please refresh.");
       } finally {
