@@ -86,6 +86,7 @@ type BookingEmailData = {
   customerEmail: string;
   customerName: string;
   serviceName: string;
+  serviceNames?: string[]; // For multi-service bookings
   staffName: string;
   startTime: Date;
   endTime: Date;
@@ -105,6 +106,7 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     customerEmail,
     customerName,
     serviceName,
+    serviceNames,
     staffName,
     startTime,
     endTime,
@@ -118,6 +120,11 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     discountedPrice,
     discountName,
   } = data;
+
+  // Display all services if multiple, otherwise single service
+  const displayServiceName = serviceNames && serviceNames.length > 1
+    ? serviceNames.join(", ")
+    : serviceName;
 
   const hasDiscount = originalPrice !== undefined && discountedPrice !== undefined && discountedPrice < originalPrice;
 
@@ -178,8 +185,8 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; padding: 20px;">
                 <tr>
                   <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
-                    <span style="color: #64748b; font-size: 13px;">Service</span><br>
-                    <strong style="color: #1e293b; font-size: 15px;">${serviceName}</strong>
+                    <span style="color: #64748b; font-size: 13px;">${serviceNames && serviceNames.length > 1 ? 'Services' : 'Service'}</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${displayServiceName}</strong>
                   </td>
                 </tr>
                 <tr>
@@ -251,11 +258,16 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
 </html>
   `;
 
+  // Subject line: use first service name or "Multiple Services" for multi-service
+  const subjectService = serviceNames && serviceNames.length > 1
+    ? `${serviceNames.length} Services`
+    : serviceName;
+
   try {
     const result = await getResend().emails.send({
       from: `${salonName} <${FROM_EMAIL}>`,
       to: customerEmail,
-      subject: `Booking Confirmed - ${serviceName} on ${formattedDate}`,
+      subject: `Booking Confirmed - ${subjectService} on ${formattedDate}`,
       html: emailHtml,
     });
 

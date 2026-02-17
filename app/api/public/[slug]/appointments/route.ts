@@ -61,8 +61,9 @@ export async function POST(
       return NextResponse.json({ error: firstError }, { status: 400 });
     }
 
-    const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.sanitized!;
+    const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, totalDuration: clientTotalDuration } = validation.sanitized!;
     const selectedExtras = body.extras || []; // Array of { id, name, price }
+    const allServiceIds = serviceIds || [serviceId];
 
     // 2. Rate limiting
     const clientIP = getClientIP(req);
@@ -87,13 +88,17 @@ export async function POST(
       );
     }
 
-    // 4. Validate service exists
-    const service = await prisma.service.findFirst({
-      where: { id: serviceId, salonId: salon.id },
+    // 4. Validate all services exist
+    const allServices = await prisma.service.findMany({
+      where: { id: { in: allServiceIds }, salonId: salon.id },
+      include: { serviceCategory: true },
     });
-    if (!service) {
-      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    if (allServices.length !== allServiceIds.length) {
+      return NextResponse.json({ error: "One or more services not found" }, { status: 404 });
     }
+
+    // Primary service (first selected) for backward compatibility
+    const service = allServices.find(s => s.id === serviceId) || allServices[0];
 
     // 5. Validate staff exists
     const staff = await prisma.staff.findFirst({
@@ -103,12 +108,23 @@ export async function POST(
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
-    // 6. Calculate times
+    // 6. Calculate times - use total duration from all services
     const start = new Date(startTime);
-    const end = new Date(start.getTime() + service.durationMinutes * 60000);
+    const serverTotalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const finalDuration = clientTotalDuration || serverTotalDuration;
+    const end = new Date(start.getTime() + finalDuration * 60000);
 
     // 7. Calculate pricing server-side (never trust frontend prices)
-    const originalPrice = service.price;
+    const originalPrice = allServices.reduce((sum, s) => sum + s.price, 0);
+
+    // Prepare services JSON for storage
+    const servicesJsonData = allServices.map(s => ({
+      id: s.id,
+      name: s.name,
+      price: s.price,
+      durationMinutes: s.durationMinutes,
+      categoryName: s.serviceCategory?.name || null,
+    }));
     let discountedPrice: number | null = null;
     let discountName: string | null = null;
 
@@ -130,7 +146,7 @@ export async function POST(
     // Format time as HH:MM for discount check
     const timeStr = start.toTimeString().slice(0, 5);
 
-    // Find applicable discount
+    // Find applicable discount (for multi-service, check primary service)
     const applicableDiscount = getApplicableDiscount(
       activeDiscounts as Discount[],
       serviceId,
@@ -181,7 +197,7 @@ export async function POST(
     const appointment = await prisma.appointment.create({
       data: {
         salonId: salon.id,
-        serviceId,
+        serviceId, // Primary service for backward compatibility
         staffId,
         customerId: customer.id,
         customerName,
@@ -195,6 +211,7 @@ export async function POST(
         discountedPrice,
         discountName,
         extrasJson: selectedExtras.length > 0 ? JSON.stringify(selectedExtras) : null,
+        servicesJson: allServices.length > 1 ? JSON.stringify(servicesJsonData) : null,
       },
       include: { service: true, staff: true },
     });
@@ -210,6 +227,7 @@ export async function POST(
         customerEmail,
         customerName,
         serviceName: service.name,
+        serviceNames: allServices.length > 1 ? allServices.map(s => s.name) : undefined,
         staffName: staff.name,
         startTime: start,
         endTime: end,

@@ -95,11 +95,13 @@ export function validateDateTime(dateTime: string): ValidationResult {
 
 export interface BookingInput {
   serviceId: string;
+  serviceIds?: string[];
   staffId: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
   startTime: string;
+  totalDuration?: number;
 }
 
 export interface BookingValidationResult {
@@ -110,39 +112,52 @@ export interface BookingValidationResult {
 
 export function validateBookingInput(input: Partial<BookingInput>): BookingValidationResult {
   const errors: Record<string, string> = {};
-  
-  const serviceValidation = validateId(input.serviceId || '');
-  if (!serviceValidation.isValid) errors.serviceId = serviceValidation.error!;
-  
+
+  // Support both single serviceId and multiple serviceIds
+  const serviceIds = input.serviceIds || (input.serviceId ? [input.serviceId] : []);
+  if (serviceIds.length === 0) {
+    errors.serviceId = 'At least one service is required';
+  } else {
+    for (const id of serviceIds) {
+      const validation = validateId(id);
+      if (!validation.isValid) {
+        errors.serviceId = validation.error!;
+        break;
+      }
+    }
+  }
+
   const staffValidation = validateId(input.staffId || '');
   if (!staffValidation.isValid) errors.staffId = staffValidation.error!;
-  
+
   const nameValidation = validateName(input.customerName || '');
   if (!nameValidation.isValid) errors.customerName = nameValidation.error!;
-  
+
   const phoneValidation = validatePhone(input.customerPhone || '');
   if (!phoneValidation.isValid) errors.customerPhone = phoneValidation.error!;
-  
+
   const emailValidation = validateEmail(input.customerEmail || '');
   if (!emailValidation.isValid) errors.customerEmail = emailValidation.error!;
-  
+
   const dateTimeValidation = validateDateTime(input.startTime || '');
   if (!dateTimeValidation.isValid) errors.startTime = dateTimeValidation.error!;
-  
+
   if (Object.keys(errors).length > 0) {
     return { isValid: false, errors };
   }
-  
+
   return {
     isValid: true,
     errors: {},
     sanitized: {
-      serviceId: serviceValidation.sanitized!,
+      serviceId: serviceIds[0], // Primary service (first selected)
+      serviceIds: serviceIds,
       staffId: staffValidation.sanitized!,
       customerName: nameValidation.sanitized!,
       customerPhone: phoneValidation.sanitized!,
       customerEmail: emailValidation.sanitized!,
       startTime: dateTimeValidation.sanitized!,
+      totalDuration: input.totalDuration,
     },
   };
 }
