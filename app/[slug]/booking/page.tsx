@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent, useCallback, use } from "react";
+import { useEffect, useState, FormEvent, use } from "react";
 
 type ServiceCategory = { id: string; name: string; description: string | null };
 type Service = { id: string; name: string; description: string | null; durationMinutes: number; price: number; categoryId?: string | null; serviceCategory?: ServiceCategory | null };
@@ -44,7 +44,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [selectedExtras, setSelectedExtras] = useState<Extra[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
 
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [selectedStaffId, setSelectedStaffId] = useState("");
@@ -72,7 +72,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [error, setError] = useState<string | null>(null);
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
 
-  const currentService = services.find((s) => s.id === selectedServiceId);
+  // Single service selection
+  const selectedService = services.find((s) => s.id === selectedServiceId);
+  const totalDuration = selectedService?.durationMinutes || 0;
+  const totalServicePrice = selectedService?.price || 0;
   const isAnyStaff = selectedStaffId === "any";
   const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
 
@@ -221,30 +224,18 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return originalPrice * (1 - discount.discountPercent / 100);
   }
 
-  // Get the current applicable discount for selected service
-  const currentDiscount = selectedServiceId ? getApplicableDiscount(
-    selectedServiceId,
-    selectedDate,
-    selectedTime,
-    isAnyStaff ? assignedStaffId : selectedStaffId
-  ) : null;
-  const finalPrice = currentService ? getDiscountedPrice(currentService.price, currentDiscount) : 0;
-
   // Get extras total
   const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0);
-  const totalPrice = finalPrice + extrasTotal;
 
-  // Get applicable extras for current service category
-  const currentCategory = currentService?.serviceCategory;
+  // Total price = all services + extras
+  const totalPrice = totalServicePrice + extrasTotal;
+
+  // Get applicable extras for selected service
   const applicableExtras = extras.filter(e => {
-    // If extra has no categoryIds, it applies to all
     if (!e.categoryIds || e.categoryIds.length === 0) return true;
-    // Otherwise check if current category is in the list
-    return currentCategory && e.categoryIds.includes(currentCategory.id);
+    return selectedService?.serviceCategory && e.categoryIds.includes(selectedService.serviceCategory.id);
   });
 
-  // Check if current service is BIAB (by category name)
-  const isBIABService = currentCategory?.name?.toLowerCase().includes('biab');
 
   // Load initial data - single API call for all booking data
   useEffect(() => {
@@ -275,7 +266,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     loadData();
   }, [apiBase, slug]);
 
-  // Load staff who can perform the selected service (filtered by discount eligibility)
+  // Load staff who can perform the selected service
   useEffect(() => {
     if (!selectedServiceId) return;
     // Reset staff and selections when service changes
@@ -283,37 +274,15 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     setSelectedStaffId("");
     setSelectedTime("");
     setAssignedStaffId("");
-    setSelectedExtras([]);
     async function loadStaff() {
       try {
         const res = await fetch(`${apiBase}/staff?serviceId=${selectedServiceId}`);
-        let staffList: Staff[] = await res.json();
-
-        // Check if there's a discount for this service with specific staff
-        const serviceDiscounts = discounts.filter(d => d.serviceIds.includes(selectedServiceId));
-        if (serviceDiscounts.length > 0) {
-          // Get all staff IDs that are eligible for any discount on this service
-          const discountStaffIds = new Set<string>();
-          let hasStaffRestriction = false;
-
-          for (const discount of serviceDiscounts) {
-            if (discount.staffIds.length > 0) {
-              hasStaffRestriction = true;
-              discount.staffIds.forEach(id => discountStaffIds.add(id));
-            }
-          }
-
-          // If any discount has staff restrictions, filter to only those staff
-          if (hasStaffRestriction && discountStaffIds.size > 0) {
-            staffList = staffList.filter(s => discountStaffIds.has(s.id));
-          }
-        }
-
+        const staffList: Staff[] = await res.json();
         setStaff(staffList);
       } catch (err) { console.error(err); }
     }
     loadStaff();
-  }, [selectedServiceId, apiBase, discounts]);
+  }, [selectedServiceId, apiBase]);
 
   // Set default date
   useEffect(() => { setSelectedDate(new Date().toISOString().split("T")[0]); }, []);
@@ -326,35 +295,39 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load availability - always load ALL staff availability to show combined slots
+  // Load availability - single bulk API call for all staff
   useEffect(() => {
     if (!selectedDate || staff.length === 0) return;
     async function loadAvailability() {
       setLoadingAvailability(true);
       setSelectedTime(""); setAssignedStaffId(""); setReservationExpiry(null);
       try {
-        // Always load all staff availability to show combined time slots
-        const availabilityMap: Record<string, StaffAvailability> = {};
-        await Promise.all(staff.map(async (s) => {
-          const res = await fetch(`${apiBase}/staff-availability?staffId=${s.id}&date=${selectedDate}`);
-          availabilityMap[s.id] = await res.json();
-        }));
-        setAllStaffAvailability(availabilityMap);
+        // Single API call to get all staff availability, reservations, and bookings
+        const staffIds = staff.map(s => s.id).join(",");
+        const res = await fetch(`${apiBase}/bulk-availability?staffIds=${staffIds}&date=${selectedDate}&sessionId=${sessionId}`);
+        const data = await res.json();
 
-        // Load reservations and bookings for all staff (track per-staff)
-        let allReserved: ReservedSlot[] = [], allBooked: ReservedSlot[] = [];
-        const perStaffBooked: Record<string, ReservedSlot[]> = {};
-        const perStaffReserved: Record<string, ReservedSlot[]> = {};
-        await Promise.all(staff.map(async (s) => {
-          const res = await fetch(`${apiBase}/slot-reservation?staffId=${s.id}&date=${selectedDate}&sessionId=${sessionId}`);
-          const data = await res.json();
-          perStaffBooked[s.id] = data.appointments || [];
-          perStaffReserved[s.id] = data.reservations || [];
-          if (data.reservations) allReserved = [...allReserved, ...data.reservations];
-          if (data.appointments) allBooked = [...allBooked, ...data.appointments];
-        }));
-        setReservedSlots(allReserved); setBookedSlots(allBooked);
-        setStaffBookedSlots(perStaffBooked); setStaffReservedSlots(perStaffReserved);
+        // Set availability data
+        setAllStaffAvailability(data.availability || {});
+
+        // Set booked and reserved slots
+        const perStaffBooked: Record<string, ReservedSlot[]> = data.bookedSlots || {};
+        const perStaffReserved: Record<string, ReservedSlot[]> = data.reservedSlots || {};
+
+        // Aggregate all slots for legacy compatibility
+        let allReserved: ReservedSlot[] = [];
+        let allBooked: ReservedSlot[] = [];
+        for (const slots of Object.values(perStaffReserved)) {
+          allReserved = [...allReserved, ...(slots as ReservedSlot[])];
+        }
+        for (const slots of Object.values(perStaffBooked)) {
+          allBooked = [...allBooked, ...(slots as ReservedSlot[])];
+        }
+
+        setReservedSlots(allReserved);
+        setBookedSlots(allBooked);
+        setStaffBookedSlots(perStaffBooked);
+        setStaffReservedSlots(perStaffReserved);
       } catch (err) { console.error(err); }
       finally { setLoadingAvailability(false); }
     }
@@ -380,20 +353,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
 
-  const isSlotReserved = useCallback((time: string) => {
-    const slotStart = new Date(`${selectedDate}T${time}:00`);
-    const slotEnd = new Date(slotStart.getTime() + (currentService?.durationMinutes || 60) * 60000);
-    return reservedSlots.some(r => slotStart < new Date(r.endTime) && slotEnd > new Date(r.startTime));
-  }, [selectedDate, currentService, reservedSlots]);
-
-  const isSlotBooked = useCallback((time: string) => {
-    const slotStart = new Date(`${selectedDate}T${time}:00`);
-    const slotEnd = new Date(slotStart.getTime() + (currentService?.durationMinutes || 60) * 60000);
-    return bookedSlots.some(a => slotStart < new Date(a.endTime) && slotEnd > new Date(a.startTime));
-  }, [selectedDate, currentService, bookedSlots]);
-
   const findAvailableStaff = (time: string): string | null => {
-    const serviceDuration = currentService?.durationMinutes || 60;
+    const serviceDuration = totalDuration || 60;
     const slotStart = new Date(`${selectedDate}T${time}:00`);
     const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
 
@@ -440,7 +401,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   };
 
   const generateTimeSlots = () => {
-    const serviceDuration = currentService?.durationMinutes || 60;
+    const serviceDuration = totalDuration || 60;
     const isAnyStaff = selectedStaffId === "any";
 
     if (isAnyStaff) {
@@ -483,7 +444,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   };
 
   const isSlotAvailableForStaff = (time: string, staffId: string): boolean => {
-    const serviceDuration = currentService?.durationMinutes || 60;
+    const serviceDuration = totalDuration || 60;
     const slotStart = new Date(`${selectedDate}T${time}:00`);
     const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
 
@@ -536,7 +497,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     setReserving(true); setError(null);
     try {
       const start = new Date(`${selectedDate}T${time}:00`);
-      const end = new Date(start.getTime() + (currentService?.durationMinutes || 60) * 60000);
+      const end = new Date(start.getTime() + (totalDuration || 60) * 60000);
       const res = await fetch(`${apiBase}/slot-reservation`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ staffId: finalStaffId, startTime: start.toISOString(), endTime: end.toISOString(), sessionId }),
@@ -559,11 +520,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     if (!reservationExpiry || reservationExpiry < new Date()) { setError("Reservation expired. Go back and select a time."); return; }
     setSubmitting(true);
     try {
-      // Get current discount for the selected slot
-      const slotDiscount = getApplicableDiscount(selectedServiceId, selectedDate, selectedTime, finalStaffId);
-      const originalPrice = currentService?.price || 0;
-      const discountedPrice = slotDiscount ? getDiscountedPrice(originalPrice, slotDiscount) : undefined;
-
       const res = await fetch(`${apiBase}/appointments`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -573,9 +529,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           customerPhone,
           customerEmail,
           startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
-          originalPrice,
-          discountedPrice: slotDiscount ? discountedPrice : undefined,
-          discountName: slotDiscount?.name || undefined,
           extras: selectedExtras.map(e => ({ id: e.id, name: e.name, price: e.price })),
         }),
       });
@@ -666,7 +619,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const getStickyBarText = () => {
     if (step === 1) {
       if (!selectedServiceId) return "Select a service";
-      return `${currentService?.name} · £${currentService?.price}`;
+      return selectedService?.name || "";
     }
     if (step === 2) {
       if (!selectedStaffId) return "Select a specialist";
@@ -674,7 +627,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     }
     if (step === 3) {
       if (!selectedTime) return "Select a time";
-      return `${selectedTime} · ${currentService?.name}`;
+      return `${selectedTime}`;
     }
     if (step === 4) {
       if (!customerName || !customerPhone || !customerEmail) return "Fill in your details";
@@ -810,11 +763,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           )}
 
           {/* Selection Summary */}
-          {currentService && (
+          {selectedService && (
             <div style={{ background: "rgba(251,248,244,0.05)", borderRadius: 16, padding: 20, border: "1px solid rgba(251,248,244,0.08)" }}>
               <div style={{ color: "var(--gold)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>Your Selection</div>
-              <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--rose-light)" }}>✦</span> {currentService.name}
+              <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "var(--rose-light)" }}>✦</span> {selectedService.name}
+                <span style={{ opacity: 0.6, fontSize: 12 }}>({selectedService.durationMinutes}min)</span>
               </div>
               {selectedExtras.length > 0 && (
                 <div style={{ color: "var(--cream)", fontSize: 13, marginBottom: 10, paddingLeft: 20, opacity: 0.8 }}>
@@ -823,16 +777,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               )}
               {currentStaff && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--sage-light)" }}>◉</span> {currentStaff.name}</div>}
               {selectedDate && selectedTime && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--gold-light)" }}>◆</span> {selectedDate} at {selectedTime}</div>}
-              <div style={{ color: "var(--cream)", fontSize: 14, display: "flex", alignItems: "center", gap: 8, paddingTop: 12, borderTop: "1px solid rgba(251,248,244,0.1)", marginTop: 4 }}>
-                {currentDiscount ? (
-                  <>
-                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>£{totalPrice.toFixed(2)}</span>
-                    <span style={{ color: "var(--cream)", opacity: 0.5, textDecoration: "line-through", fontSize: 13 }}>£{currentService.price}</span>
-                    <span style={{ background: "var(--gold)", color: "var(--ink)", padding: "3px 10px", borderRadius: 50, fontSize: 11, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
-                  </>
-                ) : (
-                  <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>£{totalPrice.toFixed(2)}</span>
-                )}
+              <div style={{ color: "var(--cream)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid rgba(251,248,244,0.1)", marginTop: 8 }}>
+                <span style={{ opacity: 0.8 }}>{totalDuration} min total</span>
+                <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>£{totalPrice.toFixed(2)}</span>
               </div>
               {reservationTimer > 0 && <div style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(251,248,244,0.1)" }}>⏱ Reserved for {formatTimer(reservationTimer)}</div>}
             </div>
@@ -847,14 +794,14 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             {/* Step 1: Service */}
             {step === 1 && (
               <>
-                <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose a Service</h1>
-                <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Select the service you would like to book</p>
+                <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 600, marginBottom: 6, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>Choose Services</h1>
+                <p style={{ color: "var(--ink-muted)", marginBottom: isMobile ? 20 : 32, fontSize: 14 }}>Select one or more services to book together</p>
 
                 {/* Category Accordions */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingBottom: isMobile ? 120 : 0 }}>
                   {categories.map((cat) => {
                     const categoryServices = services.filter(s => s.categoryId === cat.id);
-                    const isExpanded = selectedCategoryId === cat.id;
+                    const isExpanded = expandedCategoryIds.includes(cat.id);
                     const hasSelectedService = categoryServices.some(s => s.id === selectedServiceId);
 
                     return (
@@ -867,7 +814,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       }}>
                         {/* Category Header - Accordion Toggle */}
                         <button
-                          onClick={() => setSelectedCategoryId(isExpanded ? null : cat.id)}
+                          onClick={() => setExpandedCategoryIds(prev =>
+                            isExpanded ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                          )}
                           style={{
                             width: "100%",
                             display: "flex",
@@ -937,16 +886,41 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                 ? service.price * (1 - bestDiscount.discountPercent / 100)
                                 : service.price;
 
+                              const isServiceSelected = service.id === selectedServiceId;
+
                               return (
-                                <div key={service.id} onClick={() => setSelectedServiceId(service.id)} style={{
-                                  padding: isMobile ? 14 : 16,
-                                  borderRadius: 12,
-                                  border: selectedServiceId === service.id ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
-                                  background: selectedServiceId === service.id ? "var(--rose-pale)" : "var(--cream)",
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease"
-                                }}>
+                                <div
+                                  key={service.id}
+                                  onClick={() => setSelectedServiceId(service.id)}
+                                  style={{
+                                    padding: isMobile ? 14 : 16,
+                                    borderRadius: 12,
+                                    border: isServiceSelected ? "2px solid var(--rose)" : "1px solid var(--cream-dark)",
+                                    background: isServiceSelected ? "var(--rose-pale)" : "var(--cream)",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease"
+                                  }}
+                                >
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                                    {/* Radio button style */}
+                                    <div style={{
+                                      width: 24,
+                                      height: 24,
+                                      borderRadius: "50%",
+                                      border: isServiceSelected ? "none" : "2px solid var(--cream-dark)",
+                                      background: isServiceSelected ? "var(--rose)" : "var(--white)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "var(--white)",
+                                      fontSize: 14,
+                                      fontWeight: 600,
+                                      marginRight: 12,
+                                      flexShrink: 0,
+                                      marginTop: 2
+                                    }}>
+                                      {isServiceSelected && "✓"}
+                                    </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                                         <span style={{ fontWeight: 600, fontSize: isMobile ? 14 : 15, color: "var(--ink)" }}>{service.name}</span>
@@ -965,7 +939,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                       </div>
                                       {service.description && (
                                         <div style={{ color: "var(--ink-light)", fontSize: 13, marginBottom: 6, lineHeight: 1.4 }}>
-                                          {selectedServiceId === service.id
+                                          {isServiceSelected
                                             ? service.description
                                             : service.description.length > 50
                                               ? service.description.slice(0, 50) + '...'
@@ -975,7 +949,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                       <div style={{
                                         display: "inline-flex",
                                         padding: "3px 10px",
-                                        background: selectedServiceId === service.id ? "var(--white)" : "var(--white)",
+                                        background: "var(--white)",
                                         borderRadius: 50,
                                         color: "var(--ink-muted)",
                                         fontSize: 12
@@ -1010,7 +984,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   })}
                 </div>
 
-                {/* Extras/Additions for all services */}
+                {/* Extras/Additions */}
                 {selectedServiceId && applicableExtras.length > 0 && (
                   <div style={{ marginTop: 24, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", overflow: "hidden" }}>
                     <div style={{ padding: isMobile ? "14px 16px" : "16px 20px", background: "var(--sage)", color: "var(--white)" }}>
@@ -1287,7 +1261,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 14, color: "var(--ink-light)" }}>Available Times</label>
 
                     {/* Off-Peak Info Banner */}
-                    {discounts.length > 0 && currentService && discounts.some(d => d.serviceIds.includes(currentService.id)) && (
+                    {discounts.length > 0 && selectedService && discounts.some(d => d.serviceIds.includes(selectedService.id)) && (
                       <div style={{
                         display: "flex",
                         alignItems: "center",
@@ -1307,8 +1281,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {availableTimeSlots.map((time) => {
-                        const slotDiscount = currentService ? getApplicableDiscount(currentService.id, selectedDate, time, isAnyStaff ? undefined : selectedStaffId) : null;
-                        const originalPrice = currentService?.price || 0;
+                        const slotDiscount = selectedService ? getApplicableDiscount(selectedService.id, selectedDate, time, isAnyStaff ? undefined : selectedStaffId) : null;
+                        const originalPrice = selectedService?.price || 0;
                         const discountedPrice = slotDiscount ? getDiscountedPrice(originalPrice, slotDiscount) : originalPrice;
                         const isOffPeak = slotDiscount !== null;
                         const isSelected = selectedTime === time;
@@ -1533,30 +1507,34 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 <h1 style={{ fontSize: 32, fontWeight: 600, marginBottom: 10, fontFamily: "var(--font-heading)", color: "var(--ink)", letterSpacing: "-0.02em" }}>You are all set!</h1>
                 <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 16 }}>Your appointment has been confirmed</p>
                 <div style={{ background: "var(--white)", borderRadius: 20, padding: 24, textAlign: "left", marginBottom: 24, border: "1px solid var(--cream-dark)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Service</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{currentService?.name}</span></div>
+                  <div style={{ padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
+                    <span style={{ color: "var(--ink-muted)" }}>Service</span>
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedService?.name}</span>
+                        <span style={{ color: "var(--ink-muted)" }}>£{selectedService?.price}</span>
+                      </div>
+                    </div>
+                  </div>
                   {selectedExtras.length > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
+                    <div style={{ padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
                       <span style={{ color: "var(--ink-muted)" }}>Extras</span>
-                      <span style={{ fontWeight: 600, color: "var(--ink)", textAlign: "right" }}>
-                        {selectedExtras.map(e => e.name).join(", ")}
-                      </span>
+                      <div style={{ marginTop: 8 }}>
+                        {selectedExtras.map(extra => (
+                          <div key={extra.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontWeight: 600, color: "var(--ink)" }}>{extra.name}</span>
+                            <span style={{ color: "var(--ink-muted)" }}>£{extra.price}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Specialist</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{currentStaff?.name}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Date & Time</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedDate} at {selectedTime}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Duration</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{totalDuration} minutes</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
                     <span style={{ color: "var(--ink-muted)" }}>Total</span>
-                    <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
-                      {currentDiscount ? (
-                        <>
-                          <span style={{ background: "var(--gold)", color: "var(--white)", padding: "4px 10px", borderRadius: 50, fontSize: 11, fontWeight: 600 }}>{currentDiscount.discountPercent}% OFF</span>
-                          <span style={{ color: "var(--ink-muted)", textDecoration: "line-through", fontSize: 13 }}>£{currentService?.price}</span>
-                          <span style={{ color: "var(--ink)", fontFamily: "var(--font-heading)", fontSize: 18 }}>£{totalPrice.toFixed(2)}</span>
-                        </>
-                      ) : (
-                        <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, color: "var(--ink)" }}>£{totalPrice.toFixed(2)}</span>
-                      )}
-                    </span>
+                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>£{totalPrice.toFixed(2)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Booking ID</span><span style={{ fontWeight: 600, color: "var(--ink)", fontFamily: "monospace" }}>{successAppointmentId?.slice(0, 8).toUpperCase()}</span></div>
                 </div>
@@ -1589,7 +1567,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 2 }}>
-                {step === 1 && "Selected service"}
+                {step === 1 && (selectedServiceId ? `${totalDuration}min` : "Select a service")}
                 {step === 2 && "Selected specialist"}
                 {step === 3 && "Selected time"}
                 {step === 4 && "Complete booking"}
@@ -1598,16 +1576,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {getStickyBarText()}
               </div>
             </div>
-            {currentService && step >= 1 && (
+            {selectedServiceId && step >= 1 && (
               <div style={{ textAlign: "right", marginLeft: 12 }}>
-                {currentDiscount || extrasTotal > 0 ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {currentDiscount && <span style={{ fontSize: 13, color: "var(--ink-muted)", textDecoration: "line-through" }}>£{currentService.price}</span>}
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>£{totalPrice.toFixed(2)}</span>
-                  </div>
-                ) : (
-                  <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>£{currentService.price}</span>
-                )}
+                <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>£{totalPrice.toFixed(2)}</span>
               </div>
             )}
           </div>

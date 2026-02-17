@@ -179,18 +179,19 @@ model StaffScheduleOverride {
   startTime String?
   endTime   String?
   note      String?
-  
+
   staffId   String
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  
+
   salonId   String
   salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([staffId, date])
   @@index([salonId])
+  @@index([staffId, date]) // For bulk availability lookups
 }
 
 // ============ APPOINTMENTS ============
@@ -212,6 +213,9 @@ model Appointment {
 
   // Selected extras as JSON: [{ id, name, price }]
   extrasJson      String?  @db.Text
+
+  // All selected services as JSON: [{ id, name, price, durationMinutes }]
+  servicesJson    String?  @db.Text
 
   manageToken   String   @unique @default(cuid())
   
@@ -263,15 +267,16 @@ model SlotReservation {
   endTime   DateTime
   sessionId String
   expiresAt DateTime
-  
+
   salonId   String
   salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
-  
+
   createdAt DateTime @default(now())
-  
+
   @@unique([staffId, startTime])
   @@index([salonId])
   @@index([expiresAt])
+  @@index([staffId, startTime, endTime]) // For bulk availability and conflict checks
 }
 
 // ============ BOOKING POLICY ============
