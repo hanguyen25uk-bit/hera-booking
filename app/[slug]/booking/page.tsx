@@ -64,6 +64,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
   const [reservationTimer, setReservationTimer] = useState(0);
   const [reserving, setReserving] = useState(false);
+  const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -227,8 +228,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   // Get extras total
   const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0);
 
-  // Total price = all services + extras
-  const totalPrice = totalServicePrice + extrasTotal;
+  // Calculate final service price (with discount if applicable)
+  const finalServicePrice = appliedDiscount
+    ? totalServicePrice * (1 - appliedDiscount.discountPercent / 100)
+    : totalServicePrice;
+
+  // Total price = service price (after discount) + extras
+  const totalPrice = finalServicePrice + extrasTotal;
 
   // Get applicable extras for selected service
   const applicableExtras = extras.filter(e => {
@@ -507,6 +513,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       setSelectedTime(time);
       setAssignedStaffId(isAnyStaff ? finalStaffId : "");
       setReservationExpiry(new Date(data.expiresAt));
+
+      // Calculate and save the applicable discount for this time slot
+      if (selectedServiceId) {
+        const discount = getApplicableDiscount(selectedServiceId, selectedDate, time, finalStaffId);
+        setAppliedDiscount(discount);
+      }
     } catch { setError("Failed to reserve slot."); }
     finally { setReserving(false); }
   };
@@ -1510,9 +1522,25 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   <div style={{ padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
                     <span style={{ color: "var(--ink-muted)" }}>Service</span>
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedService?.name}</span>
-                        <span style={{ color: "var(--ink-muted)" }}>£{selectedService?.price}</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedService?.name}</span>
+                          {appliedDiscount && (
+                            <span style={{ marginLeft: 8, padding: "2px 8px", background: "var(--sage)", color: "var(--white)", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                              {appliedDiscount.discountPercent}% OFF
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          {appliedDiscount ? (
+                            <>
+                              <span style={{ color: "var(--ink-muted)", textDecoration: "line-through", fontSize: 13, marginRight: 8 }}>£{selectedService?.price}</span>
+                              <span style={{ fontWeight: 600, color: "var(--sage)" }}>£{finalServicePrice.toFixed(2)}</span>
+                            </>
+                          ) : (
+                            <span style={{ color: "var(--ink-muted)" }}>£{selectedService?.price}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
