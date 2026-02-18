@@ -73,7 +73,10 @@ function ManageBookingContent() {
 
         const settingsData = await settingsRes.json();
         if (settingsData && !settingsData.error) {
-          setSettings(settingsData);
+          setSettings({
+            cancelMinutesAdvance: settingsData.cancelMinutesAdvance ?? 120, // Default 2 hours
+            salonPhone: settingsData.salonPhone || "020 1234 5678",
+          });
         }
       } catch (err) {
         console.error(err);

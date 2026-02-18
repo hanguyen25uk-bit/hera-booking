@@ -235,10 +235,10 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
             </td>
           </tr>
           
-          <!-- Manage Button -->
+          <!-- Cancel Button -->
           <tr>
             <td style="padding: 16px 24px; text-align: center;">
-              <a href="${manageUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 14px;">Manage Booking</a>
+              <a href="${manageUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 14px;">Cancel Appointment</a>
             </td>
           </tr>
           
