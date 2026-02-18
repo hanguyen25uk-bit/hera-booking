@@ -293,7 +293,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     if (!selectedDate || staff.length === 0) return;
     async function loadAvailability() {
       setLoadingAvailability(true);
-      setSelectedTime(""); setAssignedStaffId(""); setReservationExpiry(null);
+      // Note: Don't reset selectedTime here - let calendar click handler manage that
+      // to avoid race conditions when user clicks time slot while this effect runs
       try {
         // Single API call to get all staff availability, reservations, and bookings
         const staffIds = staff.map(s => s.id).join(",");
@@ -1129,6 +1130,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                             if (!isPast) {
                               setSelectedDate(formatDateForState(date));
                               setSelectedTime("");
+                              setAssignedStaffId("");
                               setReservationExpiry(null);
                             }
                           }}
