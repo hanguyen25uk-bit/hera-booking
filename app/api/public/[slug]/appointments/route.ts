@@ -62,7 +62,6 @@ export async function POST(
     }
 
     const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, totalDuration: clientTotalDuration } = validation.sanitized!;
-    const selectedExtras = body.extras || []; // Array of { id, name, price }
     const allServiceIds = serviceIds || [serviceId];
 
     // 2. Rate limiting
@@ -210,7 +209,6 @@ export async function POST(
         originalPrice,
         discountedPrice,
         discountName,
-        extrasJson: selectedExtras.length > 0 ? JSON.stringify(selectedExtras) : null,
         servicesJson: allServices.length > 1 ? JSON.stringify(servicesJsonData) : null,
       },
       include: { service: true, staff: true },

@@ -30,7 +30,7 @@ export async function GET(
     }
 
     // Parallel queries for all booking data
-    const [services, categories, policy, discounts, extras] = await Promise.all([
+    const [services, categories, policy, discounts] = await Promise.all([
       // Active services with category info
       prisma.service.findMany({
         where: { salonId: salon.id, isActive: true },
@@ -60,15 +60,6 @@ export async function GET(
           isActive: true,
         },
       }),
-
-      // Active extras/additions
-      prisma.extra.findMany({
-        where: {
-          salonId: salon.id,
-          isActive: true,
-        },
-        orderBy: { sortOrder: "asc" },
-      }),
     ]);
 
     // Parse policy items
@@ -90,7 +81,6 @@ export async function GET(
         policies: policyItems,
       },
       discounts,
-      extras,
     });
   } catch (error) {
     console.error("Booking data error:", error);

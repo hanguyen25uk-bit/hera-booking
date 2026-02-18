@@ -10,7 +10,6 @@ type ReservedSlot = { startTime: string; endTime: string };
 type PolicyItem = { icon: string; title: string; description: string };
 type Step = 1 | 2 | 3 | 4 | 5;
 type Discount = { id: string; name: string; discountPercent: number; startTime: string; endTime: string; daysOfWeek: number[]; serviceIds: string[]; staffIds: string[]; validFrom: string | null; validUntil: string | null };
-type Extra = { id: string; name: string; price: number; priceFrom: boolean; categoryIds: string[] };
 
 function generateSessionId() {
   return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -40,8 +39,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
-  const [extras, setExtras] = useState<Extra[]>([]);
-  const [selectedExtras, setSelectedExtras] = useState<Extra[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
@@ -225,22 +222,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return originalPrice * (1 - discount.discountPercent / 100);
   }
 
-  // Get extras total
-  const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0);
-
   // Calculate final service price (with discount if applicable)
   const finalServicePrice = appliedDiscount
     ? totalServicePrice * (1 - appliedDiscount.discountPercent / 100)
     : totalServicePrice;
 
-  // Total price = service price (after discount) + extras
-  const totalPrice = finalServicePrice + extrasTotal;
-
-  // Get applicable extras for selected service
-  const applicableExtras = extras.filter(e => {
-    if (!e.categoryIds || e.categoryIds.length === 0) return true;
-    return selectedService?.serviceCategory && e.categoryIds.includes(selectedService.serviceCategory.id);
-  });
+  // Total price
+  const totalPrice = finalServicePrice;
 
 
   // Load initial data - single API call for all booking data
@@ -262,7 +250,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         setPolicyItems(data.policy?.policies || []);
         setSalonName(data.salon?.name || slug.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
         setDiscounts(data.discounts || []);
-        setExtras(data.extras || []);
       } catch (err) {
         setError("Failed to load. Please refresh.");
       } finally {
@@ -541,7 +528,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           customerPhone,
           customerEmail,
           startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
-          extras: selectedExtras.map(e => ({ id: e.id, name: e.name, price: e.price })),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
@@ -782,11 +768,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 <span style={{ color: "var(--rose-light)" }}>✦</span> {selectedService.name}
                 <span style={{ opacity: 0.6, fontSize: 12 }}>({selectedService.durationMinutes}min)</span>
               </div>
-              {selectedExtras.length > 0 && (
-                <div style={{ color: "var(--cream)", fontSize: 13, marginBottom: 10, paddingLeft: 20, opacity: 0.8 }}>
-                  + {selectedExtras.map(e => e.name).join(", ")}
-                </div>
-              )}
               {currentStaff && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--sage-light)" }}>◉</span> {currentStaff.name}</div>}
               {selectedDate && selectedTime && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--gold-light)" }}>◆</span> {selectedDate} at {selectedTime}</div>}
               <div style={{ color: "var(--cream)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid rgba(251,248,244,0.1)", marginTop: 8 }}>
@@ -995,76 +976,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                     );
                   })}
                 </div>
-
-                {/* Extras/Additions */}
-                {selectedServiceId && applicableExtras.length > 0 && (
-                  <div style={{ marginTop: 24, background: "var(--white)", borderRadius: 16, border: "1px solid var(--cream-dark)", overflow: "hidden" }}>
-                    <div style={{ padding: isMobile ? "14px 16px" : "16px 20px", background: "var(--sage)", color: "var(--white)" }}>
-                      <div style={{ fontWeight: 600, fontSize: isMobile ? 15 : 16, fontFamily: "var(--font-heading)" }}>Add Extras</div>
-                      <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>Optional additions for your service</div>
-                    </div>
-                    <div style={{ padding: isMobile ? "12px 12px 16px" : "16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                      {applicableExtras.map((extra) => {
-                        const isSelected = selectedExtras.some(e => e.id === extra.id);
-                        return (
-                          <button
-                            key={extra.id}
-                            type="button"
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedExtras(prev => prev.filter(e => e.id !== extra.id));
-                              } else {
-                                setSelectedExtras(prev => [...prev, extra]);
-                              }
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              padding: isMobile ? "12px 14px" : "14px 16px",
-                              borderRadius: 12,
-                              border: isSelected ? "2px solid var(--sage)" : "1px solid var(--cream-dark)",
-                              background: isSelected ? "var(--sage-light)" : "var(--cream)",
-                              cursor: "pointer",
-                              transition: "all 0.15s ease",
-                              width: "100%",
-                              textAlign: "left"
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <div style={{
-                                width: 24,
-                                height: 24,
-                                borderRadius: 6,
-                                border: isSelected ? "none" : "2px solid var(--cream-dark)",
-                                background: isSelected ? "var(--sage)" : "var(--white)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "var(--white)",
-                                fontSize: 14,
-                                fontWeight: 600,
-                                flexShrink: 0
-                              }}>
-                                {isSelected && "✓"}
-                              </div>
-                              <span style={{ fontWeight: 500, fontSize: isMobile ? 14 : 15, color: "var(--ink)" }}>{extra.name}</span>
-                            </div>
-                            <span style={{ fontWeight: 600, fontSize: isMobile ? 14 : 15, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>
-                              {extra.priceFrom ? "from " : ""}£{extra.price}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {selectedExtras.length > 0 && (
-                      <div style={{ padding: "12px 16px", background: "var(--cream)", borderTop: "1px solid var(--cream-dark)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>{selectedExtras.length} extra{selectedExtras.length > 1 ? "s" : ""} selected</span>
-                        <span style={{ fontWeight: 600, fontSize: 15, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>+£{extrasTotal}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div className="desktop-buttons" style={{ marginTop: 32 }}>
                   <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{
@@ -1544,19 +1455,6 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       </div>
                     </div>
                   </div>
-                  {selectedExtras.length > 0 && (
-                    <div style={{ padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
-                      <span style={{ color: "var(--ink-muted)" }}>Extras</span>
-                      <div style={{ marginTop: 8 }}>
-                        {selectedExtras.map(extra => (
-                          <div key={extra.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontWeight: 600, color: "var(--ink)" }}>{extra.name}</span>
-                            <span style={{ color: "var(--ink-muted)" }}>£{extra.price}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Specialist</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{currentStaff?.name}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Date & Time</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedDate} at {selectedTime}</span></div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Duration</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{totalDuration} minutes</span></div>
