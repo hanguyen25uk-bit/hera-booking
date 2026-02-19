@@ -1317,30 +1317,83 @@ export default function CalendarPage() {
                               e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
                             }}
                           >
-                            <div style={{
-                              fontSize: isMobile ? 11 : 13,
-                              fontWeight: 600,
-                              color: "#1F2937",
-                              marginBottom: 2,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              lineHeight: 1.3,
-                            }}>
-                              {apt.customerName}
-                            </div>
-                            <div style={{
-                              fontSize: isMobile ? 10 : 11,
-                              color: "#6B7280",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              lineHeight: 1.3,
-                            }}>
-                              {apt.servicesJson
-                                ? (JSON.parse(apt.servicesJson) as ServiceInfo[]).map(s => s.name).join(', ')
-                                : apt.service.name}
-                            </div>
+                            {(() => {
+                              const allServices: ServiceInfo[] = apt.servicesJson
+                                ? JSON.parse(apt.servicesJson)
+                                : [apt.service];
+                              const isMultiService = allServices.length > 1;
+                              const totalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+                              const totalPrice = allServices.reduce((sum, s) => sum + s.price, 0);
+                              const blockHeight = style.height - 2;
+                              const isCompact = blockHeight < 70;
+
+                              return (
+                                <>
+                                  {/* Customer name */}
+                                  <div style={{
+                                    fontSize: isMobile ? 11 : 13,
+                                    fontWeight: 600,
+                                    color: "#1F2937",
+                                    marginBottom: isCompact ? 1 : 3,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    lineHeight: 1.3,
+                                  }}>
+                                    {apt.customerName}
+                                  </div>
+
+                                  {/* Services list */}
+                                  {isCompact ? (
+                                    // Compact view: single line with all services
+                                    <div style={{
+                                      fontSize: isMobile ? 9 : 10,
+                                      color: "#6B7280",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                      lineHeight: 1.2,
+                                    }}>
+                                      {allServices.map(s => s.name).join(', ')}
+                                    </div>
+                                  ) : (
+                                    // Full view: each service on separate line
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                      {allServices.map((svc, idx) => (
+                                        <div key={idx} style={{
+                                          fontSize: isMobile ? 9 : 10,
+                                          color: "#6B7280",
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                          lineHeight: 1.3,
+                                        }}>
+                                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+                                            {isMultiService && "• "}{svc.name}
+                                          </span>
+                                          <span style={{ marginLeft: 4, flexShrink: 0, fontSize: isMobile ? 8 : 9, color: "#9CA3AF" }}>
+                                            {svc.durationMinutes}m
+                                          </span>
+                                        </div>
+                                      ))}
+                                      {/* Total line for multi-service */}
+                                      {isMultiService && (
+                                        <div style={{
+                                          fontSize: isMobile ? 8 : 9,
+                                          color: "#9CA3AF",
+                                          marginTop: 2,
+                                          paddingTop: 2,
+                                          borderTop: "1px solid #E5E7EB",
+                                          fontWeight: 500,
+                                        }}>
+                                          Total: {totalDuration}m · £{totalPrice}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         );
                       })}
