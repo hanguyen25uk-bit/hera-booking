@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       // Token lookup doesn't need salonId filter - token is unique
       const appointment = await prisma.appointment.findFirst({
         where: { manageToken: token },
-        include: { service: true, staff: true },
+        include: { service: true, staff: true, salon: { select: { slug: true } } },
       });
 
       if (!appointment) {

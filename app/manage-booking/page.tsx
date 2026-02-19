@@ -25,12 +25,14 @@ type Appointment = {
     id: string;
     name: string;
   };
+  salon?: {
+    slug: string;
+  };
 };
 
 type Settings = {
   cancelMinutesAdvance: number;
   salonPhone: string;
-  salonSlug: string;
 };
 
 function ManageBookingContent() {
@@ -38,7 +40,7 @@ function ManageBookingContent() {
   const token = searchParams.get("token");
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [settings, setSettings] = useState<Settings>({ cancelMinutesAdvance: 1440, salonPhone: "020 1234 5678", salonSlug: "" });
+  const [settings, setSettings] = useState<Settings>({ cancelMinutesAdvance: 1440, salonPhone: "020 1234 5678" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
@@ -77,7 +79,6 @@ function ManageBookingContent() {
           setSettings({
             cancelMinutesAdvance: settingsData.cancelMinutesAdvance ?? 120, // Default 2 hours
             salonPhone: settingsData.salonPhone || "020 1234 5678",
-            salonSlug: settingsData.salonSlug || "",
           });
         }
       } catch (err) {
@@ -174,7 +175,7 @@ function ManageBookingContent() {
             <div style={styles.errorIcon}>⚠️</div>
             <h2 style={styles.errorTitle}>Oops!</h2>
             <p style={styles.errorText}>{error}</p>
-            <a href={settings.salonSlug ? `/${settings.salonSlug}/booking` : "/booking"} style={styles.btnPrimary}>Make a New Booking</a>
+            <a href="/booking" style={styles.btnPrimary}>Make a New Booking</a>
           </div>
         </div>
       </div>
@@ -182,6 +183,9 @@ function ManageBookingContent() {
   }
 
   if (!appointment) return null;
+
+  // Get booking URL with salon slug
+  const bookingUrl = appointment.salon?.slug ? `/${appointment.salon.slug}/booking` : "/booking";
 
   // Cancelled view
   if (cancelled) {
@@ -195,7 +199,7 @@ function ManageBookingContent() {
             <div style={styles.cancelledIcon}>✕</div>
             <h2 style={styles.statusTitle}>Appointment Cancelled</h2>
             <p style={styles.statusText}>Your appointment has been successfully cancelled.</p>
-            <a href={settings.salonSlug ? `/${settings.salonSlug}/booking` : "/booking"} style={styles.btnPrimary}>Book a New Appointment</a>
+            <a href={bookingUrl} style={styles.btnPrimary}>Book a New Appointment</a>
           </div>
         </div>
       </div>
