@@ -599,12 +599,15 @@ export default function CalendarPage() {
   // Receipt Editor Functions
   function openReceiptEditor() {
     if (!selectedAppointment) return;
-    setReceiptItems([{
-      id: "main-service",
-      name: selectedAppointment.service.name,
-      price: selectedAppointment.service.price,
+    const allServices: ServiceInfo[] = selectedAppointment.servicesJson
+      ? JSON.parse(selectedAppointment.servicesJson)
+      : [selectedAppointment.service];
+    setReceiptItems(allServices.map((svc, idx) => ({
+      id: `service-${idx}`,
+      name: svc.name,
+      price: svc.price,
       quantity: 1,
-    }]);
+    })));
     setNewItemName("");
     setNewItemPrice("");
     setShowReceiptEditor(true);
@@ -1334,7 +1337,9 @@ export default function CalendarPage() {
                               whiteSpace: "nowrap",
                               lineHeight: 1.3,
                             }}>
-                              {apt.service.name}
+                              {apt.servicesJson
+                                ? (JSON.parse(apt.servicesJson) as ServiceInfo[]).map(s => s.name).join(', ')
+                                : apt.service.name}
                             </div>
                           </div>
                         );
