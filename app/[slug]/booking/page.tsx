@@ -1497,28 +1497,30 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 <p style={{ color: "var(--ink-muted)", marginBottom: 32, fontSize: 16 }}>Your appointment has been confirmed</p>
                 <div style={{ background: "var(--white)", borderRadius: 20, padding: 24, textAlign: "left", marginBottom: 24, border: "1px solid var(--cream-dark)" }}>
                   <div style={{ padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}>
-                    <span style={{ color: "var(--ink-muted)" }}>Service</span>
+                    <span style={{ color: "var(--ink-muted)" }}>Service{selectedServices.length > 1 ? 's' : ''}</span>
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <div>
-                          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedService?.name}</span>
-                          {appliedDiscount && (
-                            <span style={{ marginLeft: 8, padding: "2px 8px", background: "var(--sage)", color: "var(--white)", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-                              {appliedDiscount.discountPercent}% OFF
-                            </span>
-                          )}
+                      {selectedServices.map((service, index) => (
+                        <div key={service.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: index < selectedServices.length - 1 ? 10 : 4 }}>
+                          <div>
+                            <span style={{ fontWeight: 600, color: "var(--ink)" }}>{service.name}</span>
+                            {appliedDiscount && (
+                              <span style={{ marginLeft: 8, padding: "2px 8px", background: "var(--sage)", color: "var(--white)", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                                {appliedDiscount.discountPercent}% OFF
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            {appliedDiscount ? (
+                              <>
+                                <span style={{ color: "var(--ink-muted)", textDecoration: "line-through", fontSize: 13, marginRight: 8 }}>£{service.price}</span>
+                                <span style={{ fontWeight: 600, color: "var(--sage)" }}>£{(service.price * (1 - appliedDiscount.discountPercent / 100)).toFixed(2)}</span>
+                              </>
+                            ) : (
+                              <span style={{ color: "var(--ink-muted)" }}>£{service.price}</span>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          {appliedDiscount ? (
-                            <>
-                              <span style={{ color: "var(--ink-muted)", textDecoration: "line-through", fontSize: 13, marginRight: 8 }}>£{selectedService?.price}</span>
-                              <span style={{ fontWeight: 600, color: "var(--sage)" }}>£{finalServicePrice.toFixed(2)}</span>
-                            </>
-                          ) : (
-                            <span style={{ color: "var(--ink-muted)" }}>£{selectedService?.price}</span>
-                          )}
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid var(--cream-dark)", fontSize: 15 }}><span style={{ color: "var(--ink-muted)" }}>Specialist</span><span style={{ fontWeight: 600, color: "var(--ink)" }}>{currentStaff?.name}</span></div>

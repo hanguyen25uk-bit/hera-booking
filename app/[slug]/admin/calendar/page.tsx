@@ -10,9 +10,12 @@ type Appointment = {
   customerName: string;
   customerPhone: string;
   customerEmail: string;
+  servicesJson?: string | null;
   service: { id: string; name: string; durationMinutes: number; price: number };
   staff: { id: string; name: string };
 };
+
+type ServiceInfo = { id: string; name: string; durationMinutes: number; price: number };
 
 type Staff = { id: string; name: string; role?: string };
 type Service = { id: string; name: string; durationMinutes: number; price: number };
@@ -1531,9 +1534,31 @@ export default function CalendarPage() {
                   </div>
 
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textSecondary, textTransform: "uppercase", marginBottom: 3 }}>Service</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>{selectedAppointment.service.name}</div>
-                    <div style={{ fontSize: 13, color: COLORS.textSecondary }}>{selectedAppointment.service.durationMinutes} mins - £{selectedAppointment.service.price}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textSecondary, textTransform: "uppercase", marginBottom: 3 }}>
+                      Service{selectedAppointment.servicesJson ? 's' : ''}
+                    </div>
+                    {(() => {
+                      const allServices: ServiceInfo[] = selectedAppointment.servicesJson
+                        ? JSON.parse(selectedAppointment.servicesJson)
+                        : [selectedAppointment.service];
+                      const totalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+                      const totalPrice = allServices.reduce((sum, s) => sum + s.price, 0);
+                      return (
+                        <>
+                          {allServices.map((svc, idx) => (
+                            <div key={svc.id} style={{ marginBottom: idx < allServices.length - 1 ? 6 : 0 }}>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>{svc.name}</div>
+                              <div style={{ fontSize: 13, color: COLORS.textSecondary }}>{svc.durationMinutes} mins - £{svc.price}</div>
+                            </div>
+                          ))}
+                          {allServices.length > 1 && (
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${COLORS.divider}` }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text }}>Total: {totalDuration} mins - £{totalPrice}</div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <div style={{ marginBottom: 14 }}>
