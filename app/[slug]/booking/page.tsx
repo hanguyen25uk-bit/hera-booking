@@ -43,7 +43,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [notFound, setNotFound] = useState(false);
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
 
-  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
@@ -70,12 +70,31 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [error, setError] = useState<string | null>(null);
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
 
-  // Single service selection
-  const selectedService = services.find((s) => s.id === selectedServiceId);
-  const totalDuration = selectedService?.durationMinutes || 0;
-  const totalServicePrice = selectedService?.price || 0;
+  // Multiple service selection (max 2)
+  const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
+  const selectedService = selectedServices[0]; // Primary service for backwards compatibility
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+  const totalServicePrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const isAnyStaff = selectedStaffId === "any";
   const currentStaff = staff.find((s) => s.id === (isAnyStaff ? assignedStaffId : selectedStaffId));
+
+  // Handle service selection (max 2)
+  const handleServiceToggle = (serviceId: string) => {
+    setSelectedServiceIds(prev => {
+      if (prev.includes(serviceId)) {
+        // Remove service
+        return prev.filter(id => id !== serviceId);
+      } else {
+        // Add service (max 2)
+        if (prev.length >= 2) {
+          setError("You can select up to 2 services");
+          return prev;
+        }
+        setError(null);
+        return [...prev, serviceId];
+      }
+    });
+  };
 
   // Calendar helper functions
   const getCalendarDays = () => {
@@ -259,9 +278,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     loadData();
   }, [apiBase, slug]);
 
-  // Load staff who can perform the selected service
+  // Load staff who can perform ALL selected services
   useEffect(() => {
-    if (!selectedServiceId) return;
+    if (selectedServiceIds.length === 0) return;
     // Reset staff and selections when service changes
     setStaff([]);
     setSelectedStaffId("");
@@ -269,13 +288,27 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     setAssignedStaffId("");
     async function loadStaff() {
       try {
-        const res = await fetch(`${apiBase}/staff?serviceId=${selectedServiceId}`);
-        const staffList: Staff[] = await res.json();
-        setStaff(staffList);
+        // Fetch staff for each service and find intersection
+        const staffLists = await Promise.all(
+          selectedServiceIds.map(async (serviceId) => {
+            const res = await fetch(`${apiBase}/staff?serviceId=${serviceId}`);
+            return (await res.json()) as Staff[];
+          })
+        );
+        // Find staff that can do ALL services (intersection)
+        if (staffLists.length === 1) {
+          setStaff(staffLists[0]);
+        } else {
+          const firstList = staffLists[0];
+          const intersection = firstList.filter(s1 =>
+            staffLists.every(list => list.some(s2 => s2.id === s1.id))
+          );
+          setStaff(intersection);
+        }
       } catch (err) { console.error(err); }
     }
     loadStaff();
-  }, [selectedServiceId, apiBase]);
+  }, [selectedServiceIds, apiBase]);
 
   // Set default date
   useEffect(() => { setSelectedDate(new Date().toISOString().split("T")[0]); }, []);
@@ -502,9 +535,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       setAssignedStaffId(isAnyStaff ? finalStaffId : "");
       setReservationExpiry(new Date(data.expiresAt));
 
-      // Calculate and save the applicable discount for this time slot
-      if (selectedServiceId) {
-        const discount = getApplicableDiscount(selectedServiceId, selectedDate, time, finalStaffId);
+      // Calculate and save the applicable discount for this time slot (use first service for discount)
+      if (selectedServiceIds.length > 0) {
+        const discount = getApplicableDiscount(selectedServiceIds[0], selectedDate, time, finalStaffId);
         setAppliedDiscount(discount);
       }
     } catch { setError("Failed to reserve slot."); }
@@ -515,7 +548,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     e.preventDefault(); setError(null);
     const isAnyStaff = selectedStaffId === "any";
     const finalStaffId = isAnyStaff ? assignedStaffId : selectedStaffId;
-    if (!selectedServiceId || !finalStaffId || !selectedDate || !selectedTime) { setError("Please complete all selections."); return; }
+    if (selectedServiceIds.length === 0 || !finalStaffId || !selectedDate || !selectedTime) { setError("Please complete all selections."); return; }
     if (!customerName || !customerPhone || !customerEmail) { setError("Please fill in your details."); return; }
     if (!reservationExpiry || reservationExpiry < new Date()) { setError("Reservation expired. Go back and select a time."); return; }
     setSubmitting(true);
@@ -523,12 +556,14 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       const res = await fetch(`${apiBase}/appointments`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceId: selectedServiceId,
+          serviceId: selectedServiceIds[0], // Primary service
+          serviceIds: selectedServiceIds,   // All selected services
           staffId: finalStaffId,
           customerName,
           customerPhone,
           customerEmail,
           startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
+          totalDuration, // Send combined duration
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
@@ -607,7 +642,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   // Check if current step can proceed
   const canProceed = () => {
-    if (step === 1) return !!selectedServiceId;
+    if (step === 1) return selectedServiceIds.length > 0;
     if (step === 2) return !!selectedStaffId;
     if (step === 3) return !!selectedTime;
     if (step === 4) return !!customerName && !!customerPhone && !!customerEmail && policyAgreed && reservationTimer > 0;
@@ -617,8 +652,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   // Get sticky bar text
   const getStickyBarText = () => {
     if (step === 1) {
-      if (!selectedServiceId) return "Select a service";
-      return selectedService?.name || "";
+      if (selectedServiceIds.length === 0) return "Select a service (max 2)";
+      return selectedServices.map(s => s.name).join(" + ");
     }
     if (step === 2) {
       if (!selectedStaffId) return "Select a specialist";
@@ -796,7 +831,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   {categories.map((cat) => {
                     const categoryServices = services.filter(s => s.categoryId === cat.id);
                     const isExpanded = expandedCategoryIds.includes(cat.id);
-                    const hasSelectedService = categoryServices.some(s => s.id === selectedServiceId);
+                    const hasSelectedService = categoryServices.some(s => selectedServiceIds.includes(s.id));
 
                     return (
                       <div key={cat.id} style={{
@@ -880,12 +915,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                 ? service.price * (1 - bestDiscount.discountPercent / 100)
                                 : service.price;
 
-                              const isServiceSelected = service.id === selectedServiceId;
+                              const isServiceSelected = selectedServiceIds.includes(service.id);
 
                               return (
                                 <div
                                   key={service.id}
-                                  onClick={() => setSelectedServiceId(service.id)}
+                                  onClick={() => handleServiceToggle(service.id)}
                                   style={{
                                     padding: isMobile ? 14 : 16,
                                     borderRadius: 12,
@@ -896,11 +931,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                   }}
                                 >
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                                    {/* Radio button style */}
+                                    {/* Checkbox style */}
                                     <div style={{
                                       width: 24,
                                       height: 24,
-                                      borderRadius: "50%",
+                                      borderRadius: 6,
                                       border: isServiceSelected ? "none" : "2px solid var(--cream-dark)",
                                       background: isServiceSelected ? "var(--rose)" : "var(--white)",
                                       display: "flex",
@@ -978,19 +1013,48 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   })}
                 </div>
 
+                {/* Selected services summary */}
+                {selectedServiceIds.length > 0 && (
+                  <div style={{
+                    marginTop: 24,
+                    padding: 16,
+                    background: "var(--rose-pale)",
+                    borderRadius: 12,
+                    border: "1px solid var(--rose-light)"
+                  }}>
+                    <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 8 }}>
+                      Selected ({selectedServiceIds.length}/2 services)
+                    </div>
+                    {selectedServices.map(s => (
+                      <div key={s.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontWeight: 500, color: "var(--ink)" }}>{s.name}</span>
+                        <span style={{ color: "var(--ink-muted)" }}>£{s.price}</span>
+                      </div>
+                    ))}
+                    <div style={{ borderTop: "1px solid var(--rose-light)", marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 600, color: "var(--ink)" }}>Total: {totalDuration} min</span>
+                      <span style={{ fontWeight: 600, color: "var(--ink)" }}>£{totalServicePrice.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="desktop-buttons" style={{ marginTop: 32 }}>
-                  <button onClick={() => selectedServiceId ? (setError(null), goNext()) : setError("Please select a service")} style={{
+                  <button onClick={() => selectedServiceIds.length > 0 ? (setError(null), goNext()) : setError("Please select at least one service")} style={{
                     width: "100%",
                     padding: 16,
-                    background: "var(--ink)",
-                    color: "var(--cream)",
+                    background: selectedServiceIds.length > 0 ? "var(--ink)" : "var(--cream-dark)",
+                    color: selectedServiceIds.length > 0 ? "var(--cream)" : "var(--ink-muted)",
                     border: "none",
                     borderRadius: 50,
                     fontSize: 16,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor: selectedServiceIds.length > 0 ? "pointer" : "not-allowed",
                     transition: "all 0.2s ease"
-                  }}>Continue</button>
+                  }}>
+                    {selectedServiceIds.length > 0
+                      ? `Continue (${selectedServiceIds.length} service${selectedServiceIds.length > 1 ? 's' : ''} - £${totalServicePrice.toFixed(2)})`
+                      : "Select a service to continue"}
+                  </button>
                 </div>
               </>
             )}
@@ -1495,7 +1559,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, color: "var(--ink-muted)", marginBottom: 2 }}>
-                {step === 1 && (selectedServiceId ? `${totalDuration}min` : "Select a service")}
+                {step === 1 && (selectedServiceIds.length > 0 ? `${selectedServiceIds.length} service${selectedServiceIds.length > 1 ? 's' : ''} · ${totalDuration}min` : "Select up to 2 services")}
                 {step === 2 && "Selected specialist"}
                 {step === 3 && "Selected time"}
                 {step === 4 && "Complete booking"}
@@ -1504,7 +1568,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {getStickyBarText()}
               </div>
             </div>
-            {selectedServiceId && step >= 1 && (
+            {selectedServiceIds.length > 0 && step >= 1 && (
               <div style={{ textAlign: "right", marginLeft: 12 }}>
                 <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-heading)" }}>£{totalPrice.toFixed(2)}</span>
               </div>
@@ -1533,7 +1597,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             <button
               onClick={() => {
                 if (step === 1) {
-                  if (!selectedServiceId) { setError("Please select a service"); return; }
+                  if (selectedServiceIds.length === 0) { setError("Please select at least one service"); return; }
                   setError(null); goNext();
                 } else if (step === 2) {
                   if (!selectedStaffId) { setError("Please select a specialist"); return; }
