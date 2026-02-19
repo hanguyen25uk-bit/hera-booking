@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, FormEvent, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 type ServiceCategory = { id: string; name: string; description: string | null };
 type Service = { id: string; name: string; description: string | null; durationMinutes: number; price: number; category?: string | null; categoryId?: string | null; serviceCategory?: ServiceCategory | null };
@@ -15,6 +16,7 @@ function generateSessionId() {
 }
 
 export default function BookingPage() {
+  const router = useRouter();
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       let id = sessionStorage.getItem('booking_session_id');
@@ -65,11 +67,23 @@ export default function BookingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [servicesRes, categoriesRes, policyRes, settingsRes] = await Promise.all([
+        // First check settings for salon slug and redirect to tenant-specific booking page
+        const settingsRes = await fetch("/api/settings");
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (settingsData.salonSlug) {
+            // Redirect to proper tenant booking page
+            router.replace(`/${settingsData.salonSlug}/booking`);
+            return;
+          }
+          if (settingsData.salonName) setSalonName(settingsData.salonName);
+        }
+
+        // Only load data if no redirect (fallback for when no slug is configured)
+        const [servicesRes, categoriesRes, policyRes] = await Promise.all([
           fetch("/api/services"),
           fetch("/api/categories"),
           fetch("/api/booking-policy"),
-          fetch("/api/settings"),
         ]);
         setServices(await servicesRes.json());
         setCategories(await categoriesRes.json());
@@ -77,16 +91,11 @@ export default function BookingPage() {
         setPolicyTitle(policyData.title || "Our Booking Policy");
         setPolicyDescription(policyData.description || "");
         setPolicyItems(policyData.policies || []);
-        
-        if (settingsRes.ok) {
-          const settingsData = await settingsRes.json();
-          if (settingsData.salonName) setSalonName(settingsData.salonName);
-        }
       } catch (err) { setError("Failed to load. Please refresh."); }
       finally { setLoading(false); }
     }
     loadData();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!selectedServiceId) return;
