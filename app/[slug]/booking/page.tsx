@@ -797,14 +797,16 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           )}
 
           {/* Selection Summary */}
-          {selectedService && (
+          {selectedServices.length > 0 && (
             <div style={{ background: "rgba(251,248,244,0.05)", borderRadius: 16, padding: 20, border: "1px solid rgba(251,248,244,0.08)" }}>
               <div style={{ color: "var(--gold)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>Your Selection</div>
-              <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--rose-light)" }}>✦</span> {selectedService.name}
-                <span style={{ opacity: 0.6, fontSize: 12 }}>({selectedService.durationMinutes}min)</span>
-              </div>
-              {currentStaff && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--sage-light)" }}>◉</span> {currentStaff.name}</div>}
+              {selectedServices.map((svc, idx) => (
+                <div key={svc.id} style={{ color: "var(--cream)", fontSize: 14, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--rose-light)" }}>✦</span> {svc.name}
+                  <span style={{ opacity: 0.6, fontSize: 12 }}>({svc.durationMinutes}min)</span>
+                </div>
+              ))}
+              {currentStaff && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}><span style={{ color: "var(--sage-light)" }}>◉</span> {currentStaff.name}</div>}
               {selectedDate && selectedTime && <div style={{ color: "var(--cream)", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><span style={{ color: "var(--gold-light)" }}>◆</span> {selectedDate} at {selectedTime}</div>}
               <div style={{ color: "var(--cream)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid rgba(251,248,244,0.1)", marginTop: 8 }}>
                 <span style={{ opacity: 0.8 }}>{totalDuration} min total</span>
@@ -1270,8 +1272,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {availableTimeSlots.map((time) => {
+                        // Check discount for primary service (discounts apply to entire booking)
                         const slotDiscount = selectedService ? getApplicableDiscount(selectedService.id, selectedDate, time, isAnyStaff ? undefined : selectedStaffId) : null;
-                        const originalPrice = selectedService?.price || 0;
+                        // Use total price of all selected services
+                        const originalPrice = totalServicePrice;
                         const discountedPrice = slotDiscount ? getDiscountedPrice(originalPrice, slotDiscount) : originalPrice;
                         const isOffPeak = slotDiscount !== null;
                         const isSelected = selectedTime === time;
@@ -1332,7 +1336,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                     color: isSelected ? "rgba(255,255,255,0.7)" : "var(--ink-muted)",
                                     textDecoration: "line-through"
                                   }}>
-                                    £{originalPrice}
+                                    £{originalPrice.toFixed(2)}
                                   </span>
                                   <span style={{
                                     fontSize: 16,
@@ -1350,7 +1354,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                                   fontFamily: "var(--font-heading)",
                                   color: isSelected ? "var(--white)" : "var(--ink-light)"
                                 }}>
-                                  £{originalPrice}
+                                  £{originalPrice.toFixed(2)}
                                 </span>
                               )}
                             </div>
