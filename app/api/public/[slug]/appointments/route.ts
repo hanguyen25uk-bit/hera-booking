@@ -226,6 +226,11 @@ export async function POST(
         customerName,
         serviceName: service.name,
         serviceNames: allServices.length > 1 ? allServices.map(s => s.name) : undefined,
+        services: allServices.map(s => ({
+          name: s.name,
+          price: s.price,
+          durationMinutes: s.durationMinutes,
+        })),
         staffName: staff.name,
         startTime: start,
         endTime: end,
@@ -238,6 +243,7 @@ export async function POST(
         originalPrice,
         discountedPrice: discountedPrice ?? undefined,
         discountName: discountName ?? undefined,
+        discountPercent: applicableDiscount?.discountPercent,
       });
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);

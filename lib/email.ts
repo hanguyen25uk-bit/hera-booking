@@ -82,11 +82,18 @@ export async function sendPasswordResetEmail(data: {
   }
 }
 
+type ServiceDetail = {
+  name: string;
+  price: number;
+  durationMinutes: number;
+};
+
 type BookingEmailData = {
   customerEmail: string;
   customerName: string;
   serviceName: string;
-  serviceNames?: string[]; // For multi-service bookings
+  serviceNames?: string[]; // For multi-service bookings (legacy)
+  services?: ServiceDetail[]; // Full service details for new format
   staffName: string;
   startTime: Date;
   endTime: Date;
@@ -99,6 +106,7 @@ type BookingEmailData = {
   originalPrice?: number;
   discountedPrice?: number;
   discountName?: string;
+  discountPercent?: number;
 };
 
 export async function sendBookingConfirmation(data: BookingEmailData) {
@@ -107,6 +115,7 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     customerName,
     serviceName,
     serviceNames,
+    services,
     staffName,
     startTime,
     endTime,
@@ -119,14 +128,16 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     originalPrice,
     discountedPrice,
     discountName,
+    discountPercent,
   } = data;
 
-  // Display all services if multiple, otherwise single service
-  const displayServiceName = serviceNames && serviceNames.length > 1
-    ? serviceNames.join(", ")
-    : serviceName;
+  // Use services array if available, otherwise fall back to legacy format
+  const serviceList: ServiceDetail[] = services || (serviceNames
+    ? serviceNames.map(name => ({ name, price: 0, durationMinutes: 0 }))
+    : [{ name: serviceName, price: originalPrice || 0, durationMinutes: 0 }]);
 
   const hasDiscount = originalPrice !== undefined && discountedPrice !== undefined && discountedPrice < originalPrice;
+  const totalDuration = serviceList.reduce((sum, s) => sum + s.durationMinutes, 0);
 
   const formattedDate = startTime.toLocaleDateString("en-GB", {
     weekday: "long",
@@ -183,10 +194,36 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
           <tr>
             <td style="padding: 16px 24px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; padding: 20px;">
+                <!-- Services -->
                 <tr>
                   <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
-                    <span style="color: #64748b; font-size: 13px;">${serviceNames && serviceNames.length > 1 ? 'Services' : 'Service'}</span><br>
-                    <strong style="color: #1e293b; font-size: 15px;">${displayServiceName}</strong>
+                    <span style="color: #64748b; font-size: 13px;">${serviceList.length > 1 ? 'Services' : 'Service'}</span>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 8px;">
+                      ${serviceList.map((svc, idx) => {
+                        const svcDiscountedPrice = hasDiscount && discountPercent
+                          ? svc.price * (1 - discountPercent / 100)
+                          : svc.price;
+                        return `
+                        <tr>
+                          <td style="padding: 4px 0;">
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                              <tr>
+                                <td style="color: #1e293b; font-size: 14px; font-weight: 600;">${svc.name}</td>
+                                <td style="text-align: right; white-space: nowrap;">
+                                  ${hasDiscount && discountPercent ? `
+                                    <span style="background: #22c55e; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 6px;">${discountPercent}% OFF</span>
+                                    <span style="color: #94a3b8; text-decoration: line-through; font-size: 12px; margin-right: 4px;">£${svc.price.toFixed(2)}</span>
+                                    <span style="color: #16a34a; font-size: 14px; font-weight: 600;">£${svcDiscountedPrice.toFixed(2)}</span>
+                                  ` : `
+                                    <span style="color: #1e293b; font-size: 14px; font-weight: 600;">£${svc.price.toFixed(2)}</span>
+                                  `}
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>`;
+                      }).join('')}
+                    </table>
                   </td>
                 </tr>
                 <tr>
@@ -202,31 +239,40 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px 16px;${originalPrice !== undefined ? ' border-bottom: 1px solid #e2e8f0;' : ''}">
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
                     <span style="color: #64748b; font-size: 13px;">Time</span><br>
                     <strong style="color: #1e293b; font-size: 15px;">${formattedStartTime} - ${formattedEndTime}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">Duration</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${totalDuration} minutes</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">Booking ID</span><br>
+                    <strong style="color: #1e293b; font-size: 15px; font-family: monospace;">${bookingId.slice(0, 8).toUpperCase()}</strong>
                   </td>
                 </tr>
                 ${originalPrice !== undefined ? `
                 <tr>
                   <td style="padding: 12px 16px;">
-                    <span style="color: #64748b; font-size: 13px;">Price</span><br>
+                    <span style="color: #64748b; font-size: 13px;">Total</span><br>
                     ${hasDiscount ? `
                     <table cellpadding="0" cellspacing="0" border="0" style="margin-top: 4px;">
                       <tr>
                         <td style="padding-right: 8px;">
-                          <span style="background: #22c55e; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block;">${discountName || 'OFF-PEAK'}</span>
-                        </td>
-                        <td style="padding-right: 8px;">
-                          <span style="color: #94a3b8; text-decoration: line-through; font-size: 13px;">£${originalPrice.toFixed(2)}</span>
+                          <span style="color: #94a3b8; text-decoration: line-through; font-size: 14px;">£${originalPrice.toFixed(2)}</span>
                         </td>
                         <td>
-                          <strong style="color: #16a34a; font-size: 15px;">£${discountedPrice?.toFixed(2)}</strong>
+                          <strong style="color: #16a34a; font-size: 18px;">£${discountedPrice?.toFixed(2)}</strong>
                         </td>
                       </tr>
                     </table>
                     ` : `
-                    <strong style="color: #1e293b; font-size: 15px;">£${originalPrice.toFixed(2)}</strong>
+                    <strong style="color: #1e293b; font-size: 18px;">£${originalPrice.toFixed(2)}</strong>
                     `}
                   </td>
                 </tr>
@@ -242,12 +288,6 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
             </td>
           </tr>
           
-          <!-- Booking ID -->
-          <tr>
-            <td style="padding: 8px 24px 24px; text-align: center;">
-              <p style="color: #94a3b8; font-size: 12px; margin: 0;">Booking Reference: <strong>${bookingId.slice(0, 8).toUpperCase()}</strong></p>
-            </td>
-          </tr>
           
           <!-- Footer -->
           <tr>
