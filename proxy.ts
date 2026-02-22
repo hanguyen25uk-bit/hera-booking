@@ -4,6 +4,33 @@ import crypto from "crypto";
 
 const AUTH_SECRET = process.env.AUTH_SECRET || "";
 
+// Allowed origins for CSRF protection
+const ALLOWED_ORIGINS = [
+  "https://herabooking.com",
+  "https://www.herabooking.com",
+  process.env.NEXT_PUBLIC_BASE_URL,
+].filter(Boolean) as string[];
+
+// Security headers
+const securityHeaders: Record<string, string> = {
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "X-XSS-Protection": "1; mode=block",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://api.resend.com https://*.vercel.app",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; "),
+};
+
 type TokenPayload = {
   salonId: string;
   salonSlug: string;
@@ -28,31 +55,63 @@ function verifySalonToken(token: string): TokenPayload | null {
   }
 }
 
-export default function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+// Add security headers to response
+function addSecurityHeaders(response: NextResponse, isProduction: boolean): void {
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  if (isProduction) {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+}
 
-  // Skip API routes - they handle their own auth
-  if (pathname.startsWith("/api")) {
-    return NextResponse.next();
+// Check CSRF for API routes
+function checkCSRF(request: NextRequest): NextResponse | null {
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host") || "";
+
+  // Skip CSRF check for localhost
+  if (host.includes("localhost") || host.includes("127.0.0.1")) {
+    return null;
   }
 
-  // Development bypass - skip auth check on localhost
+  // If origin header is present, validate it
+  if (origin) {
+    const isAllowed = ALLOWED_ORIGINS.some((allowed) => origin.startsWith(allowed));
+    if (!isAllowed) {
+      return new NextResponse(
+        JSON.stringify({ error: "Forbidden - Invalid origin" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  return null; // CSRF check passed
+}
+
+export default function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const method = request.method;
   const host = request.headers.get("host") || "";
-  if (host.includes("localhost") || host.includes("127.0.0.1")) {
+  const isProduction = !host.includes("localhost") && !host.includes("127.0.0.1");
+
+  // Handle API routes - add CSRF protection for mutating methods
+  if (pathname.startsWith("/api")) {
+    if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+      const csrfError = checkCSRF(request);
+      if (csrfError) {
+        addSecurityHeaders(csrfError, isProduction);
+        return csrfError;
+      }
+    }
     const response = NextResponse.next();
-    response.headers.set("X-Frame-Options", "DENY");
-    response.headers.set("X-Content-Type-Options", "nosniff");
-    response.headers.set("X-XSS-Protection", "1; mode=block");
-    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    addSecurityHeaders(response, isProduction);
     return response;
   }
 
-  // Add security headers
+  // Add security headers to all responses
   const response = NextResponse.next();
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  addSecurityHeaders(response, isProduction);
 
   // Get auth token
   const salonAuthCookie = request.cookies.get("salon_auth");
@@ -90,5 +149,13 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/signup", "/:slug/admin/:path*"],
+  matcher: [
+    // Auth pages
+    "/login",
+    "/signup",
+    // Admin routes
+    "/:slug/admin/:path*",
+    // API routes (for CSRF protection and security headers)
+    "/api/:path*",
+  ],
 };
