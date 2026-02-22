@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 const RESERVATION_MINUTES = 8; // Giữ chỗ 10 phút
 
@@ -9,6 +10,9 @@ async function getDefaultSalonId() {
 
 // POST - Reserve a slot
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const salonId = await getDefaultSalonId();
     if (!salonId) {
@@ -115,6 +119,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE - Release a reservation
 export async function DELETE(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
+
   const sessionId = req.nextUrl.searchParams.get("sessionId");
   const staffId = req.nextUrl.searchParams.get("staffId");
   const startTime = req.nextUrl.searchParams.get("startTime");
@@ -145,6 +152,9 @@ export async function DELETE(req: NextRequest) {
 
 // GET - Check slot availability and reservations
 export async function GET(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "publicRead");
+  if (!rateLimit.success) return rateLimit.response;
+
   const staffId = req.nextUrl.searchParams.get("staffId");
   const date = req.nextUrl.searchParams.get("date");
   const sessionId = req.nextUrl.searchParams.get("sessionId");

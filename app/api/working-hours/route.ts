@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 async function getDefaultSalonId() {
   return "heranailspa";
 }
 
 export async function GET(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const staffId = req.nextUrl.searchParams.get("staffId");
   const date = req.nextUrl.searchParams.get("date");
   
@@ -62,6 +66,9 @@ export async function GET(req: NextRequest) {
 
 // POST - single day update
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const salonId = await getDefaultSalonId();
     if (!salonId) {
@@ -88,6 +95,9 @@ export async function POST(req: NextRequest) {
 
 // PUT - bulk update all days for a staff (or all staff)
 export async function PUT(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const salonId = await getDefaultSalonId();
     if (!salonId) {

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSalonBySlug } from "@/lib/tenant";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "publicRead");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { slug } = await params;
 
   const salon = await getSalonBySlug(slug);

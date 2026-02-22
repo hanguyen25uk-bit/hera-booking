@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { id } = await params;
 
   try {
@@ -53,6 +57,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { id } = await params;
 
   try {

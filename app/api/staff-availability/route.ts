@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -9,6 +10,9 @@ async function getSalonId(): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "publicRead");
+  if (!rateLimit.success) return rateLimit.response;
+
   const staffId = req.nextUrl.searchParams.get("staffId");
   const date = req.nextUrl.searchParams.get("date");
 

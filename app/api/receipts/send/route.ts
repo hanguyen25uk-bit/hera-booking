@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendReceiptPdf } from "@/lib/email";
 import { getAuthPayload, checkAdminAuth } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     // Verify admin is logged in (support both new and legacy auth)
     const auth = await getAuthPayload();

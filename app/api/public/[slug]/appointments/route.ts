@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
 import { validateBookingInput } from "@/lib/validation";
-import { checkBookingRateLimit, getClientIP, getRateLimitHeaders } from "@/lib/rate-limit";
+import { checkBookingRateLimit, getClientIP, getRateLimitHeaders, applyRateLimit } from "@/lib/rate-limit";
 import { sendBookingConfirmation } from "@/lib/email";
 import { getApplicableDiscount, calculateDiscountedPrice, type Discount } from "@/lib/discount";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,6 +11,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "publicRead");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { slug } = await params;
   const token = req.nextUrl.searchParams.get("token");
   

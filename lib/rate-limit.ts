@@ -30,10 +30,20 @@ export interface RateLimitResult {
 }
 
 export const RATE_LIMIT_CONFIGS = {
-  booking: { maxRequests: 5, windowMs: 60 * 1000 },         // 5 bookings per minute per IP
-  api: { maxRequests: 60, windowMs: 60 * 1000 },            // 60 requests per minute
-  auth: { maxRequests: 5, windowMs: 15 * 60 * 1000 },       // 5 auth attempts per 15 min
-  emailBooking: { maxRequests: 3, windowMs: 60 * 60 * 1000 }, // 3 bookings per hour per email
+  // POST booking: 5/min per IP
+  booking: { maxRequests: 5, windowMs: 60 * 1000 },
+  // POST contact: 3/min per IP
+  contact: { maxRequests: 3, windowMs: 60 * 1000 },
+  // GET public routes: 30/min per IP
+  publicRead: { maxRequests: 30, windowMs: 60 * 1000 },
+  // POST admin login: 5/15min per IP
+  auth: { maxRequests: 5, windowMs: 15 * 60 * 1000 },
+  // Admin routes: 30/min per IP
+  admin: { maxRequests: 30, windowMs: 60 * 1000 },
+  // General API: 60/min per IP
+  api: { maxRequests: 60, windowMs: 60 * 1000 },
+  // Email booking: 3/hour per email
+  emailBooking: { maxRequests: 3, windowMs: 60 * 60 * 1000 },
 } as const;
 
 export function checkRateLimit(identifier: string, config: RateLimitConfig): RateLimitResult {
@@ -94,4 +104,37 @@ export function getRateLimitHeaders(result: RateLimitResult): Record<string, str
   }
 
   return headers;
+}
+
+// Helper type for rate limit config keys
+export type RateLimitType = keyof typeof RATE_LIMIT_CONFIGS;
+
+// Check rate limit and return error response if exceeded
+export function applyRateLimit(
+  request: Request,
+  type: RateLimitType,
+  prefix?: string
+): { success: true } | { success: false; response: Response } {
+  const ip = getClientIP(request);
+  const key = prefix ? `${prefix}:${type}:${ip}` : `${type}:${ip}`;
+  const config = RATE_LIMIT_CONFIGS[type];
+  const result = checkRateLimit(key, config);
+
+  if (!result.allowed) {
+    return {
+      success: false,
+      response: new Response(
+        JSON.stringify({ error: "Too many requests. Please try again later." }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            ...getRateLimitHeaders(result),
+          },
+        }
+      ),
+    };
+  }
+
+  return { success: true };
 }

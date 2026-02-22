@@ -1,11 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 async function getDefaultSalonId() {
   return "heranailspa";
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const salonId = await getDefaultSalonId();
     if (!salonId) {

@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { sendCancellationConfirmation } from "@/lib/email";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function PATCH(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const body = await req.json();
     const { id, token, status, startTime } = body;
@@ -82,6 +86,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const token = req.nextUrl.searchParams.get("token");
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/password";
 import { generateSalonToken } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 function generateSlug(name: string): string {
   return name
@@ -13,6 +14,9 @@ function generateSlug(name: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "auth");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const body = await req.json();
     const { email, password, name, salonName } = body;

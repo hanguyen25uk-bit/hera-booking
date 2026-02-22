@@ -1,6 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rate-limit";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
   const response = NextResponse.json({ success: true });
 
   // Clear the salon_auth cookie

@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 // GET - Get single appointment
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { id } = await params;
-  
+
   try {
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -27,8 +31,11 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { id } = await params;
-  
+
   try {
     const body = await req.json();
     const { serviceId, staffId, startTime, status } = body;
@@ -201,8 +208,11 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { id } = await params;
-  
+
   try {
     await prisma.appointment.delete({
       where: { id },

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 const RESERVATION_MINUTES = 10;
@@ -8,6 +9,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "publicRead");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { slug } = await params;
   const staffId = req.nextUrl.searchParams.get("staffId");
   const date = req.nextUrl.searchParams.get("date");
@@ -64,6 +68,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { slug } = await params;
   
   const salon = await getSalonBySlug(slug);
@@ -137,6 +144,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "api");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { slug } = await params;
   const sessionId = req.nextUrl.searchParams.get("sessionId");
   

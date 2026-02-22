@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const auth = await getAuthPayload();
   if (!auth?.salonId) return unauthorizedResponse();
 
@@ -28,6 +32,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const auth = await getAuthPayload();
     if (!auth?.salonId) return unauthorizedResponse();
@@ -69,6 +76,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const auth = await getAuthPayload();
   if (!auth?.salonId) return unauthorizedResponse();
 
@@ -96,6 +106,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
   const auth = await getAuthPayload();
   if (!auth) return unauthorizedResponse();
 

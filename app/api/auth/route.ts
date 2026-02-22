@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -21,6 +22,9 @@ export function verifyAuthToken(token: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "auth");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     if (!ADMIN_PASSWORD) {
       console.error("ADMIN_PASSWORD environment variable not set");

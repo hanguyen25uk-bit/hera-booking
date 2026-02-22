@@ -2,8 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/password";
 import { generateSalonToken } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const rateLimit = applyRateLimit(req, "auth");
+  if (!rateLimit.success) return rateLimit.response;
+
   try {
     const body = await req.json();
     const { email, password } = body;

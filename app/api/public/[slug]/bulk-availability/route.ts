@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 type StaffAvailability = {
@@ -41,6 +42,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const rateLimit = applyRateLimit(req, "publicRead");
+  if (!rateLimit.success) return rateLimit.response;
+
   const { slug } = await params;
   const staffIds = req.nextUrl.searchParams.get("staffIds"); // comma-separated
   const date = req.nextUrl.searchParams.get("date");
