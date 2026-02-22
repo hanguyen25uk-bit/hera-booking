@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, CreateScheduleOverrideSchema, UpdateScheduleOverrideSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -30,52 +31,47 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json(overrides);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const auth = await getAuthPayload();
-    if (!auth?.salonId) return unauthorizedResponse();
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) return unauthorizedResponse();
 
-    const body = await req.json();
-    const validation = validateBody(CreateScheduleOverrideSchema, body);
-    if (!validation.success) return validation.response;
+  const body = await req.json();
+  const validation = validateBody(CreateScheduleOverrideSchema, body);
+  if (!validation.success) return validation.response;
 
-    const { staffId, date, isDayOff, startTime, endTime, note } = validation.data;
+  const { staffId, date, isDayOff, startTime, endTime, note } = validation.data;
 
-    // Parse date and set to midnight UTC to avoid timezone issues
-    const dateObj = new Date(date + "T00:00:00.000Z");
+  // Parse date and set to midnight UTC to avoid timezone issues
+  const dateObj = new Date(date + "T00:00:00.000Z");
 
-    const override = await prisma.staffScheduleOverride.upsert({
-      where: { staffId_date: { staffId, date: dateObj } },
-      create: {
-        salonId: auth.salonId,
-        staffId,
-        date: dateObj,
-        isDayOff: isDayOff ?? false,
-        startTime: startTime || null,
-        endTime: endTime || null,
-        note: note || null,
-      },
-      update: {
-        isDayOff: isDayOff ?? false,
-        startTime: startTime || null,
-        endTime: endTime || null,
-        note: note || null,
-      },
-    });
+  const override = await prisma.staffScheduleOverride.upsert({
+    where: { staffId_date: { staffId, date: dateObj } },
+    create: {
+      salonId: auth.salonId,
+      staffId,
+      date: dateObj,
+      isDayOff: isDayOff ?? false,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      note: note || null,
+    },
+    update: {
+      isDayOff: isDayOff ?? false,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      note: note || null,
+    },
+  });
 
-    return NextResponse.json(override);
-  } catch (error: any) {
-    console.error("POST schedule-override error:", error);
-    return NextResponse.json({ error: error.message || "Failed to save" }, { status: 500 });
-  }
-}
+  return NextResponse.json(override);
+});
 
-export async function PUT(req: NextRequest) {
+export const PUT = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -102,9 +98,9 @@ export async function PUT(req: NextRequest) {
   });
 
   return NextResponse.json(override);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -118,4 +114,4 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.staffScheduleOverride.delete({ where: { id } });
   return NextResponse.json({ success: true });
-}
+});

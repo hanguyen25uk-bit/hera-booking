@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, SalonHoursSchema, BulkSalonHoursSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -17,9 +18,9 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json(hours);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -52,9 +53,9 @@ export async function POST(req: NextRequest) {
   await syncStaffHoursForDay(auth.salonId, dayOfWeek, startTime || "09:00", endTime || "18:00", isOpen ?? true);
 
   return NextResponse.json(hours);
-}
+});
 
-export async function PUT(req: NextRequest) {
+export const PUT = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -92,7 +93,7 @@ export async function PUT(req: NextRequest) {
   await syncAllStaffHours(auth.salonId, hours);
 
   return NextResponse.json(results);
-}
+});
 
 // Helper: Sync staff hours for a single day
 async function syncStaffHoursForDay(

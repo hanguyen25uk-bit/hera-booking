@@ -3,58 +3,49 @@ import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, CreateExtraSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
+import { withErrorHandler } from "@/lib/api-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const auth = await getAuthPayload();
-    if (!auth?.salonId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const extras = await prisma.extra.findMany({
-      where: { salonId: auth.salonId },
-      orderBy: { sortOrder: "asc" },
-    });
-
-    return NextResponse.json(extras);
-  } catch (error) {
-    console.error("Failed to fetch extras:", error);
-    return NextResponse.json({ error: "Failed to fetch extras" }, { status: 500 });
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-}
 
-export async function POST(req: NextRequest) {
+  const extras = await prisma.extra.findMany({
+    where: { salonId: auth.salonId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  return NextResponse.json(extras);
+});
+
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const auth = await getAuthPayload();
-    if (!auth?.salonId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const validation = validateBody(CreateExtraSchema, body);
-    if (!validation.success) return validation.response;
-
-    const { name, price, sortOrder = 0, isActive = true } = validation.data;
-
-    const extra = await prisma.extra.create({
-      data: {
-        name,
-        price,
-        sortOrder,
-        isActive,
-        salonId: auth.salonId,
-      },
-    });
-
-    return NextResponse.json(extra, { status: 201 });
-  } catch (error) {
-    console.error("Failed to create extra:", error);
-    return NextResponse.json({ error: "Failed to create extra" }, { status: 500 });
+  const auth = await getAuthPayload();
+  if (!auth?.salonId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-}
+
+  const body = await req.json();
+  const validation = validateBody(CreateExtraSchema, body);
+  if (!validation.success) return validation.response;
+
+  const { name, price, sortOrder = 0, isActive = true } = validation.data;
+
+  const extra = await prisma.extra.create({
+    data: {
+      name,
+      price,
+      sortOrder,
+      isActive,
+      salonId: auth.salonId,
+    },
+  });
+
+  return NextResponse.json(extra, { status: 201 });
+});

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, CreateCategorySchema, UpdateCategorySchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -10,7 +11,7 @@ async function getSalonId(): Promise<string | null> {
   return "heranailspa";
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -24,9 +25,9 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json(categories);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -49,9 +50,9 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(category);
-}
+});
 
-export async function PUT(req: NextRequest) {
+export const PUT = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -78,9 +79,9 @@ export async function PUT(req: NextRequest) {
   });
 
   return NextResponse.json(category);
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -93,4 +94,4 @@ export async function DELETE(req: NextRequest) {
   await prisma.serviceCategory.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
-}
+});

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, BookingPolicySchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -10,7 +11,7 @@ async function getSalonId(): Promise<string | null> {
   return "heranailspa";
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -29,9 +30,9 @@ export async function GET(req: NextRequest) {
     title: policy.title,
     policies: JSON.parse(policy.policies),
   });
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -61,8 +62,36 @@ export async function POST(req: NextRequest) {
     title: policy.title,
     policies: JSON.parse(policy.policies),
   });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  return POST(req);
-}
+export const PUT = withErrorHandler(async (req: NextRequest) => {
+  const rateLimit = applyRateLimit(req, "admin");
+  if (!rateLimit.success) return rateLimit.response;
+
+  const salonId = await getSalonId();
+  if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
+
+  const body = await req.json();
+  const validation = validateBody(BookingPolicySchema, body);
+  if (!validation.success) return validation.response;
+
+  const { title, policies } = validation.data;
+
+  const policy = await prisma.bookingPolicy.upsert({
+    where: { salonId },
+    create: {
+      salonId,
+      title: title || "Booking Policy",
+      policies: JSON.stringify(policies || []),
+    },
+    update: {
+      title: title || "Booking Policy",
+      policies: JSON.stringify(policies || []),
+    },
+  });
+
+  return NextResponse.json({
+    title: policy.title,
+    policies: JSON.parse(policy.policies),
+  });
+});

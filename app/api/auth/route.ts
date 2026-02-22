@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, LegacyAuthSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 import crypto from "crypto";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -22,45 +23,40 @@ export function verifyAuthToken(token: string): boolean {
   return tokenAge < 8 * 60 * 60 * 1000;
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "auth");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    if (!ADMIN_PASSWORD) {
-      console.error("ADMIN_PASSWORD environment variable not set");
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-    }
-
-    const body = await req.json();
-    const validation = validateBody(LegacyAuthSchema, body);
-    if (!validation.success) return validation.response;
-
-    const { password } = validation.data;
-
-    if (password === ADMIN_PASSWORD) {
-      const response = NextResponse.json({ success: true });
-      const authToken = generateAuthToken();
-
-      response.cookies.set("admin_auth", authToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "strict",
-        maxAge: 60 * 60 * 8, // 8 hours
-        path: "/",
-      });
-
-      return response;
-    }
-
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
-  } catch (error) {
-    console.error("Auth error");
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  if (!ADMIN_PASSWORD) {
+    console.error("ADMIN_PASSWORD environment variable not set");
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
-}
 
-export async function DELETE() {
+  const body = await req.json();
+  const validation = validateBody(LegacyAuthSchema, body);
+  if (!validation.success) return validation.response;
+
+  const { password } = validation.data;
+
+  if (password === ADMIN_PASSWORD) {
+    const response = NextResponse.json({ success: true });
+    const authToken = generateAuthToken();
+
+    response.cookies.set("admin_auth", authToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 60 * 60 * 8, // 8 hours
+      path: "/",
+    });
+
+    return response;
+  }
+
+  return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+});
+
+export const DELETE = withErrorHandler(async () => {
   const response = NextResponse.json({ success: true });
   response.cookies.set("admin_auth", "", {
     httpOnly: true,
@@ -70,4 +66,4 @@ export async function DELETE() {
     path: "/",
   });
   return response;
-}
+});

@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/password";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, ResetPasswordSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "auth");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const body = await req.json();
+  const body = await req.json();
     const validation = validateBody(ResetPasswordSchema, body);
     if (!validation.success) return validation.response;
 
@@ -59,15 +59,8 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      message: "Password has been reset successfully",
-    });
-  } catch (error) {
-    console.error("Reset password error:", error);
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    message: "Password has been reset successfully",
+  });
+});

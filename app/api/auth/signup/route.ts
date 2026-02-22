@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/password";
 import { generateSalonToken } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, SignupSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
 function generateSlug(name: string): string {
   return name
@@ -14,12 +15,11 @@ function generateSlug(name: string): string {
     .trim();
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "auth");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const body = await req.json();
+  const body = await req.json();
     const validation = validateBody(SignupSchema, body);
     if (!validation.success) return validation.response;
 
@@ -117,12 +117,5 @@ export async function POST(req: NextRequest) {
       path: "/",
     });
 
-    return response;
-  } catch (error) {
-    console.error("Signup error:", error);
-    return NextResponse.json(
-      { error: "Failed to create account" },
-      { status: 500 }
-    );
-  }
-}
+  return response;
+});

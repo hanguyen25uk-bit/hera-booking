@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, CreateStaffSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -24,9 +25,9 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json(staffWithServices);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
@@ -84,4 +85,4 @@ export async function POST(req: NextRequest) {
   await prisma.workingHours.createMany({ data: workingHoursData });
 
   return NextResponse.json(staff);
-}
+});

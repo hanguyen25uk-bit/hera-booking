@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, ForgotPasswordSchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 import crypto from "crypto";
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "auth");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const body = await req.json();
+  const body = await req.json();
     const validation = validateBody(ForgotPasswordSchema, body);
     if (!validation.success) return validation.response;
 
@@ -54,15 +54,8 @@ export async function POST(req: NextRequest) {
       resetToken: token,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "If an account exists, a reset link has been sent",
-    });
-  } catch (error) {
-    console.error("Forgot password error:", error);
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    message: "If an account exists, a reset link has been sent",
+  });
+});

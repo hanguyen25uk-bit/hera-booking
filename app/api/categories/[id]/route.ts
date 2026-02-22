@@ -2,39 +2,38 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, UpdateCategorySchema } from "@/lib/validations";
+import { withErrorHandler } from "@/lib/api-handler";
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withErrorHandler(async (
+  req: NextRequest,
+  context?: { params: Promise<Record<string, string>> }
+) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
-  const { id } = await params;
-  try {
-    const body = await req.json();
-    const validation = validateBody(UpdateCategorySchema, body);
-    if (!validation.success) return validation.response;
+  const { id } = await context!.params;
 
-    const category = await prisma.serviceCategory.update({
-      where: { id },
-      data: validation.data,
-    });
-    return NextResponse.json(category);
-  } catch (error) {
-    console.error("Update category error:", error);
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
-  }
-}
+  const body = await req.json();
+  const validation = validateBody(UpdateCategorySchema, body);
+  if (!validation.success) return validation.response;
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const category = await prisma.serviceCategory.update({
+    where: { id },
+    data: validation.data,
+  });
+  return NextResponse.json(category);
+});
+
+export const DELETE = withErrorHandler(async (
+  req: NextRequest,
+  context?: { params: Promise<Record<string, string>> }
+) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
-  const { id } = await params;
-  try {
-    await prisma.service.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
-    await prisma.serviceCategory.delete({ where: { id } });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Delete category error:", error);
-    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
-  }
-}
+  const { id } = await context!.params;
+
+  await prisma.service.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+  await prisma.serviceCategory.delete({ where: { id } });
+  return NextResponse.json({ success: true });
+});
