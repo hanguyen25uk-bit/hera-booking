@@ -246,8 +246,14 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
                 </tr>
                 <tr>
                   <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
-                    <span style="color: #64748b; font-size: 13px;">Duration</span><br>
-                    <strong style="color: #1e293b; font-size: 15px;">${totalDuration} minutes</strong>
+                    <span style="color: #64748b; font-size: 13px;">Name</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${customerName}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">Email</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${customerEmail}</strong>
                   </td>
                 </tr>
                 <tr>
