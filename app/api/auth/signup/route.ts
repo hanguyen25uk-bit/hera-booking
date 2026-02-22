@@ -22,17 +22,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   const body = await req.json();
 
-  // Bot protection check
-  const botCheck = checkBotSubmission({
-    website: body.website,
-    _formLoadedAt: body._formLoadedAt,
-  });
+  // Extract and check bot protection fields before validation
+  const { website, _formLoadedAt, ...cleanBody } = body;
+  const botCheck = checkBotSubmission({ website, _formLoadedAt });
   if (botCheck.isBot) {
-    // Return fake success to trick bots
     return NextResponse.json(getFakeSuccessResponse('signup'));
   }
 
-  const validation = validateBody(SignupSchema, body);
+  const validation = validateBody(SignupSchema, cleanBody);
   if (!validation.success) return validation.response;
 
     const { email, password, name, salonName } = validation.data;

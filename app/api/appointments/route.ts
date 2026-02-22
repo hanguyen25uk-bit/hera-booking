@@ -74,20 +74,19 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   const body = await req.json();
 
+  // Extract bot protection fields before validation
+  const { website, _formLoadedAt, ...cleanBody } = body;
+
   // 0. Bot protection check (only for public bookings, not admin walk-ins)
   if (!authPayload) {
-    const botCheck = checkBotSubmission({
-      website: body.website,
-      _formLoadedAt: body._formLoadedAt,
-    });
+    const botCheck = checkBotSubmission({ website, _formLoadedAt });
     if (botCheck.isBot) {
-      // Return fake success to trick bots
       return NextResponse.json(getFakeSuccessResponse('booking'));
     }
   }
 
   // 1. Validate input
-  const validation = validateBody(BookingSchema, body);
+  const validation = validateBody(BookingSchema, cleanBody);
   if (!validation.success) return validation.response;
 
   const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.data;

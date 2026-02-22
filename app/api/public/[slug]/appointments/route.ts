@@ -53,18 +53,15 @@ export const POST = withErrorHandler(async (
 
   const body = await req.json();
 
-  // 0. Bot protection check
-  const botCheck = checkBotSubmission({
-    website: body.website,
-    _formLoadedAt: body._formLoadedAt,
-  });
+  // Extract and check bot protection fields before validation
+  const { website, _formLoadedAt, ...cleanBody } = body;
+  const botCheck = checkBotSubmission({ website, _formLoadedAt });
   if (botCheck.isBot) {
-    // Return fake success to trick bots
     return NextResponse.json(getFakeSuccessResponse('booking'));
   }
 
   // 1. Validate input
-  const validation = validateBody(BookingSchema, body);
+  const validation = validateBody(BookingSchema, cleanBody);
   if (!validation.success) return validation.response;
 
   const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, totalDuration: clientTotalDuration } = validation.data;
