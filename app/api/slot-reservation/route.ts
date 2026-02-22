@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, SlotReservationSchema } from "@/lib/validations";
 
 const RESERVATION_MINUTES = 8; // Giữ chỗ 10 phút
 
@@ -19,11 +20,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No salon found" }, { status: 404 });
     }
 
-    const { staffId, startTime, endTime, sessionId } = await req.json();
+    const body = await req.json();
+    const validation = validateBody(SlotReservationSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!staffId || !startTime || !endTime || !sessionId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const { staffId, startTime, endTime, sessionId } = validation.data;
 
     const startDateTime = new Date(startTime);
     const endDateTime = new Date(endTime);

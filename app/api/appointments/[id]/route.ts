@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, UpdateAppointmentSchema } from "@/lib/validations";
 
 // GET - Get single appointment
 export async function GET(
@@ -38,7 +39,10 @@ export async function PUT(
 
   try {
     const body = await req.json();
-    const { serviceId, staffId, startTime, status } = body;
+    const validation = validateBody(UpdateAppointmentSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { serviceId, staffId, startTime, status } = validation.data;
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },

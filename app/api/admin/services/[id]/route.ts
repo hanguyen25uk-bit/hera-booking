@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, UpdateServiceSchema } from "@/lib/validations";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -13,15 +14,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   try {
     const body = await req.json();
-    const { name, description, durationMinutes, price, categoryId, isActive } = body;
+    const validation = validateBody(UpdateServiceSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { name, description, durationMinutes, price, categoryId, isActive } = validation.data;
 
     const service = await prisma.service.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
-        ...(durationMinutes !== undefined && { durationMinutes: parseInt(durationMinutes) }),
-        ...(price !== undefined && { price: parseFloat(price) }),
+        ...(durationMinutes !== undefined && { durationMinutes }),
+        ...(price !== undefined && { price }),
         ...(categoryId !== undefined && { categoryId: categoryId || null }),
         ...(isActive !== undefined && { isActive }),
       },

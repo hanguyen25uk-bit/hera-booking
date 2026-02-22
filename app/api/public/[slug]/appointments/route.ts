@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
-import { validateBookingInput } from "@/lib/validation";
+import { validateBody, BookingSchema } from "@/lib/validations";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders, applyRateLimit } from "@/lib/rate-limit";
 import { sendBookingConfirmation } from "@/lib/email";
 import { getApplicableDiscount, calculateDiscountedPrice, type Discount } from "@/lib/discount";
@@ -58,13 +58,10 @@ export async function POST(
     const body = await req.json();
 
     // 1. Validate input
-    const validation = validateBookingInput(body);
-    if (!validation.isValid) {
-      const firstError = Object.values(validation.errors)[0];
-      return NextResponse.json({ error: firstError }, { status: 400 });
-    }
+    const validation = validateBody(BookingSchema, body);
+    if (!validation.success) return validation.response;
 
-    const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, totalDuration: clientTotalDuration } = validation.sanitized!;
+    const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, totalDuration: clientTotalDuration } = validation.data;
     const allServiceIds = serviceIds || [serviceId];
 
     // 2. Rate limiting

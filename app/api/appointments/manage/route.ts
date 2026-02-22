@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { sendCancellationConfirmation } from "@/lib/email";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, ManageAppointmentSchema } from "@/lib/validations";
 
 export async function PATCH(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "api");
@@ -9,7 +10,10 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { id, token, status, startTime } = body;
+    const validation = validateBody(ManageAppointmentSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { id, token, status, startTime } = validation.data;
 
     let appointment;
     if (token) {

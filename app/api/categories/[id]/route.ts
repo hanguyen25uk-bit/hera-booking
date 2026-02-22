@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, UpdateCategorySchema } from "@/lib/validations";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -9,9 +10,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   try {
     const body = await req.json();
+    const validation = validateBody(UpdateCategorySchema, body);
+    if (!validation.success) return validation.response;
+
     const category = await prisma.serviceCategory.update({
       where: { id },
-      data: body,
+      data: validation.data,
     });
     return NextResponse.json(category);
   } catch (error) {

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, CreateExtraSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -36,16 +37,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, price, sortOrder = 0, isActive = true } = body;
+    const validation = validateBody(CreateExtraSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!name || price === undefined) {
-      return NextResponse.json({ error: "Name and price required" }, { status: 400 });
-    }
+    const { name, price, sortOrder = 0, isActive = true } = validation.data;
 
     const extra = await prisma.extra.create({
       data: {
         name,
-        price: parseFloat(price),
+        price,
         sortOrder,
         isActive,
         salonId: auth.salonId,

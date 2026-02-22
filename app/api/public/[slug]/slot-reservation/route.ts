@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, SlotReservationSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 
 const RESERVATION_MINUTES = 10;
@@ -79,7 +80,11 @@ export async function POST(
   }
 
   try {
-    const { staffId, startTime, endTime, sessionId } = await req.json();
+    const body = await req.json();
+    const validation = validateBody(SlotReservationSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { staffId, startTime, endTime, sessionId } = validation.data;
 
     // Clean expired reservations
     await prisma.slotReservation.deleteMany({

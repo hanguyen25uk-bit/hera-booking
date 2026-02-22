@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, UpdateDiscountSchema } from "@/lib/validations";
 
 export async function PUT(
   req: NextRequest,
@@ -28,13 +29,16 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive, validFrom, validUntil } = body;
+    const validation = validateBody(UpdateDiscountSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive, validFrom, validUntil } = validation.data;
 
     const discount = await prisma.discount.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
-        ...(discountPercent !== undefined && { discountPercent: parseInt(discountPercent) }),
+        ...(discountPercent !== undefined && { discountPercent }),
         ...(startTime !== undefined && { startTime }),
         ...(endTime !== undefined && { endTime }),
         ...(daysOfWeek !== undefined && { daysOfWeek }),

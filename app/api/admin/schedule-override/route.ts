@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, CreateScheduleOverrideSchema, UpdateScheduleOverrideSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -40,11 +41,10 @@ export async function POST(req: NextRequest) {
     if (!auth?.salonId) return unauthorizedResponse();
 
     const body = await req.json();
-    const { staffId, date, isDayOff, startTime, endTime, note } = body;
+    const validation = validateBody(CreateScheduleOverrideSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!staffId || !date) {
-      return NextResponse.json({ error: "staffId and date required" }, { status: 400 });
-    }
+    const { staffId, date, isDayOff, startTime, endTime, note } = validation.data;
 
     // Parse date and set to midnight UTC to avoid timezone issues
     const dateObj = new Date(date + "T00:00:00.000Z");
@@ -83,11 +83,10 @@ export async function PUT(req: NextRequest) {
   if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
-  const { id, date, isDayOff, startTime, endTime, note } = body;
+  const validation = validateBody(UpdateScheduleOverrideSchema, body);
+  if (!validation.success) return validation.response;
 
-  if (!id) {
-    return NextResponse.json({ error: "id required" }, { status: 400 });
-  }
+  const { id, date, isDayOff, startTime, endTime, note } = validation.data;
 
   const dateObj = date ? new Date(date) : undefined;
 

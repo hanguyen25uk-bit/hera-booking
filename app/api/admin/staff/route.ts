@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, CreateStaffSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -33,11 +34,10 @@ export async function POST(req: NextRequest) {
   if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
-  const { name, role } = body;
+  const validation = validateBody(CreateStaffSchema, body);
+  if (!validation.success) return validation.response;
 
-  if (!name) {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  }
+  const { name, role } = validation.data;
 
   const staff = await prisma.staff.create({
     data: {

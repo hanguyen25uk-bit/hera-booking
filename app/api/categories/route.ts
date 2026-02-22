@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, CreateCategorySchema, UpdateCategorySchema } from "@/lib/validations";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -33,11 +34,10 @@ export async function POST(req: NextRequest) {
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   const body = await req.json();
-  const { name, description, sortOrder } = body;
+  const validation = validateBody(CreateCategorySchema, body);
+  if (!validation.success) return validation.response;
 
-  if (!name) {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  }
+  const { name, description, sortOrder } = validation.data;
 
   const category = await prisma.serviceCategory.create({
     data: {
@@ -59,7 +59,10 @@ export async function PUT(req: NextRequest) {
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   const body = await req.json();
-  const { id, name, description, sortOrder } = body;
+  const validation = validateBody(UpdateCategorySchema, body);
+  if (!validation.success) return validation.response;
+
+  const { id, name, description, sortOrder } = validation.data;
 
   if (!id) {
     return NextResponse.json({ error: "ID is required" }, { status: 400 });

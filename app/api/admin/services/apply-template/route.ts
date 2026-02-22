@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { SERVICE_TEMPLATES } from "@/lib/service-templates";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, ApplyTemplateSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -13,7 +14,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { templateId } = body;
+    const validation = validateBody(ApplyTemplateSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { templateId } = validation.data;
 
     // For now, only support "nail-salon" template
     if (templateId !== "nail-salon" && templateId !== SERVICE_TEMPLATES.industry) {

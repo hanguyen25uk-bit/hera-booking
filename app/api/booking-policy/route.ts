@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, BookingPolicySchema } from "@/lib/validations";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -38,7 +39,10 @@ export async function POST(req: NextRequest) {
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   const body = await req.json();
-  const { title, policies } = body;
+  const validation = validateBody(BookingPolicySchema, body);
+  if (!validation.success) return validation.response;
+
+  const { title, policies } = validation.data;
 
   const policy = await prisma.bookingPolicy.upsert({
     where: { salonId },

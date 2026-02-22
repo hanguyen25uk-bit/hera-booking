@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/password";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, ResetPasswordSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "auth");
@@ -9,21 +10,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { token, password } = body;
+    const validation = validateBody(ResetPasswordSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!token || !password) {
-      return NextResponse.json(
-        { error: "Token and password are required" },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
-        { status: 400 }
-      );
-    }
+    const { token, password } = validation.data;
 
     // Find the password reset record
     const resetRecord = await prisma.passwordReset.findUnique({

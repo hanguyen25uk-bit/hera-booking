@@ -3,6 +3,7 @@ import { sendReceiptPdf } from "@/lib/email";
 import { getAuthPayload, checkAdminAuth } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, SendReceiptSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -32,14 +33,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { customerEmail, customerName, pdfBase64, receiptNumber } = body;
+    const validation = validateBody(SendReceiptSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!customerEmail || !pdfBase64 || !receiptNumber) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
+    const { customerEmail, customerName, pdfBase64, receiptNumber } = validation.data;
 
     // Send the receipt email with PDF attachment
     const result = await sendReceiptPdf({

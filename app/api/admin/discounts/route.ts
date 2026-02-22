@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, CreateDiscountSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -36,16 +37,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive, validFrom, validUntil } = body;
+    const validation = validateBody(CreateDiscountSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!name || !discountPercent || !startTime || !endTime || !daysOfWeek || !serviceIds) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const { name, discountPercent, startTime, endTime, daysOfWeek, serviceIds, staffIds, isActive, validFrom, validUntil } = validation.data;
 
     const discount = await prisma.discount.create({
       data: {
         name,
-        discountPercent: parseInt(discountPercent),
+        discountPercent,
         startTime,
         endTime,
         daysOfWeek,

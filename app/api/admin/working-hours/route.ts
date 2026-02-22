@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, WorkingHoursSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -32,11 +33,10 @@ export async function POST(req: NextRequest) {
   if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
-  const { staffId, dayOfWeek, startTime, endTime, isWorking } = body;
+  const validation = validateBody(WorkingHoursSchema, body);
+  if (!validation.success) return validation.response;
 
-  if (!staffId || dayOfWeek === undefined) {
-    return NextResponse.json({ error: "staffId and dayOfWeek required" }, { status: 400 });
-  }
+  const { staffId, dayOfWeek, startTime, endTime, isWorking } = validation.data;
 
   const workingHours = await prisma.workingHours.upsert({
     where: { staffId_dayOfWeek: { staffId, dayOfWeek } },

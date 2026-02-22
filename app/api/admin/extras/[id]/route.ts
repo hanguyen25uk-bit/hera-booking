@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, UpdateExtraSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
@@ -18,7 +19,10 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, price, sortOrder, isActive } = body;
+    const validation = validateBody(UpdateExtraSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { name, price, sortOrder, isActive } = validation.data;
 
     // Verify the extra belongs to this salon
     const existing = await prisma.extra.findFirst({
@@ -32,7 +36,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(name !== undefined && { name }),
-        ...(price !== undefined && { price: parseFloat(price) }),
+        ...(price !== undefined && { price }),
         ...(sortOrder !== undefined && { sortOrder }),
         ...(isActive !== undefined && { isActive }),
       },

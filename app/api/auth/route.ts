@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, LegacyAuthSchema } from "@/lib/validations";
 import crypto from "crypto";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -31,7 +32,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    const { password } = await req.json();
+    const body = await req.json();
+    const validation = validateBody(LegacyAuthSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { password } = validation.data;
 
     if (password === ADMIN_PASSWORD) {
       const response = NextResponse.json({ success: true });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, SalonHoursSchema, BulkSalonHoursSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -26,11 +27,10 @@ export async function POST(req: NextRequest) {
   if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
-  const { dayOfWeek, startTime, endTime, isOpen } = body;
+  const validation = validateBody(SalonHoursSchema, body);
+  if (!validation.success) return validation.response;
 
-  if (dayOfWeek === undefined) {
-    return NextResponse.json({ error: "dayOfWeek required" }, { status: 400 });
-  }
+  const { dayOfWeek, startTime, endTime, isOpen } = validation.data;
 
   const hours = await prisma.salonWorkingHours.upsert({
     where: { salonId_dayOfWeek: { salonId: auth.salonId, dayOfWeek } },
@@ -62,11 +62,10 @@ export async function PUT(req: NextRequest) {
   if (!auth?.salonId) return unauthorizedResponse();
 
   const body = await req.json();
-  const { hours } = body; // Array of { dayOfWeek, startTime, endTime, isOpen }
+  const validation = validateBody(BulkSalonHoursSchema, body);
+  if (!validation.success) return validation.response;
 
-  if (!Array.isArray(hours)) {
-    return NextResponse.json({ error: "hours array required" }, { status: 400 });
-  }
+  const { hours } = validation.data;
 
   // Update all salon hours in a transaction
   const results = await prisma.$transaction(

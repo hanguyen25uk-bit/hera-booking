@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, ReorderServicesSchema } from "@/lib/validations";
 
 export async function PUT(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -12,11 +13,10 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { serviceIds } = body;
+    const validation = validateBody(ReorderServicesSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
-      return NextResponse.json({ error: "serviceIds array required" }, { status: 400 });
-    }
+    const { serviceIds } = validation.data;
 
     // Update sortOrder for each service
     await prisma.$transaction(

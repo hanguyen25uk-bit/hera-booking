@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, StaffServicesSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
@@ -34,11 +35,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { staffId, serviceId, serviceIds } = body;
+    const validation = validateBody(StaffServicesSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!staffId) {
-      return NextResponse.json({ error: "Staff ID required" }, { status: 400 });
-    }
+    const { staffId, serviceId, serviceIds } = validation.data;
 
     // Handle bulk assignment (serviceIds array)
     if (serviceIds && Array.isArray(serviceIds)) {

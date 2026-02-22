@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/password";
 import { generateSalonToken } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, LoginSchema } from "@/lib/validations";
 
 export async function POST(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "auth");
@@ -10,18 +11,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { email, password } = body;
+    const validation = validateBody(LoginSchema, body);
+    if (!validation.success) return validation.response;
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
-    }
+    const { email, password } = validation.data;
 
     // Find user by email
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email },
       include: { salon: true },
     });
 

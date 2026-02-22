@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthPayload, generateSalonToken } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, SettingsSchema } from "@/lib/validations";
 
 async function getSalonId(): Promise<string | null> {
   const auth = await getAuthPayload();
@@ -48,9 +49,12 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { salonName, salonPhone, salonAddress, cancelMinutesAdvance } = body;
+    const validation = validateBody(SettingsSchema, body);
+    if (!validation.success) return validation.response;
+
+    const { salonName, salonPhone, salonAddress, cancelMinutesAdvance } = validation.data;
     // Clean up the slug - strip leading/trailing hyphens
-    const salonSlug = body.salonSlug?.replace(/^-+|-+$/g, '') || '';
+    const salonSlug = validation.data.salonSlug?.replace(/^-+|-+$/g, '') || '';
 
     // If slug is being changed, validate uniqueness
     if (salonSlug) {

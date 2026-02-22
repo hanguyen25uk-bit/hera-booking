@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { sendBookingConfirmation } from "@/lib/email";
-import { validateBookingInput } from "@/lib/validation";
+import { validateBody, BookingSchema } from "@/lib/validations";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders, applyRateLimit } from "@/lib/rate-limit";
 import { getAuthPayload } from "@/lib/admin-auth";
 import crypto from "crypto";
@@ -79,13 +79,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // 1. Validate input
-    const validation = validateBookingInput(body);
-    if (!validation.isValid) {
-      const firstError = Object.values(validation.errors)[0];
-      return NextResponse.json({ error: firstError }, { status: 400 });
-    }
+    const validation = validateBody(BookingSchema, body);
+    if (!validation.success) return validation.response;
 
-    const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.sanitized!;
+    const { serviceId, staffId, customerName, customerPhone, customerEmail, startTime } = validation.data;
 
     // 2. Rate limiting
     const clientIP = getClientIP(req);

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/password";
 import { generateSalonToken } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { validateBody, SignupSchema } from "@/lib/validations";
 
 function generateSlug(name: string): string {
   return name
@@ -19,34 +20,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { email, password, name, salonName } = body;
+    const validation = validateBody(SignupSchema, body);
+    if (!validation.success) return validation.response;
 
-    // Validation
-    if (!email || !password || !name || !salonName) {
-      return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
-        { status: 400 }
-      );
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Invalid email format" },
-        { status: 400 }
-      );
-    }
+    const { email, password, name, salonName } = validation.data;
 
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email },
     });
 
     if (existingUser) {
@@ -80,14 +61,14 @@ export async function POST(req: NextRequest) {
         data: {
           slug: uniqueSlug,
           name: salonName,
-          email: email.toLowerCase(),
+          email,
         },
       });
 
       // Create user linked to salon
       const user = await tx.user.create({
         data: {
-          email: email.toLowerCase(),
+          email,
           passwordHash,
           name,
           salonId: salon.id,
