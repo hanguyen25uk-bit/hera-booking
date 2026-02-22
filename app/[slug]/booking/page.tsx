@@ -381,6 +381,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return () => { if (sessionId) fetch(`${apiBase}/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {}); };
   }, [sessionId, apiBase]);
 
+  // Scroll to top when step changes (especially important for mobile)
+  useEffect(() => {
+    if (isMobile) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [step, isMobile]);
+
   const goNext = () => setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
 
