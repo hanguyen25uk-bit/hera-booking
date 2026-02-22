@@ -70,6 +70,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [error, setError] = useState<string | null>(null);
   const [successAppointmentId, setSuccessAppointmentId] = useState<string | null>(null);
 
+  // Bot protection
+  const [honeypot, setHoneypot] = useState("");
+  const [formLoadedAt] = useState(() => Date.now());
+
   // Multiple service selection (max 2)
   const selectedServices = services.filter((s) => selectedServiceIds.includes(s.id));
   const selectedService = selectedServices[0]; // Primary service for backwards compatibility
@@ -564,6 +568,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           customerEmail,
           startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
           totalDuration, // Send combined duration
+          website: honeypot,
+          _formLoadedAt: formLoadedAt,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
@@ -1386,6 +1392,20 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   </div>
                 )}
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: isMobile ? 16 : 20, paddingBottom: isMobile ? 180 : 0 }}>
+                  {/* Honeypot field - hidden from humans, filled by bots */}
+                  <div style={{ position: "absolute", left: "-9999px" }} aria-hidden="true">
+                    <label htmlFor="website">Leave this empty</label>
+                    <input
+                      type="text"
+                      id="website"
+                      name="website"
+                      value={honeypot}
+                      onChange={(e) => setHoneypot(e.target.value)}
+                      tabIndex={-1}
+                      autoComplete="off"
+                    />
+                  </div>
+
                   <div>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 8, color: "var(--ink-light)" }}>Full Name</label>
                     <input

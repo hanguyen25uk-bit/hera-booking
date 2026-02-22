@@ -17,6 +17,10 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  // Bot protection
+  const [honeypot, setHoneypot] = useState("");
+  const [formLoadedAt] = useState(() => Date.now());
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -42,6 +46,8 @@ export default function SignupPage() {
           email: formData.email,
           password: formData.password,
           salonName: formData.salonName,
+          website: honeypot,
+          _formLoadedAt: formLoadedAt,
         }),
       });
 
@@ -76,6 +82,19 @@ export default function SignupPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
+          {/* Honeypot field - hidden from humans, filled by bots */}
+          <div style={{ position: "absolute", left: "-9999px" }} aria-hidden="true">
+            <label htmlFor="website">Leave this empty</label>
+            <input
+              type="text"
+              id="website"
+              name="website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Your Name</label>
             <input

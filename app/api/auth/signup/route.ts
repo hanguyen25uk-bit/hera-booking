@@ -5,6 +5,7 @@ import { generateSalonToken } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, SignupSchema } from "@/lib/validations";
 import { withErrorHandler } from "@/lib/api-handler";
+import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
 
 function generateSlug(name: string): string {
   return name
@@ -20,8 +21,19 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (!rateLimit.success) return rateLimit.response;
 
   const body = await req.json();
-    const validation = validateBody(SignupSchema, body);
-    if (!validation.success) return validation.response;
+
+  // Bot protection check
+  const botCheck = checkBotSubmission({
+    website: body.website,
+    _formLoadedAt: body._formLoadedAt,
+  });
+  if (botCheck.isBot) {
+    // Return fake success to trick bots
+    return NextResponse.json(getFakeSuccessResponse('signup'));
+  }
+
+  const validation = validateBody(SignupSchema, body);
+  if (!validation.success) return validation.response;
 
     const { email, password, name, salonName } = validation.data;
 

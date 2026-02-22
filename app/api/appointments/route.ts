@@ -5,6 +5,7 @@ import { validateBody, BookingSchema } from "@/lib/validations";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders, applyRateLimit } from "@/lib/rate-limit";
 import { getAuthPayload } from "@/lib/admin-auth";
 import { withErrorHandler } from "@/lib/api-handler";
+import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
 import crypto from "crypto";
 
 async function getDefaultSalonId() {
@@ -72,6 +73,18 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (!salonId) return NextResponse.json({ error: "No salon found" }, { status: 404 });
 
   const body = await req.json();
+
+  // 0. Bot protection check (only for public bookings, not admin walk-ins)
+  if (!authPayload) {
+    const botCheck = checkBotSubmission({
+      website: body.website,
+      _formLoadedAt: body._formLoadedAt,
+    });
+    if (botCheck.isBot) {
+      // Return fake success to trick bots
+      return NextResponse.json(getFakeSuccessResponse('booking'));
+    }
+  }
 
   // 1. Validate input
   const validation = validateBody(BookingSchema, body);
