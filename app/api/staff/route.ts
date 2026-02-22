@@ -17,8 +17,14 @@ export async function GET(req: NextRequest) {
   const salonId = await getSalonId();
   if (!salonId) return NextResponse.json([]);
 
+  // Check if we should filter by active status
+  const activeOnly = req.nextUrl.searchParams.get("activeOnly") === "true";
+
   const staff = await prisma.staff.findMany({
-    where: { salonId },
+    where: {
+      salonId,
+      ...(activeOnly && { active: true }),
+    },
     orderBy: { createdAt: "desc" },
     include: {
       staffServices: {

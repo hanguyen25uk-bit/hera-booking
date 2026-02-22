@@ -129,7 +129,7 @@ export default function CalendarPage() {
 
   async function loadStaffAndServices() {
     try {
-      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff"), fetch("/api/services")]);
+      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff?activeOnly=true"), fetch("/api/services")]);
       if (!staffRes.ok || !servicesRes.ok) return;
       const staffData = await staffRes.json();
       const servicesData = await servicesRes.json();
@@ -160,7 +160,7 @@ export default function CalendarPage() {
     try {
       const [aptsRes, staffRes] = await Promise.all([
         fetch("/api/appointments?date=" + selectedDate),
-        fetch("/api/staff"),
+        fetch("/api/staff?activeOnly=true"),
       ]);
       if (!aptsRes.ok || !staffRes.ok) return;
       const apts = await aptsRes.json();
