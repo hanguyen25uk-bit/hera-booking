@@ -54,14 +54,14 @@ const COLORS = {
   noShowSlot: "var(--rose-pale)",
 };
 
-// Staff accent colors for left border and background
+// Staff accent colors for left border and background (Setmore-style solid pastels)
 const STAFF_COLORS = [
-  { border: "#3B82F6", bg: "#EFF6FF" }, // Blue
-  { border: "#F97316", bg: "#FFF7ED" }, // Orange
-  { border: "#10B981", bg: "#ECFDF5" }, // Green
-  { border: "#8B5CF6", bg: "#F5F3FF" }, // Purple
-  { border: "#14B8A6", bg: "#F0FDFA" }, // Teal
-  { border: "#EF4444", bg: "#FEF2F2" }, // Red
+  { border: "#4CAF50", bg: "#E8F5E9" }, // Soft Green
+  { border: "#2196F3", bg: "#E3F2FD" }, // Soft Blue
+  { border: "#FF9800", bg: "#FFF3E0" }, // Soft Orange
+  { border: "#9C27B0", bg: "#F3E5F5" }, // Soft Purple
+  { border: "#00BCD4", bg: "#E0F7FA" }, // Soft Cyan
+  { border: "#E91E63", bg: "#FCE4EC" }, // Soft Pink
 ];
 
 export default function CalendarPage() {
@@ -1284,8 +1284,7 @@ export default function CalendarPage() {
                         // Use staff-specific colors for normal appointments
                         const isSpecialStatus = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed";
                         const aptBorderColor = isSpecialStatus ? style.borderColor : staffColor.border;
-                        // Lighter version of border color for outline
-                        const aptOutlineColor = isSpecialStatus ? style.borderColor + "40" : staffColor.border + "40";
+                        const aptBgColor = isSpecialStatus ? "#F9FAFB" : staffColor.bg;
 
                         return (
                           <div
@@ -1297,24 +1296,23 @@ export default function CalendarPage() {
                               left: 3,
                               right: 3,
                               height: style.height - 2,
-                              backgroundColor: "#FFFFFF",
+                              backgroundColor: aptBgColor,
                               borderLeft: `4px solid ${aptBorderColor}`,
-                              border: `1px solid ${aptOutlineColor}`,
-                              borderLeftWidth: 4,
-                              borderLeftColor: aptBorderColor,
                               borderRadius: 6,
                               padding: isMobile ? "4px 6px" : "6px 10px",
                               cursor: "pointer",
                               overflow: "hidden",
                               zIndex: 15,
-                              transition: "box-shadow 0.15s ease",
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                              transition: "all 0.15s ease",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.18)";
+                              e.currentTarget.style.transform = "translateY(-1px)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)";
+                              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+                              e.currentTarget.style.transform = "translateY(0)";
                             }}
                           >
                             {(() => {

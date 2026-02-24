@@ -50,6 +50,16 @@ const COLORS = {
   noShowSlot: "#FFE0E0",
 };
 
+// Staff accent colors for left border and background (Setmore-style solid pastels)
+const STAFF_COLORS = [
+  { border: "#4CAF50", bg: "#E8F5E9" }, // Soft Green
+  { border: "#2196F3", bg: "#E3F2FD" }, // Soft Blue
+  { border: "#FF9800", bg: "#FFF3E0" }, // Soft Orange
+  { border: "#9C27B0", bg: "#F3E5F5" }, // Soft Purple
+  { border: "#00BCD4", bg: "#E0F7FA" }, // Soft Cyan
+  { border: "#E91E63", bg: "#FCE4EC" }, // Soft Pink
+];
+
 export default function CalendarPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -1431,6 +1441,11 @@ export default function CalendarPage() {
                       {hour === 8 && filteredAppointments.filter(apt => apt.staff.id === staff.id).map(apt => {
                         const cellHeight = isMobile ? 60 : 80;
                         const style = getAppointmentStyle(apt, cellHeight);
+                        const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
+                        const isSpecialStatus = apt.status === "cancelled" || apt.status === "no-show" || apt.status === "completed";
+                        const aptBorderColor = isSpecialStatus ? style.borderColor : staffColor.border;
+                        const aptBgColor = isSpecialStatus ? style.bgColor : staffColor.bg;
+
                         return (
                           <div
                             key={apt.id}
@@ -1438,32 +1453,33 @@ export default function CalendarPage() {
                             style={{
                               position: "absolute",
                               top: style.top,
-                              left: 2,
-                              right: 2,
+                              left: 3,
+                              right: 3,
                               height: style.height - 2,
-                              backgroundColor: style.bgColor,
-                              border: `1px solid ${style.borderColor}`,
+                              backgroundColor: aptBgColor,
+                              borderLeft: `4px solid ${aptBorderColor}`,
                               borderRadius: 6,
                               padding: isMobile ? "4px 6px" : "6px 10px",
                               cursor: "pointer",
                               overflow: "hidden",
-                              zIndex: 10,
-                              transition: "transform 0.1s, box-shadow 0.1s",
+                              zIndex: 15,
+                              transition: "all 0.15s ease",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = "scale(1.02)";
-                              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.18)";
+                              e.currentTarget.style.transform = "translateY(-1px)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = "scale(1)";
-                              e.currentTarget.style.boxShadow = "none";
+                              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+                              e.currentTarget.style.transform = "translateY(0)";
                             }}
                           >
                             <div style={{
-                              fontSize: isMobile ? 10 : 12,
+                              fontSize: isMobile ? 11 : 13,
                               fontWeight: 600,
-                              color: style.textColor,
-                              marginBottom: 2,
+                              color: "#1F2937",
+                              marginBottom: 3,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
@@ -1471,9 +1487,8 @@ export default function CalendarPage() {
                               {apt.customerName}
                             </div>
                             <div style={{
-                              fontSize: isMobile ? 9 : 11,
-                              color: style.textColor,
-                              opacity: 0.8,
+                              fontSize: isMobile ? 10 : 11,
+                              color: "#4B5563",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
@@ -1481,8 +1496,8 @@ export default function CalendarPage() {
                               {apt.service.name}
                             </div>
                             {!isMobile && (
-                              <div style={{ fontSize: 10, color: style.textColor, opacity: 0.7, marginTop: 2 }}>
-                                {formatTime(apt.startTime)} - {apt.service.durationMinutes}min
+                              <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>
+                                {formatTime(apt.startTime)} · {apt.service.durationMinutes}min
                               </div>
                             )}
                           </div>
