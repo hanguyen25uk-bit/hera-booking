@@ -289,7 +289,9 @@ export const BookingPolicySchema = z.object({
 
 export const SettingsSchema = z.object({
   salonName: z.string().min(2, "Salon name must be at least 2 characters").max(100, "Salon name is too long").trim().optional(),
-  salonSlug: z.string().min(3, "Booking URL must be at least 3 characters").max(50).regex(/^[a-z0-9-]+$/, "Booking URL can only contain lowercase letters, numbers, and hyphens").optional(),
+  salonSlug: z.string()
+    .transform(v => v === "" ? undefined : v)
+    .pipe(z.string().min(3, "Booking URL must be at least 3 characters").max(50).regex(/^[a-z0-9-]+$/, "Booking URL can only contain lowercase letters, numbers, and hyphens").optional()),
   salonPhone: z.string().max(20).optional().nullable(),
   salonAddress: z.string().max(200).optional().nullable(),
   cancelMinutesAdvance: z.number().int().min(0).optional(),
