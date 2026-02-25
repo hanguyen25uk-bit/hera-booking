@@ -14,6 +14,11 @@ const idSchema = z.string().min(10).max(50).regex(/^[a-zA-Z0-9_-]+$/);
 // Time format HH:MM
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (use HH:MM)");
 
+// Date format YYYY-MM-DD (accepts empty string as null)
+const dateOnlySchema = z.string()
+  .transform(v => v === "" ? null : v)
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (use YYYY-MM-DD)").nullable());
+
 // ============================================================================
 // Auth Schemas
 // ============================================================================
@@ -155,8 +160,8 @@ export const CreateDiscountSchema = z.object({
   serviceIds: z.array(idSchema).min(1, "At least one service must be selected"),
   staffIds: z.array(idSchema).optional(),
   isActive: z.boolean().optional(),
-  validFrom: z.string().datetime().optional().nullable(),
-  validUntil: z.string().datetime().optional().nullable(),
+  validFrom: dateOnlySchema.optional(),
+  validUntil: dateOnlySchema.optional(),
 }).strict();
 
 export const UpdateDiscountSchema = z.object({
@@ -168,8 +173,8 @@ export const UpdateDiscountSchema = z.object({
   serviceIds: z.array(idSchema).optional(),
   staffIds: z.array(idSchema).optional(),
   isActive: z.boolean().optional(),
-  validFrom: z.string().datetime().optional().nullable(),
-  validUntil: z.string().datetime().optional().nullable(),
+  validFrom: dateOnlySchema.optional(),
+  validUntil: dateOnlySchema.optional(),
 }).strict();
 
 // ============================================================================
