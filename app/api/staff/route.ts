@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       salonId,
       ...(activeOnly && { active: true }),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { name: "asc" },
     include: {
       staffServices: {
         select: { serviceId: true },
