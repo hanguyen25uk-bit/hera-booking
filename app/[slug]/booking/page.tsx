@@ -128,26 +128,77 @@ export default async function BookingPage({ params }: Props) {
   const { slug } = await params;
   const salon = await getSalonBySlug(slug);
 
-  // Fetch services for Schema markup
-  let services: { name: string; description: string | null; price: number }[] = [];
-  if (salon) {
-    services = await prisma.service.findMany({
-      where: { salonId: salon.id, isActive: true },
-      select: { name: true, description: true, price: true },
-      orderBy: { sortOrder: "asc" },
-    });
+  // If salon not found, pass null to client
+  if (!salon) {
+    return <BookingClient params={params} initialData={null} />;
   }
+
+  // Fetch ALL booking data server-side in parallel (single round-trip)
+  const [services, categories, policy, discounts] = await Promise.all([
+    prisma.service.findMany({
+      where: { salonId: salon.id, isActive: true },
+      include: {
+        serviceCategory: {
+          select: { id: true, name: true, description: true },
+        },
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    prisma.serviceCategory.findMany({
+      where: { salonId: salon.id, isActive: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.bookingPolicy.findFirst({
+      where: { salonId: salon.id },
+    }),
+    prisma.discount.findMany({
+      where: { salonId: salon.id, isActive: true },
+    }),
+  ]);
+
+  // Parse policy items
+  let policyItems: { icon: string; title: string; description: string }[] = [];
+  if (policy?.policies) {
+    try {
+      policyItems = JSON.parse(policy.policies);
+    } catch {
+      policyItems = [];
+    }
+  }
+
+  // Prepare initial data for client (serialize dates to strings for JSON compatibility)
+  const initialData = {
+    salon: {
+      id: salon.id,
+      name: salon.name,
+      slug: salon.slug,
+      phone: salon.phone,
+      email: salon.email,
+      address: salon.address,
+    },
+    services,
+    categories,
+    policy: {
+      title: policy?.title || "Our Booking Policy",
+      policies: policyItems,
+    },
+    discounts: discounts.map(d => ({
+      ...d,
+      validFrom: d.validFrom?.toISOString() || null,
+      validUntil: d.validUntil?.toISOString() || null,
+    })),
+  };
 
   return (
     <>
       {/* SEO Schema markup - rendered server-side */}
-      {salon && <SalonSchema salon={salon} />}
-      {salon && services.length > 0 && (
+      <SalonSchema salon={salon} />
+      {services.length > 0 && (
         <ServicesSchema salon={salon} services={services} />
       )}
 
-      {/* Client-side booking form */}
-      <BookingClient params={params} />
+      {/* Client-side booking form with pre-fetched data */}
+      <BookingClient params={params} initialData={initialData} />
     </>
   );
 }

@@ -11,11 +11,20 @@ type PolicyItem = { icon: string; title: string; description: string };
 type Step = 1 | 2 | 3 | 4 | 5;
 type Discount = { id: string; name: string; discountPercent: number; startTime: string; endTime: string; daysOfWeek: number[]; serviceIds: string[]; staffIds: string[]; validFrom: string | null; validUntil: string | null };
 
+// Initial data passed from server component
+type InitialData = {
+  salon: { id: string; name: string; slug: string; phone: string | null; email: string | null; address: string | null };
+  services: Service[];
+  categories: ServiceCategory[];
+  policy: { title: string; policies: PolicyItem[] };
+  discounts: Discount[];
+} | null;
+
 function generateSessionId() {
   return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-export default function BookingClient({ params }: { params: Promise<{ slug: string }> }) {
+export default function BookingClient({ params, initialData }: { params: Promise<{ slug: string }>; initialData?: InitialData }) {
   const { slug } = use(params);
   const apiBase = `/api/public/${slug}`;
 
@@ -29,18 +38,19 @@ export default function BookingClient({ params }: { params: Promise<{ slug: stri
   });
 
   const [step, setStep] = useState<Step>(1);
-  const [salonName, setSalonName] = useState("");
-  const [policyTitle, setPolicyTitle] = useState("Our Booking Policy");
-  const [policyItems, setPolicyItems] = useState<PolicyItem[]>([]);
+  const [salonName, setSalonName] = useState(initialData?.salon?.name || "");
+  const [policyTitle, setPolicyTitle] = useState(initialData?.policy?.title || "Our Booking Policy");
+  const [policyItems, setPolicyItems] = useState<PolicyItem[]>(initialData?.policy?.policies || []);
   const [policyAgreed, setPolicyAgreed] = useState(false);
   const [mobilePolicyRead, setMobilePolicyRead] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
-  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [services, setServices] = useState<Service[]>(initialData?.services || []);
+  const [categories, setCategories] = useState<ServiceCategory[]>(initialData?.categories || []);
   const [staff, setStaff] = useState<Staff[]>([]);
-  const [discounts, setDiscounts] = useState<Discount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [discounts, setDiscounts] = useState<Discount[]>(initialData?.discounts || []);
+  // If initialData is provided, we're already loaded; if null, salon not found; if undefined, need to fetch
+  const [loading, setLoading] = useState(initialData === undefined);
+  const [notFound, setNotFound] = useState(initialData === null);
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
 
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
@@ -254,8 +264,11 @@ export default function BookingClient({ params }: { params: Promise<{ slug: stri
   const totalPrice = finalServicePrice;
 
 
-  // Load initial data - single API call for all booking data
+  // Load initial data - skip if server already provided data via initialData prop
   useEffect(() => {
+    // If initialData was provided (not undefined), skip client-side fetch
+    if (initialData !== undefined) return;
+
     async function loadData() {
       try {
         const res = await fetch(`${apiBase}/booking-data`);
@@ -280,7 +293,7 @@ export default function BookingClient({ params }: { params: Promise<{ slug: stri
       }
     }
     loadData();
-  }, [apiBase, slug]);
+  }, [apiBase, slug, initialData]);
 
   // Load staff who can perform ALL selected services
   useEffect(() => {
