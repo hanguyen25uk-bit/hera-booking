@@ -7,6 +7,7 @@ import { getApplicableDiscount, calculateDiscountedPrice, type Discount } from "
 import { NextRequest, NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api-handler";
 import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
+import { differenceInHours, subHours } from "date-fns";
 import crypto from "crypto";
 
 export const GET = withErrorHandler(async (
@@ -195,7 +196,14 @@ export const POST = withErrorHandler(async (
     });
   }
 
-  // 10. Create appointment with server-calculated prices
+  // 10. Calculate reminder schedule
+  // Only schedule 24h reminder if booking is more than 24h away
+  const hoursUntilAppointment = differenceInHours(start, now);
+  const reminder24hScheduledFor = hoursUntilAppointment > 24
+    ? subHours(start, 24)
+    : null;
+
+  // 11. Create appointment with server-calculated prices
   const appointment = await prisma.appointment.create({
     data: {
       salonId: salon.id,
@@ -213,16 +221,17 @@ export const POST = withErrorHandler(async (
       discountedPrice,
       discountName,
       servicesJson: allServices.length > 1 ? JSON.stringify(servicesJsonData) : null,
+      reminder24hScheduledFor,
     },
     include: { service: true, staff: true },
   });
 
-  // 11. Clear slot reservation
+  // 12. Clear slot reservation
   await prisma.slotReservation.deleteMany({
     where: { salonId: salon.id, staffId, startTime: start },
   });
 
-  // 12. Send confirmation email with salon info and pricing
+  // 13. Send confirmation email with salon info and pricing
   try {
     await sendBookingConfirmation({
       customerEmail,

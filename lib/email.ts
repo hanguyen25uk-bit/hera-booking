@@ -4,6 +4,198 @@ const getResend = () => new Resend(process.env.RESEND_API_KEY || "");
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://herabooking.com";
 const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
 
+export type ReminderEmailData = {
+  customerEmail: string;
+  customerName: string;
+  serviceName: string;
+  serviceNames?: string[];
+  staffName: string;
+  startTime: Date;
+  endTime: Date;
+  manageToken: string;
+  salonName: string;
+  salonAddress?: string;
+  salonSlug: string;
+};
+
+export async function sendAppointmentReminder(data: ReminderEmailData) {
+  const {
+    customerEmail,
+    customerName,
+    serviceName,
+    serviceNames,
+    staffName,
+    startTime,
+    endTime,
+    manageToken,
+    salonName,
+    salonAddress = "",
+    salonSlug,
+  } = data;
+
+  const firstName = customerName.split(" ")[0];
+
+  const formattedDate = startTime.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const formattedStartTime = startTime.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const formattedEndTime = endTime.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const manageUrl = `${BASE_URL}/manage-booking?token=${manageToken}`;
+  const bookingUrl = `${BASE_URL}/${salonSlug}/booking`;
+
+  const displayService = serviceNames && serviceNames.length > 1
+    ? serviceNames.join(", ")
+    : serviceName;
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointment Reminder</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">${salonName}</h1>
+            </td>
+          </tr>
+
+          <!-- Reminder Icon -->
+          <tr>
+            <td style="padding: 32px 24px 16px; text-align: center;">
+              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: #ffffff; font-size: 32px; line-height: 64px;">⏰</span>
+              </div>
+              <h2 style="color: #1e293b; margin: 0 0 8px; font-size: 22px; font-weight: 600;">Appointment Tomorrow!</h2>
+              <p style="color: #64748b; margin: 0; font-size: 14px;">Hi ${firstName}, just a friendly reminder about your upcoming appointment.</p>
+            </td>
+          </tr>
+
+          <!-- Appointment Details -->
+          <tr>
+            <td style="padding: 16px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; padding: 20px;">
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">💅 Service</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${displayService}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">📅 Date</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${formattedDate}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">⏰ Time</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${formattedStartTime} – ${formattedEndTime}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="color: #64748b; font-size: 13px;">👤 Specialist</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${staffName}</strong>
+                  </td>
+                </tr>
+                ${salonAddress ? `
+                <tr>
+                  <td style="padding: 12px 16px;">
+                    <span style="color: #64748b; font-size: 13px;">📍 Location</span><br>
+                    <strong style="color: #1e293b; font-size: 15px;">${salonName}</strong><br>
+                    <span style="color: #64748b; font-size: 14px;">${salonAddress}</span>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
+            </td>
+          </tr>
+
+          <!-- Notice -->
+          <tr>
+            <td style="padding: 0 24px 16px;">
+              <div style="background-color: #fef3c7; border-radius: 8px; padding: 12px 16px; text-align: center;">
+                <p style="color: #92400e; font-size: 13px; margin: 0;">
+                  Need to reschedule or cancel? Please let us know at least 24 hours in advance.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Action Buttons -->
+          <tr>
+            <td style="padding: 0 24px 24px; text-align: center;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 4px;">
+                    <a href="${bookingUrl}" style="display: block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; text-align: center;">Reschedule</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px;">
+                    <a href="${manageUrl}" style="display: block; background: #ffffff; color: #dc2626; text-decoration: none; padding: 14px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; text-align: center; border: 2px solid #fecaca;">Cancel Appointment</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #1e293b; font-size: 16px; font-weight: 600; margin: 0 0 8px;">See you soon! 💅</p>
+              <p style="color: #64748b; font-size: 13px; margin: 0;">${salonName}</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  const subjectService = serviceNames && serviceNames.length > 1
+    ? `${serviceNames.length} Services`
+    : serviceName;
+
+  try {
+    const result = await getResend().emails.send({
+      from: `${salonName} <${FROM_EMAIL}>`,
+      to: customerEmail,
+      subject: `Reminder: ${subjectService} tomorrow at ${formattedStartTime} 💅`,
+      html: emailHtml,
+    });
+
+    console.log("Reminder email sent successfully:", result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Failed to send reminder email:", error);
+    return { success: false, error };
+  }
+}
+
 export async function sendPasswordResetEmail(data: {
   email: string;
   name: string;
