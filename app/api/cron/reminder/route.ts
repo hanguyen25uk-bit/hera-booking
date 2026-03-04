@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { sendAppointmentReminder } from "@/lib/email";
 import { NextRequest, NextResponse } from "next/server";
-import { addHours, subHours } from "date-fns";
+import { addHours } from "date-fns";
 
-// Vercel Cron job - runs every hour
-// Finds appointments with reminders due and sends them
+// Vercel Cron job - runs daily at 8 AM UTC
+// Finds appointments with reminders due today and sends them
 export async function GET(req: NextRequest) {
   // Verify cron secret (Vercel sets this header for cron jobs)
   const authHeader = req.headers.get("authorization");
@@ -17,10 +17,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
-    // Find appointments where reminder is scheduled between now and 1 hour ago
-    // This window catches any that should have been sent in the last hour
-    const windowStart = subHours(now, 1);
-    const windowEnd = now;
+    // Find appointments where reminder is scheduled within the next 24 hours
+    // This ensures we catch all reminders for tomorrow's appointments
+    const windowStart = now;
+    const windowEnd = addHours(now, 24);
 
     // Find appointments that need reminders
     const appointmentsToRemind = await prisma.appointment.findMany({
