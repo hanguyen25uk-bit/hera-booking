@@ -1298,7 +1298,9 @@ export default function CalendarPage() {
           <div style={{
             display: "grid",
             gridTemplateColumns: isMobile
-              ? `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, ${columnWidth}px)`
+              ? (isLandscape
+                  ? `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, 1fr)`
+                  : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, ${columnWidth}px)`)
               : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
             position: "sticky",
             top: 0,
@@ -1380,7 +1382,9 @@ export default function CalendarPage() {
           <div style={{
             display: "grid",
             gridTemplateColumns: isMobile
-              ? `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, ${columnWidth}px)`
+              ? (isLandscape
+                  ? `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, 1fr)`
+                  : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, ${columnWidth}px)`)
               : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
             position: "relative",
           }}>
