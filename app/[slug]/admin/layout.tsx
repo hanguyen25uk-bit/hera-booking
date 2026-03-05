@@ -2,15 +2,55 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+// Sidebar width constants - exported for calendar to use
+export const SIDEBAR_WIDTH_COLLAPSED = 56;
+export const SIDEBAR_WIDTH_EXPANDED = 240;
 
 export default function SalonAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true); // Default to collapsed
   const [salonName, setSalonName] = useState("");
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Check if current route is calendar
+  const isCalendarRoute = pathname?.includes("/calendar");
+
+  // Get localStorage key for this route type
+  const getStorageKey = useCallback(() => {
+    if (isCalendarRoute) return `sidebar-collapsed-calendar`;
+    return `sidebar-collapsed-default`;
+  }, [isCalendarRoute]);
+
+  // Initialize collapsed state from localStorage or auto-collapse for calendar
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storageKey = getStorageKey();
+    const savedState = localStorage.getItem(storageKey);
+
+    if (savedState !== null) {
+      // Use saved preference
+      setCollapsed(savedState === "true");
+    } else {
+      // Default: calendar auto-collapses, others expand
+      setCollapsed(isCalendarRoute);
+    }
+    setIsInitialized(true);
+  }, [isCalendarRoute, getStorageKey]);
+
+  // Save collapsed state to localStorage when changed by user
+  const handleToggleCollapsed = useCallback(() => {
+    const newState = !collapsed;
+    setCollapsed(newState);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(getStorageKey(), String(newState));
+    }
+  }, [collapsed, getStorageKey]);
 
   useEffect(() => {
     async function loadSalonInfo() {
@@ -26,6 +66,9 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
     }
     loadSalonInfo();
   }, [slug]);
+
+  // Current sidebar width
+  const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -49,45 +92,48 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--cream)" }}>
       <aside style={{
-        width: collapsed ? 70 : 240,
+        width: sidebarWidth,
+        minWidth: sidebarWidth,
         background: "linear-gradient(180deg, var(--ink) 0%, #2A2520 100%)",
         color: "var(--cream)",
         display: "flex",
         flexDirection: "column",
-        transition: "width 0.3s ease",
-        boxShadow: "var(--shadow-lg)"
+        transition: isInitialized ? "width 0.3s ease" : "none",
+        boxShadow: "var(--shadow-lg)",
+        position: "relative",
+        zIndex: 100,
       }}>
         {/* Logo */}
         <div style={{
-          padding: collapsed ? "24px 10px" : "28px 24px",
+          padding: collapsed ? "16px 6px" : "20px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: collapsed ? "center" : "space-between",
           borderBottom: "1px solid rgba(251,248,244,0.08)"
         }}>
           {!collapsed && (
-            <Link href={basePath} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12 }}>
+            <Link href={basePath} style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
+                width: 36,
+                height: 36,
+                borderRadius: 10,
                 background: "var(--rose)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: 700,
-                fontSize: 18,
+                fontSize: 16,
                 color: "var(--white)",
                 fontFamily: "var(--font-heading)"
               }}>
                 {salonName.charAt(0).toUpperCase() || "H"}
               </div>
               <span style={{
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: 600,
                 color: "var(--cream)",
                 fontFamily: "var(--font-heading)",
-                maxWidth: 140,
+                maxWidth: 130,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -96,27 +142,31 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
             </Link>
           )}
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={handleToggleCollapsed}
             style={{
-              background: "rgba(251,248,244,0.05)",
+              background: "rgba(251,248,244,0.08)",
               border: "none",
               cursor: "pointer",
-              fontSize: 14,
+              fontSize: 16,
               color: "var(--cream)",
-              opacity: 0.6,
-              width: 28,
-              height: 28,
-              borderRadius: 6,
+              opacity: 0.8,
+              width: 44,
+              height: 44,
+              minWidth: 44,
+              minHeight: 44,
+              borderRadius: 8,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "opacity 0.2s ease"
+              transition: "all 0.2s ease",
+              flexShrink: 0,
             }}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >{collapsed ? "»" : "«"}</button>
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, padding: "16px 12px" }}>
+        <nav style={{ flex: 1, padding: collapsed ? "12px 6px" : "16px 12px", overflowY: "auto" }}>
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -126,24 +176,28 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 14,
-                  padding: collapsed ? "14px" : "14px 18px",
-                  marginBottom: 4,
-                  borderRadius: 10,
+                  gap: 12,
+                  padding: collapsed ? "12px 0" : "12px 14px",
+                  marginBottom: 2,
+                  borderRadius: 8,
                   textDecoration: "none",
                   backgroundColor: isActive ? "rgba(251,248,244,0.08)" : "transparent",
                   borderLeft: isActive ? "3px solid var(--rose)" : "3px solid transparent",
                   color: isActive ? "var(--cream)" : "rgba(251,248,244,0.6)",
                   fontWeight: isActive ? 600 : 400,
-                  fontSize: 14,
+                  fontSize: 13,
                   justifyContent: collapsed ? "center" : "flex-start",
-                  transition: "all 0.2s ease"
+                  transition: "all 0.2s ease",
+                  minHeight: 40,
                 }}
+                title={collapsed ? item.label : undefined}
               >
                 <span style={{
-                  fontSize: 16,
+                  fontSize: 15,
                   color: isActive ? "var(--rose-light)" : "rgba(251,248,244,0.5)",
-                  fontWeight: 400
+                  fontWeight: 400,
+                  minWidth: 20,
+                  textAlign: "center",
                 }}>{item.icon}</span>
                 {!collapsed && item.label}
               </Link>
