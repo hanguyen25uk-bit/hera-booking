@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Fragment, useRef, useCallback } from "react";
+import { useEffect, useState, Fragment } from "react";
 
 type Appointment = {
   id: string;
@@ -110,81 +110,10 @@ export default function CalendarPage() {
   const [newItemPrice, setNewItemPrice] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  // Responsive layout state
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [focusedStaffId, setFocusedStaffId] = useState<string | null>(null);
-  const calendarContainerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // Constants for responsive layout
-  const GUTTER_WIDTH = isMobile ? 50 : 80;
-  const MIN_COL_WIDTH_PORTRAIT = 100;
-  const PHONE_MAX_WIDTH = 430;
-  const TABLET_MAX_WIDTH = 1024;
-
-  // Calculate column width based on container and orientation
-  const calculateColumnWidth = useCallback(() => {
-    if (containerWidth === 0 || visibleStaff.size === 0) return MIN_COL_WIDTH_PORTRAIT;
-
-    const availableWidth = containerWidth - GUTTER_WIDTH;
-    const staffCount = visibleStaff.size;
-
-    if (isLandscape) {
-      // Landscape: fit all staff on screen
-      return Math.floor(availableWidth / staffCount);
-    } else {
-      // Portrait: show ~3 cols on phone, ~5 on iPad
-      const isPhone = containerWidth <= PHONE_MAX_WIDTH;
-      const visibleCols = isPhone ? 3 : 5;
-      const colWidth = Math.floor(availableWidth / visibleCols);
-      return Math.max(colWidth, MIN_COL_WIDTH_PORTRAIT);
-    }
-  }, [containerWidth, isLandscape, visibleStaff.size, GUTTER_WIDTH]);
-
-  const columnWidth = calculateColumnWidth();
-
   // Update current time every minute
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(interval);
-  }, []);
-
-  // ResizeObserver for container width
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const container = calendarContainerRef.current;
-    if (!container) return;
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-
-    resizeObserver.observe(container);
-    setContainerWidth(container.clientWidth);
-
-    return () => resizeObserver.disconnect();
-  }, []);
-
-  // Orientation change detection
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const checkOrientation = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
-    };
-
-    checkOrientation();
-    window.addEventListener("orientationchange", checkOrientation);
-    window.addEventListener("resize", checkOrientation);
-
-    return () => {
-      window.removeEventListener("orientationchange", checkOrientation);
-      window.removeEventListener("resize", checkOrientation);
-    };
   }, []);
 
   // Mobile detection
@@ -194,16 +123,6 @@ export default function CalendarPage() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
-  // Scroll to focused staff
-  const scrollToStaff = useCallback((staffId: string) => {
-    const staffIndex = staffList.findIndex(s => s.id === staffId);
-    if (staffIndex === -1 || !scrollContainerRef.current) return;
-
-    const scrollLeft = staffIndex * columnWidth;
-    scrollContainerRef.current.scrollTo({ left: scrollLeft, behavior: "smooth" });
-    setFocusedStaffId(staffId);
-  }, [staffList, columnWidth]);
 
   useEffect(function() { loadData(); }, [selectedDate]);
   useEffect(function() { loadStaffAndServices(); }, []);
@@ -1150,156 +1069,21 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Mobile Overview Strip - Staff mini timelines */}
-      {isMobile && (
-        <div style={{
-          padding: "8px 12px",
-          backgroundColor: COLORS.background,
-          borderBottom: `1px solid ${COLORS.divider}`,
-          overflowX: "auto",
-          WebkitOverflowScrolling: "touch",
-        }}>
-          <div style={{ display: "flex", gap: 8, minWidth: "max-content" }}>
-            {visibleStaffList.map((staff, idx) => {
-              const avail = staffAvailability[staff.id];
-              const isOff = avail && !avail.available;
-              const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
-              const staffAppointments = activeAppointments.filter(apt => apt.staff.id === staff.id);
-              const isFocused = focusedStaffId === staff.id;
-
-              // Calculate mini timeline bars
-              const startHour = 8;
-              const endHour = 20;
-              const totalMinutes = (endHour - startHour) * 60;
-
-              return (
-                <button
-                  key={staff.id}
-                  onClick={() => scrollToStaff(staff.id)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "8px 12px",
-                    backgroundColor: isFocused ? staffColor.bg : COLORS.backgroundAlt,
-                    border: isFocused ? `2px solid ${staffColor.border}` : `1px solid ${COLORS.divider}`,
-                    borderRadius: 10,
-                    cursor: "pointer",
-                    minWidth: 70,
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  {/* Staff avatar */}
-                  <div style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    backgroundColor: isOff ? "#D1D5DB" : staffColor.border,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#FFFFFF",
-                    fontWeight: 700,
-                    fontSize: 11,
-                  }}>
-                    {staff.name.charAt(0)}
-                  </div>
-
-                  {/* Staff name */}
-                  <span style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: isOff ? COLORS.textPlaceholder : COLORS.text,
-                    maxWidth: 60,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {staff.name.split(" ")[0]}
-                  </span>
-
-                  {/* Mini timeline bar */}
-                  <div style={{
-                    width: 50,
-                    height: 6,
-                    backgroundColor: isOff ? "#E5E7EB" : "#F3F4F6",
-                    borderRadius: 3,
-                    position: "relative",
-                    overflow: "hidden",
-                  }}>
-                    {!isOff && staffAppointments.map(apt => {
-                      const aptStart = new Date(apt.startTime);
-                      const aptEnd = new Date(apt.endTime);
-                      const startMinutes = (aptStart.getHours() - startHour) * 60 + aptStart.getMinutes();
-                      const endMinutes = (aptEnd.getHours() - startHour) * 60 + aptEnd.getMinutes();
-                      const left = Math.max(0, (startMinutes / totalMinutes) * 100);
-                      const width = Math.min(100 - left, ((endMinutes - startMinutes) / totalMinutes) * 100);
-
-                      return (
-                        <div
-                          key={apt.id}
-                          style={{
-                            position: "absolute",
-                            left: `${left}%`,
-                            width: `${width}%`,
-                            height: "100%",
-                            backgroundColor: staffColor.border,
-                            borderRadius: 2,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-
-                  {/* Booking count badge */}
-                  {staffAppointments.length > 0 && (
-                    <span style={{
-                      fontSize: 9,
-                      fontWeight: 600,
-                      color: staffColor.border,
-                    }}>
-                      {staffAppointments.length} apt{staffAppointments.length > 1 ? "s" : ""}
-                    </span>
-                  )}
-                  {isOff && (
-                    <span style={{ fontSize: 9, fontWeight: 500, color: "#9CA3AF" }}>OFF</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Calendar Grid */}
-      <div
-        ref={calendarContainerRef}
-        style={{ flex: 1, overflow: "hidden", padding: isMobile ? "8px" : "16px 24px", display: "flex", flexDirection: "column" }}
-      >
-        <div
-          ref={scrollContainerRef}
-          style={{
-            flex: 1,
-            overflow: "auto",
-            WebkitOverflowScrolling: "touch",
-            borderRadius: 12,
-            border: `1px solid ${COLORS.divider}`,
-            backgroundColor: COLORS.background,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          <div style={{
-            minWidth: isMobile && !isLandscape
-              ? `${GUTTER_WIDTH + visibleStaffList.length * columnWidth}px`
-              : "auto",
-          }}>
+      <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "8px" : "16px 24px", WebkitOverflowScrolling: "touch" }}>
+        <div style={{
+          backgroundColor: COLORS.background,
+          borderRadius: 12,
+          border: `1px solid ${COLORS.divider}`,
+          minWidth: isMobile ? `${60 + visibleStaffList.length * 110}px` : "auto",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}>
           {/* Sticky Header Row */}
           <div style={{
             display: "grid",
             gridTemplateColumns: isMobile
-              ? `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, ${columnWidth}px)`
-              : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
+              ? `60px repeat(${visibleStaffList.length}, 110px)`
+              : `80px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
             position: "sticky",
             top: 0,
             backgroundColor: COLORS.background,
@@ -1309,13 +1093,12 @@ export default function CalendarPage() {
           }}>
             {/* Empty Time Header */}
             <div style={{
-              padding: isMobile ? "8px 4px" : "12px 12px",
+              padding: isMobile ? "10px 4px" : "12px 12px",
               position: "sticky",
               left: 0,
               backgroundColor: COLORS.background,
               zIndex: 40,
               borderRight: "1px solid #E5E7EB",
-              minWidth: GUTTER_WIDTH,
             }} />
             {/* Staff Headers - Compact inline layout */}
             {visibleStaffList.map((staff, idx) => {
@@ -1380,8 +1163,8 @@ export default function CalendarPage() {
           <div style={{
             display: "grid",
             gridTemplateColumns: isMobile
-              ? `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, ${columnWidth}px)`
-              : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
+              ? `60px repeat(${visibleStaffList.length}, 110px)`
+              : `80px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
             position: "relative",
           }}>
             {/* Current Time Indicator */}
@@ -1425,14 +1208,14 @@ export default function CalendarPage() {
               <Fragment key={hour}>
                 {/* Time Label */}
                 <div key={`time-${hour}`} style={{
-                  padding: isMobile ? "4px 2px" : "8px 12px",
+                  padding: isMobile ? "4px" : "8px 12px",
                   borderBottom: "1px solid #E5E7EB",
                   borderRight: "1px solid #E5E7EB",
                   display: "flex",
                   alignItems: "flex-start",
-                  justifyContent: "center",
+                  justifyContent: isMobile ? "center" : "flex-end",
                   color: COLORS.textSecondary,
-                  fontSize: isMobile ? 10 : 12,
+                  fontSize: isMobile ? 11 : 12,
                   fontWeight: 500,
                   height: isMobile ? 60 : 80,
                   boxSizing: "border-box",
@@ -1440,9 +1223,8 @@ export default function CalendarPage() {
                   left: 0,
                   backgroundColor: COLORS.background,
                   zIndex: 10,
-                  minWidth: GUTTER_WIDTH,
                 }}>
-                  {hour <= 12 ? hour : hour - 12}{hour < 12 ? "am" : "pm"}
+                  {hour <= 12 ? hour : hour - 12}{hour < 12 ? "AM" : "PM"}
                 </div>
 
                 {/* Staff Columns */}
@@ -1644,7 +1426,6 @@ export default function CalendarPage() {
                 })}
               </Fragment>
             ))}
-          </div>
           </div>
         </div>
       </div>
