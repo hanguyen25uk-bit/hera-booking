@@ -5,9 +5,9 @@ const config: CapacitorConfig = {
   appName: 'Hera Booking',
   webDir: 'out',
 
-  // Point to hosted Vercel site (no static export needed)
+  // Point to login page directly (skip landing page)
   server: {
-    url: 'https://herabooking.com',
+    url: 'https://herabooking.com/login',
     cleartext: false,
   },
 

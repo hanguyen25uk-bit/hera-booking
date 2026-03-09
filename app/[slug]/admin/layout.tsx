@@ -3,22 +3,37 @@
 import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import BottomTabBar from "@/components/BottomTabBar";
 
 // Sidebar width constants - exported for calendar to use
 export const SIDEBAR_WIDTH_COLLAPSED = 56;
 export const SIDEBAR_WIDTH_EXPANDED = 240;
+
+// Hera Design Colors
+const HERA_GOLD = "#c9a96e";
+const HERA_DARK = "#1a1a2e";
+const WARM_WHITE = "#fafaf8";
 
 export default function SalonAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
-  const [collapsed, setCollapsed] = useState(true); // Default to collapsed
+  const [collapsed, setCollapsed] = useState(true);
   const [salonName, setSalonName] = useState("");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Check if current route is calendar
   const isCalendarRoute = pathname?.includes("/calendar");
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Get localStorage key for this route type
   const getStorageKey = useCallback(() => {
@@ -34,10 +49,8 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
     const savedState = localStorage.getItem(storageKey);
 
     if (savedState !== null) {
-      // Use saved preference
       setCollapsed(savedState === "true");
     } else {
-      // Default: calendar auto-collapses, others expand
       setCollapsed(isCalendarRoute);
     }
     setIsInitialized(true);
@@ -67,11 +80,15 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
     loadSalonInfo();
   }, [slug]);
 
-  // Current sidebar width
   const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    // Clear saved auth for native app
+    try {
+      const { clearSavedAuth } = await import("@/lib/capacitor-auth");
+      await clearSavedAuth();
+    } catch {}
     router.push("/login");
   };
 
@@ -89,17 +106,43 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
     { href: `${basePath}/settings`, label: "Settings", icon: "⚙" },
   ];
 
+  // Mobile Layout - Bottom Tab Bar, No Sidebar
+  if (isMobile) {
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        backgroundColor: WARM_WHITE,
+      }}>
+        {/* Main Content - Full width on mobile */}
+        <main style={{
+          flex: 1,
+          paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))",
+          overflow: "auto",
+          backgroundColor: WARM_WHITE,
+        }}>
+          {children}
+        </main>
+
+        {/* Bottom Tab Bar */}
+        <BottomTabBar salonSlug={slug} />
+      </div>
+    );
+  }
+
+  // Desktop Layout - Sidebar
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--cream)" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: WARM_WHITE }}>
       <aside style={{
         width: sidebarWidth,
         minWidth: sidebarWidth,
-        background: "linear-gradient(180deg, var(--ink) 0%, #2A2520 100%)",
-        color: "var(--cream)",
+        background: `linear-gradient(180deg, ${HERA_DARK} 0%, #2A2520 100%)`,
+        color: "#FBF8F4",
         display: "flex",
         flexDirection: "column",
         transition: isInitialized ? "width 0.3s ease" : "none",
-        boxShadow: "var(--shadow-lg)",
+        boxShadow: "0 12px 40px rgba(26, 23, 21, 0.12)",
         position: "relative",
         zIndex: 100,
       }}>
@@ -117,22 +160,21 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
                 width: 36,
                 height: 36,
                 borderRadius: 10,
-                background: "var(--rose)",
+                background: HERA_GOLD,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: 700,
                 fontSize: 16,
-                color: "var(--white)",
-                fontFamily: "var(--font-heading)"
+                color: HERA_DARK,
+                fontFamily: "Georgia, serif"
               }}>
                 {salonName.charAt(0).toUpperCase() || "H"}
               </div>
               <span style={{
                 fontSize: 16,
                 fontWeight: 600,
-                color: "var(--cream)",
-                fontFamily: "var(--font-heading)",
+                color: "#FBF8F4",
                 maxWidth: 130,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -148,7 +190,7 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
               border: "none",
               cursor: "pointer",
               fontSize: 16,
-              color: "var(--cream)",
+              color: "#FBF8F4",
               opacity: 0.8,
               width: 44,
               height: 44,
@@ -182,8 +224,8 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
                   borderRadius: 8,
                   textDecoration: "none",
                   backgroundColor: isActive ? "rgba(251,248,244,0.08)" : "transparent",
-                  borderLeft: isActive ? "3px solid var(--rose)" : "3px solid transparent",
-                  color: isActive ? "var(--cream)" : "rgba(251,248,244,0.6)",
+                  borderLeft: isActive ? `3px solid ${HERA_GOLD}` : "3px solid transparent",
+                  color: isActive ? "#FBF8F4" : "rgba(251,248,244,0.6)",
                   fontWeight: isActive ? 600 : 400,
                   fontSize: 13,
                   justifyContent: collapsed ? "center" : "flex-start",
@@ -194,7 +236,7 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
               >
                 <span style={{
                   fontSize: 15,
-                  color: isActive ? "var(--rose-light)" : "rgba(251,248,244,0.5)",
+                  color: isActive ? HERA_GOLD : "rgba(251,248,244,0.5)",
                   fontWeight: 400,
                   minWidth: 20,
                   textAlign: "center",
@@ -219,9 +261,9 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
               justifyContent: "center",
               gap: 8,
               padding: "12px 16px",
-              backgroundColor: "var(--rose)",
+              backgroundColor: HERA_GOLD,
               borderRadius: 50,
-              color: "var(--white)",
+              color: HERA_DARK,
               textDecoration: "none",
               fontSize: 13,
               fontWeight: 600,
@@ -252,7 +294,7 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
         flex: 1,
         padding: 32,
         overflow: "auto",
-        backgroundColor: "var(--cream)"
+        backgroundColor: WARM_WHITE
       }}>{children}</main>
     </div>
   );

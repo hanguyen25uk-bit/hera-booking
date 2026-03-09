@@ -32,26 +32,29 @@ type ReceiptItem = {
   quantity: number;
 };
 
-// Color Palette - Hera Design System
+// Color Palette - Treatwell/Fresha Style Native iOS
+const HERA_GOLD = "#c9a96e";
+const WARM_WHITE = "#fafaf8";
+
 const COLORS = {
-  background: "var(--white)",
-  backgroundAlt: "var(--cream)",
-  text: "var(--ink)",
-  textSecondary: "var(--ink-light)",
-  textPlaceholder: "var(--ink-muted)",
-  accent: "var(--rose)",
-  accentHover: "var(--rose-light)",
-  bookedSlot: "var(--rose-pale)",
-  bookedSlotHover: "var(--rose-light)",
-  confirmedSlot: "var(--sage-light)",
-  availableSlot: "var(--cream)",
-  divider: "#F3F4F6",
-  dividerLight: "#F9FAFB",
-  navInactive: "var(--cream-dark)",
-  navActive: "var(--ink)",
-  iconColor: "var(--ink-muted)",
-  cancelledSlot: "var(--cream-dark)",
-  noShowSlot: "var(--rose-pale)",
+  background: "#FFFFFF",
+  backgroundAlt: WARM_WHITE,
+  text: "#1a1a2e",
+  textSecondary: "#6B7280",
+  textPlaceholder: "#9CA3AF",
+  accent: HERA_GOLD,
+  accentHover: "#b8956a",
+  bookedSlot: "#FFF8F0",
+  bookedSlotHover: "#FFE8D0",
+  confirmedSlot: "#E8F5E9",
+  availableSlot: WARM_WHITE,
+  divider: "#F0F0F0",
+  dividerLight: "#F8F8F8",
+  navInactive: "#E5E5EA",
+  navActive: "#1a1a2e",
+  iconColor: "#8E8E93",
+  cancelledSlot: "#F5F5F5",
+  noShowSlot: "#FEF2F2",
 };
 
 // Staff accent colors for left border and background (Setmore-style solid pastels)
@@ -518,7 +521,8 @@ export default function CalendarPage() {
   function formatDateDisplay(dateStr: string) {
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    // Compact format: "Mon 9 Mar" for mobile
+    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
   }
 
   function openAppointment(apt: Appointment) {
@@ -1041,123 +1045,120 @@ export default function CalendarPage() {
 
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: COLORS.background, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      {/* Header */}
-      <div style={{ padding: isMobile ? "12px 16px" : "16px 24px", backgroundColor: COLORS.background, borderBottom: `1px solid ${COLORS.divider}` }}>
-        {/* Navigation Row - Centered */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          {/* Left side - Date display */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h1 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600, color: COLORS.text, margin: 0 }}>
-              {formatDateDisplay(selectedDate)}
-            </h1>
-            {isToday && (
-              <span style={{
-                padding: "3px 8px",
-                backgroundColor: COLORS.accent,
-                color: "#FFFFFF",
-                fontSize: 10,
-                fontWeight: 600,
-                borderRadius: 10,
-              }}>
-                TODAY
-              </span>
-            )}
-          </div>
-
-          {/* Center - Navigation */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: WARM_WHITE, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }}>
+      {/* Header - Compact Single Line for Mobile */}
+      <div style={{
+        padding: isMobile ? "12px 16px" : "16px 24px",
+        paddingTop: isMobile ? "max(12px, env(safe-area-inset-top))" : "16px",
+        backgroundColor: "#FFFFFF",
+        borderBottom: `1px solid ${COLORS.divider}`,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}>
+        {/* Navigation Row - Single Line Compact */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          {/* Left - Nav Buttons + Date */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={goToPreviousDay} style={{
               width: 32,
               height: 32,
-              border: `1px solid ${COLORS.divider}`,
-              borderRadius: 6,
-              background: COLORS.background,
+              border: "none",
+              borderRadius: 8,
+              background: "transparent",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={COLORS.iconColor} strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="2.5">
                 <polyline points="15 18 9 12 15 6"/>
               </svg>
             </button>
 
             <button onClick={goToToday} style={{
-              padding: "6px 12px",
-              border: `1px solid ${COLORS.divider}`,
-              borderRadius: 6,
-              background: COLORS.background,
-              color: COLORS.text,
-              fontSize: 13,
-              fontWeight: 500,
+              padding: "6px 10px",
+              border: "none",
+              borderRadius: 8,
+              background: isToday ? HERA_GOLD : "#F0F0F0",
+              color: isToday ? "#FFFFFF" : COLORS.text,
+              fontSize: 12,
+              fontWeight: 600,
               cursor: "pointer",
+              letterSpacing: "-0.2px",
             }}>
               Today
             </button>
 
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                border: `1px solid ${COLORS.divider}`,
-                borderRadius: 6,
-                fontSize: 13,
-                color: COLORS.text,
-                cursor: "pointer",
-              }}
-            />
-
             <button onClick={goToNextDay} style={{
               width: 32,
               height: 32,
-              border: `1px solid ${COLORS.divider}`,
-              borderRadius: 6,
-              background: COLORS.background,
+              border: "none",
+              borderRadius: 8,
+              background: "transparent",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={COLORS.iconColor} strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="2.5">
                 <polyline points="9 18 15 12 9 6"/>
               </svg>
             </button>
           </div>
 
-          {/* Right side - Add button only */}
+          {/* Center - Date Display */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center" }}>
+            <h1 style={{
+              fontSize: isMobile ? 15 : 17,
+              fontWeight: 600,
+              color: COLORS.text,
+              margin: 0,
+              whiteSpace: "nowrap",
+              letterSpacing: "-0.3px",
+            }}>
+              {formatDateDisplay(selectedDate)}
+            </h1>
+          </div>
+
+          {/* Right - Add Button (Icon only on mobile) */}
           <button
             onClick={() => openAddModal()}
             style={{
-              padding: isMobile ? "8px 12px" : "8px 16px",
-              backgroundColor: COLORS.accent,
+              width: isMobile ? 36 : "auto",
+              height: 36,
+              padding: isMobile ? 0 : "0 14px",
+              backgroundColor: HERA_GOLD,
               color: "#FFFFFF",
               border: "none",
-              borderRadius: 8,
+              borderRadius: 10,
               fontSize: 14,
               fontWeight: 600,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: 6,
+              justifyContent: "center",
+              gap: 4,
+              boxShadow: "0 2px 8px rgba(201, 169, 110, 0.3)",
             }}
           >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-            Add
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            {!isMobile && <span>Add</span>}
           </button>
         </div>
       </div>
 
-      {/* Mobile Overview Strip - Staff mini timelines */}
+      {/* Staff Overview Strip - Scrollable Chips (60px wide) */}
       {isMobile && (
         <div style={{
-          padding: "8px 12px",
-          backgroundColor: COLORS.background,
+          padding: "10px 12px",
+          backgroundColor: "#FFFFFF",
           borderBottom: `1px solid ${COLORS.divider}`,
           overflowX: "auto",
           WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
         }}>
           <div style={{ display: "flex", gap: 8, minWidth: "max-content" }}>
             {visibleStaffList.map((staff, idx) => {
@@ -1166,11 +1167,6 @@ export default function CalendarPage() {
               const staffColor = STAFF_COLORS[idx % STAFF_COLORS.length];
               const staffAppointments = activeAppointments.filter(apt => apt.staff.id === staff.id);
               const isFocused = focusedStaffId === staff.id;
-
-              // Calculate mini timeline bars
-              const startHour = 8;
-              const endHour = 20;
-              const totalMinutes = (endHour - startHour) * 60;
 
               return (
                 <button
@@ -1181,29 +1177,55 @@ export default function CalendarPage() {
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 4,
-                    padding: "8px 12px",
-                    backgroundColor: isFocused ? staffColor.bg : COLORS.backgroundAlt,
-                    border: isFocused ? `2px solid ${staffColor.border}` : `1px solid ${COLORS.divider}`,
-                    borderRadius: 10,
+                    padding: "8px 6px",
+                    backgroundColor: isFocused ? staffColor.bg : "#F8F8F8",
+                    border: "none",
+                    borderRadius: 12,
                     cursor: "pointer",
-                    minWidth: 70,
-                    transition: "all 0.2s ease",
+                    width: 60,
+                    minWidth: 60,
+                    transition: "all 0.15s ease",
+                    boxShadow: isFocused ? `0 2px 8px ${staffColor.border}40` : "none",
                   }}
                 >
-                  {/* Staff avatar */}
-                  <div style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    backgroundColor: isOff ? "#D1D5DB" : staffColor.border,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#FFFFFF",
-                    fontWeight: 700,
-                    fontSize: 11,
-                  }}>
-                    {staff.name.charAt(0)}
+                  {/* Staff avatar with appointment indicator dots */}
+                  <div style={{ position: "relative" }}>
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      backgroundColor: isOff ? "#D1D5DB" : staffColor.border,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#FFFFFF",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      boxShadow: isOff ? "none" : `0 2px 6px ${staffColor.border}50`,
+                    }}>
+                      {staff.name.charAt(0).toUpperCase()}
+                    </div>
+                    {/* Appointment count badge */}
+                    {staffAppointments.length > 0 && !isOff && (
+                      <div style={{
+                        position: "absolute",
+                        top: -2,
+                        right: -2,
+                        width: 14,
+                        height: 14,
+                        borderRadius: "50%",
+                        backgroundColor: HERA_GOLD,
+                        color: "#FFFFFF",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "2px solid #FFFFFF",
+                      }}>
+                        {staffAppointments.length}
+                      </div>
+                    )}
                   </div>
 
                   {/* Staff name */}
@@ -1211,59 +1233,24 @@ export default function CalendarPage() {
                     fontSize: 10,
                     fontWeight: 600,
                     color: isOff ? COLORS.textPlaceholder : COLORS.text,
-                    maxWidth: 60,
+                    maxWidth: 54,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
+                    letterSpacing: "-0.2px",
                   }}>
                     {staff.name.split(" ")[0]}
                   </span>
 
-                  {/* Mini timeline bar */}
-                  <div style={{
-                    width: 50,
-                    height: 6,
-                    backgroundColor: isOff ? "#E5E7EB" : "#F3F4F6",
-                    borderRadius: 3,
-                    position: "relative",
-                    overflow: "hidden",
-                  }}>
-                    {!isOff && staffAppointments.map(apt => {
-                      const aptStart = new Date(apt.startTime);
-                      const aptEnd = new Date(apt.endTime);
-                      const startMinutes = (aptStart.getHours() - startHour) * 60 + aptStart.getMinutes();
-                      const endMinutes = (aptEnd.getHours() - startHour) * 60 + aptEnd.getMinutes();
-                      const left = Math.max(0, (startMinutes / totalMinutes) * 100);
-                      const width = Math.min(100 - left, ((endMinutes - startMinutes) / totalMinutes) * 100);
-
-                      return (
-                        <div
-                          key={apt.id}
-                          style={{
-                            position: "absolute",
-                            left: `${left}%`,
-                            width: `${width}%`,
-                            height: "100%",
-                            backgroundColor: staffColor.border,
-                            borderRadius: 2,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-
-                  {/* Booking count badge */}
-                  {staffAppointments.length > 0 && (
-                    <span style={{
-                      fontSize: 9,
-                      fontWeight: 600,
-                      color: staffColor.border,
-                    }}>
-                      {staffAppointments.length} apt{staffAppointments.length > 1 ? "s" : ""}
-                    </span>
-                  )}
+                  {/* Status indicator */}
                   {isOff && (
-                    <span style={{ fontSize: 9, fontWeight: 500, color: "#9CA3AF" }}>OFF</span>
+                    <span style={{
+                      fontSize: 8,
+                      fontWeight: 600,
+                      color: "#9CA3AF",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}>OFF</span>
                   )}
                 </button>
               );
@@ -1275,7 +1262,7 @@ export default function CalendarPage() {
       {/* Calendar Grid */}
       <div
         ref={calendarContainerRef}
-        style={{ flex: 1, overflow: "hidden", padding: isMobile ? "8px" : "16px 24px", display: "flex", flexDirection: "column" }}
+        style={{ flex: 1, overflow: "hidden", padding: isMobile ? "0" : "16px 24px", display: "flex", flexDirection: "column" }}
       >
         <div
           ref={scrollContainerRef}
@@ -1283,10 +1270,10 @@ export default function CalendarPage() {
             flex: 1,
             overflow: "auto",
             WebkitOverflowScrolling: "touch",
-            borderRadius: 12,
-            border: `1px solid ${COLORS.divider}`,
-            backgroundColor: COLORS.background,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            borderRadius: isMobile ? 0 : 16,
+            border: isMobile ? "none" : `1px solid ${COLORS.divider}`,
+            backgroundColor: "#FFFFFF",
+            boxShadow: isMobile ? "none" : "0 2px 8px rgba(0,0,0,0.04)",
           }}
         >
           <div style={{
@@ -1388,7 +1375,7 @@ export default function CalendarPage() {
               : `${GUTTER_WIDTH}px repeat(${visibleStaffList.length}, minmax(160px, 1fr))`,
             position: "relative",
           }}>
-            {/* Current Time Indicator */}
+            {/* Current Time Indicator - Red Line */}
             {showTimeIndicator && (
               <div style={{
                 position: "absolute",
@@ -1400,26 +1387,21 @@ export default function CalendarPage() {
                 alignItems: "center",
                 pointerEvents: "none",
               }}>
-                {/* Time pill */}
+                {/* Red dot */}
                 <div style={{
-                  backgroundColor: "#1a1a1a",
-                  color: "#FFFFFF",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "2px 6px",
-                  borderRadius: 10,
-                  marginLeft: 4,
-                  minWidth: isMobile ? 40 : 50,
-                  textAlign: "center",
-                }}>
-                  {currentTime.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit" })}
-                </div>
-                {/* Line */}
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: "#EF4444",
+                  marginLeft: isMobile ? 2 : 6,
+                  boxShadow: "0 0 6px rgba(239, 68, 68, 0.5)",
+                }} />
+                {/* Red line */}
                 <div style={{
                   flex: 1,
                   height: 2,
-                  backgroundColor: "#1a1a1a",
-                  marginLeft: 4,
+                  backgroundColor: "#EF4444",
+                  marginLeft: -4,
                 }} />
               </div>
             )}
@@ -1567,7 +1549,6 @@ export default function CalendarPage() {
                               const allServices: ServiceInfo[] = apt.servicesJson
                                 ? JSON.parse(apt.servicesJson)
                                 : [apt.service];
-                              const isMultiService = allServices.length > 1;
                               const totalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
                               const totalPrice = allServices.reduce((sum, s) => sum + s.price, 0);
                               const blockHeight = style.height - 2;
@@ -1575,66 +1556,89 @@ export default function CalendarPage() {
 
                               return (
                                 <>
-                                  {/* Customer name */}
+                                  {/* Customer name - bold */}
                                   <div style={{
-                                    fontSize: isMobile ? 11 : 13,
-                                    fontWeight: 600,
-                                    color: "#1F2937",
-                                    marginBottom: isCompact ? 1 : 3,
+                                    fontSize: isMobile ? 12 : 13,
+                                    fontWeight: 700,
+                                    color: "#1a1a2e",
+                                    marginBottom: isCompact ? 2 : 4,
                                     overflow: "hidden",
                                     textOverflow: "ellipsis",
                                     whiteSpace: "nowrap",
-                                    lineHeight: 1.3,
+                                    lineHeight: 1.2,
+                                    letterSpacing: "-0.2px",
                                   }}>
                                     {apt.customerName}
                                   </div>
 
-                                  {/* Services list */}
+                                  {/* Services with duration pill */}
                                   {isCompact ? (
-                                    // Compact view: single line with all services
-                                    <div style={{
-                                      fontSize: isMobile ? 9 : 10,
-                                      color: "#6B7280",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
-                                      lineHeight: 1.2,
-                                    }}>
-                                      {allServices.map(s => s.name).join(', ')}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <span style={{
+                                        fontSize: isMobile ? 10 : 11,
+                                        color: "#6B7280",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        flex: 1,
+                                      }}>
+                                        {allServices[0].name}
+                                      </span>
+                                      <span style={{
+                                        fontSize: 9,
+                                        fontWeight: 600,
+                                        color: staffColor.border,
+                                        backgroundColor: `${staffColor.border}20`,
+                                        padding: "2px 6px",
+                                        borderRadius: 8,
+                                        whiteSpace: "nowrap",
+                                      }}>
+                                        {totalDuration}m
+                                      </span>
                                     </div>
                                   ) : (
-                                    // Full view: each service on separate line
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                      {allServices.map((svc, idx) => (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                      {allServices.slice(0, 2).map((svc, idx) => (
                                         <div key={idx} style={{
-                                          fontSize: isMobile ? 9 : 10,
+                                          fontSize: isMobile ? 10 : 11,
                                           color: "#6B7280",
-                                          display: "flex",
-                                          justifyContent: "space-between",
-                                          alignItems: "center",
-                                          lineHeight: 1.3,
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap",
                                         }}>
-                                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
-                                            {isMultiService && "• "}{svc.name}
-                                          </span>
-                                          <span style={{ marginLeft: 4, flexShrink: 0, fontSize: isMobile ? 8 : 9, color: "#9CA3AF" }}>
-                                            {svc.durationMinutes}m
-                                          </span>
+                                          {svc.name}
                                         </div>
                                       ))}
-                                      {/* Total line for multi-service */}
-                                      {isMultiService && (
-                                        <div style={{
-                                          fontSize: isMobile ? 8 : 9,
-                                          color: "#9CA3AF",
-                                          marginTop: 2,
-                                          paddingTop: 2,
-                                          borderTop: "1px solid #E5E7EB",
-                                          fontWeight: 500,
-                                        }}>
-                                          Total: {totalDuration}m · £{totalPrice}
-                                        </div>
+                                      {allServices.length > 2 && (
+                                        <span style={{ fontSize: 9, color: "#9CA3AF" }}>
+                                          +{allServices.length - 2} more
+                                        </span>
                                       )}
+                                      {/* Duration pill */}
+                                      <div style={{ marginTop: 4, display: "flex", gap: 4 }}>
+                                        <span style={{
+                                          fontSize: 9,
+                                          fontWeight: 600,
+                                          color: staffColor.border,
+                                          backgroundColor: `${staffColor.border}15`,
+                                          padding: "2px 8px",
+                                          borderRadius: 10,
+                                        }}>
+                                          {totalDuration}min
+                                        </span>
+                                        {totalPrice > 0 && (
+                                          <span style={{
+                                            fontSize: 9,
+                                            fontWeight: 600,
+                                            color: "#6B7280",
+                                            backgroundColor: "#F0F0F0",
+                                            padding: "2px 8px",
+                                            borderRadius: 10,
+                                          }}>
+                                            £{totalPrice}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
                                 </>

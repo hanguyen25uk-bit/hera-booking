@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { saveAuthCredentials, getSavedAuth } from "@/lib/capacitor-auth";
+
+// Hera Design Colors
+const HERA_GOLD = "#c9a96e";
+const HERA_DARK = "#1a1a2e";
+const WARM_WHITE = "#fafaf8";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -10,7 +16,26 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
+
+  // Check for saved auth on mount
+  useEffect(() => {
+    async function checkSavedAuth() {
+      try {
+        const savedAuth = await getSavedAuth();
+        if (savedAuth) {
+          // Pre-fill email
+          setEmail(savedAuth.email);
+          // Try to auto-login if we have a valid session
+          router.push(`/${savedAuth.salonSlug}/admin/calendar`);
+          return;
+        }
+      } catch {}
+      setCheckingAuth(false);
+    }
+    checkSavedAuth();
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,7 +43,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      console.log("Attempting login with:", email);
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -26,12 +50,17 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      console.log("Response status:", res.status);
       const data = await res.json();
-      console.log("Response data:", data);
 
       if (res.ok && data.success) {
-        console.log("Login success, redirecting to:", data.redirectUrl);
+        // Save credentials for auto-login
+        await saveAuthCredentials({
+          email,
+          token: "session", // Cookie-based auth, we just mark as logged in
+          salonSlug: data.salon.slug,
+          salonName: data.salon.name,
+        });
+
         window.location.href = data.redirectUrl;
       } else {
         setError(data.error || "Invalid credentials");
@@ -44,11 +73,25 @@ export default function LoginPage() {
     }
   }
 
+  if (checkingAuth) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loadingContainer}>
+          <div style={styles.loadingLogo}>H</div>
+          <span style={styles.loadingText}>Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
         {/* Logo */}
         <div style={styles.logoContainer}>
+          <div style={styles.logoIcon}>
+            <span style={styles.logoH}>H</span>
+          </div>
           <span style={styles.logoText}>hera</span>
         </div>
 
@@ -96,12 +139,12 @@ export default function LoginPage() {
                 style={styles.eyeButton}
               >
                 {showPassword ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" strokeWidth="2">
                     <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
                     <line x1="1" y1="1" x2="23" y2="23"/>
                   </svg>
                 ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" strokeWidth="2">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
@@ -133,17 +176,40 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: WARM_WHITE,
     padding: 20,
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+  },
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingLogo: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    background: `linear-gradient(135deg, ${HERA_GOLD} 0%, #b8956a 100%)`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 28,
+    fontWeight: 700,
+    color: HERA_DARK,
+    fontFamily: "Georgia, serif",
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#8E8E93",
   },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 48,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    borderRadius: 20,
+    padding: 40,
+    boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
     width: "100%",
-    maxWidth: 400,
+    maxWidth: 380,
   },
   logoContainer: {
     display: "flex",
@@ -156,36 +222,36 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: 48,
     height: 48,
     borderRadius: 14,
-    background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+    background: `linear-gradient(135deg, ${HERA_GOLD} 0%, #b8956a 100%)`,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
+    boxShadow: `0 4px 12px rgba(201, 169, 110, 0.3)`,
   },
   logoH: {
-    color: "#FFFFFF",
+    color: HERA_DARK,
     fontSize: 24,
     fontWeight: 800,
-    fontFamily: "'Georgia', serif",
+    fontFamily: "Georgia, serif",
     letterSpacing: "-1px",
   },
   logoText: {
-    fontSize: 26,
-    fontWeight: 600,
-    color: "#111827",
-    letterSpacing: "0.5px",
-    fontFamily: "'Söhne', 'Helvetica Neue', Arial, sans-serif",
+    fontSize: 28,
+    fontWeight: 300,
+    color: HERA_DARK,
+    letterSpacing: "2px",
+    fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
   },
   title: {
     fontSize: 24,
     fontWeight: 700,
-    color: "#111827",
+    color: HERA_DARK,
     margin: "0 0 8px 0",
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: 15,
+    color: "#8E8E93",
     margin: "0 0 32px 0",
     textAlign: "center",
   },
@@ -197,7 +263,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   inputGroup: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: 8,
   },
   labelRow: {
     display: "flex",
@@ -206,12 +272,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   label: {
     fontSize: 14,
-    fontWeight: 500,
-    color: "#111827",
+    fontWeight: 600,
+    color: HERA_DARK,
   },
   forgotLink: {
     fontSize: 13,
-    color: "#6366F1",
+    color: HERA_GOLD,
     textDecoration: "none",
     fontWeight: 500,
   },
@@ -220,19 +286,19 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   input: {
     width: "100%",
-    padding: "12px 16px",
-    border: "1px solid #E5E7EB",
-    borderRadius: 8,
-    fontSize: 15,
+    padding: "14px 16px",
+    border: "1.5px solid #E5E5EA",
+    borderRadius: 12,
+    fontSize: 16,
     outline: "none",
     backgroundColor: "#FFFFFF",
-    color: "#111827",
+    color: HERA_DARK,
     boxSizing: "border-box",
     transition: "border-color 0.2s ease",
   },
   eyeButton: {
     position: "absolute",
-    right: 12,
+    right: 14,
     top: "50%",
     transform: "translateY(-50%)",
     background: "none",
@@ -244,34 +310,34 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: "center",
   },
   button: {
-    padding: "14px 24px",
-    backgroundColor: "#111827",
+    padding: "16px 24px",
+    backgroundColor: HERA_DARK,
     color: "#FFFFFF",
     border: "none",
-    borderRadius: 10,
+    borderRadius: 12,
     fontSize: 16,
     fontWeight: 600,
     cursor: "pointer",
-    transition: "background-color 0.2s ease",
+    transition: "all 0.2s ease",
     marginTop: 8,
   },
   error: {
     backgroundColor: "#FEF2F2",
     color: "#DC2626",
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     fontSize: 14,
     marginBottom: 16,
     textAlign: "center",
   },
   footerText: {
-    marginTop: 24,
-    color: "#6B7280",
+    marginTop: 28,
+    color: "#8E8E93",
     fontSize: 14,
     textAlign: "center",
   },
   link: {
-    color: "#6366F1",
+    color: HERA_GOLD,
     fontWeight: 600,
     textDecoration: "none",
   },
