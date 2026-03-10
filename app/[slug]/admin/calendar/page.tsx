@@ -112,6 +112,9 @@ export default function CalendarPage() {
   const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
+
+  // Refresh state
+  const [refreshing, setRefreshing] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // Responsive layout state
@@ -279,6 +282,14 @@ export default function CalendarPage() {
       setStaffAvailability(availabilityMap);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  }
+
+  // Refresh handler with animation
+  async function handleRefresh() {
+    setRefreshing(true);
+    setCurrentTime(new Date()); // Also update current time on refresh
+    await loadData();
+    setRefreshing(false);
   }
 
   async function loadEditAvailability() {
@@ -1038,10 +1049,11 @@ export default function CalendarPage() {
   const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date, !isPastDate(editData.date));
   const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date, true);
 
-  // Current time indicator
+  // Current time indicator - use correct cell height for mobile/desktop
+  const cellHeight = isMobile ? 60 : 80;
   const currentHour = currentTime.getHours();
   const currentMinute = currentTime.getMinutes();
-  const currentTimePosition = (currentHour - 8) * 80 + (currentMinute / 60) * 80;
+  const currentTimePosition = (currentHour - 8) * cellHeight + (currentMinute / 60) * cellHeight;
   const showTimeIndicator = isToday && currentHour >= 8 && currentHour < 20;
 
 
@@ -1106,7 +1118,7 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Center - Date Display */}
+          {/* Center - Date Display + Refresh */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center" }}>
             <h1 style={{
               fontSize: isMobile ? 15 : 17,
@@ -1118,6 +1130,39 @@ export default function CalendarPage() {
             }}>
               {formatDateDisplay(selectedDate)}
             </h1>
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              style={{
+                width: 28,
+                height: 28,
+                border: "none",
+                borderRadius: 6,
+                background: "transparent",
+                cursor: refreshing ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: refreshing ? 0.6 : 1,
+              }}
+              title="Refresh"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={COLORS.iconColor}
+                strokeWidth="2.5"
+                style={{
+                  animation: refreshing ? "spin 1s linear infinite" : "none",
+                }}
+              >
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+              </svg>
+            </button>
           </div>
 
           {/* Right - Add Button (Icon only on mobile) */}
