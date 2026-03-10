@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, Fragment, useRef, useCallback } from "react";
+import { apiFetch } from "@/lib/api";
 
 type Appointment = {
   id: string;
@@ -225,7 +226,7 @@ export default function CalendarPage() {
 
   async function loadStaffAndServices() {
     try {
-      const [staffRes, servicesRes] = await Promise.all([fetch("/api/staff?activeOnly=true"), fetch("/api/services")]);
+      const [staffRes, servicesRes] = await Promise.all([apiFetch("/api/staff?activeOnly=true"), apiFetch("/api/services")]);
       if (!staffRes.ok || !servicesRes.ok) return;
       const staffData = await staffRes.json();
       const servicesData = await servicesRes.json();
@@ -237,7 +238,7 @@ export default function CalendarPage() {
 
   async function loadSalonInfo() {
     try {
-      const res = await fetch("/api/settings", { credentials: "include" });
+      const res = await apiFetch("/api/settings");
       if (res.ok) {
         const data = await res.json();
         setSalonInfo({
@@ -255,8 +256,8 @@ export default function CalendarPage() {
     setLoading(true);
     try {
       const [aptsRes, staffRes] = await Promise.all([
-        fetch("/api/appointments?date=" + selectedDate),
-        fetch("/api/staff?activeOnly=true"),
+        apiFetch("/api/appointments?date=" + selectedDate),
+        apiFetch("/api/staff?activeOnly=true"),
       ]);
       if (!aptsRes.ok || !staffRes.ok) return;
       const apts = await aptsRes.json();
@@ -268,7 +269,7 @@ export default function CalendarPage() {
       await Promise.all(
         staffData.map(async function(staff: Staff) {
           try {
-            const res = await fetch("/api/staff-availability?staffId=" + staff.id + "&date=" + selectedDate, { credentials: "include" });
+            const res = await apiFetch("/api/staff-availability?staffId=" + staff.id + "&date=" + selectedDate);
             availabilityMap[staff.id] = await res.json();
           } catch (err) {
             availabilityMap[staff.id] = { available: true, startTime: "10:00", endTime: "19:00" };
@@ -283,7 +284,7 @@ export default function CalendarPage() {
   async function loadEditAvailability() {
     setLoadingAvailability(true);
     try {
-      const availRes = await fetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date, { credentials: "include" });
+      const availRes = await apiFetch("/api/staff-availability?staffId=" + editData.staffId + "&date=" + editData.date);
       if (!availRes.ok) {
         setEditAvailability({ available: true, startTime: "10:00", endTime: "19:00" });
       } else {
@@ -291,7 +292,7 @@ export default function CalendarPage() {
         setEditAvailability(avail);
       }
 
-      const aptsRes = await fetch("/api/appointments?date=" + editData.date, { credentials: "include" });
+      const aptsRes = await apiFetch("/api/appointments?date=" + editData.date);
       const apts: Appointment[] = aptsRes.ok ? await aptsRes.json() : [];
       const booked = apts
         .filter(function(a) { return a.staff.id === editData.staffId && a.status !== "cancelled" && a.status !== "no-show" && a.id !== selectedAppointment?.id; })
@@ -307,7 +308,7 @@ export default function CalendarPage() {
   async function loadAddAvailability() {
     setLoadingAddAvailability(true);
     try {
-      const availRes = await fetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date, { credentials: "include" });
+      const availRes = await apiFetch("/api/staff-availability?staffId=" + addData.staffId + "&date=" + addData.date);
       if (!availRes.ok) {
         setAddAvailability({ available: true, startTime: "10:00", endTime: "19:00" });
       } else {
@@ -315,7 +316,7 @@ export default function CalendarPage() {
         setAddAvailability(avail);
       }
 
-      const aptsRes = await fetch("/api/appointments?date=" + addData.date, { credentials: "include" });
+      const aptsRes = await apiFetch("/api/appointments?date=" + addData.date);
       const apts: Appointment[] = aptsRes.ok ? await aptsRes.json() : [];
       const booked = apts
         .filter(function(a) { return a.staff.id === addData.staffId && a.status !== "cancelled" && a.status !== "no-show"; })
@@ -474,7 +475,7 @@ export default function CalendarPage() {
     try {
       const startTime = new Date(addData.date + "T" + addData.time + ":00").toISOString();
 
-      const res = await fetch("/api/appointments", {
+      const res = await apiFetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -569,7 +570,7 @@ export default function CalendarPage() {
     setMessage(null);
     try {
       const startTime = new Date(editData.date + "T" + editData.time + ":00").toISOString();
-      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
+      const res = await apiFetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serviceId: editData.serviceId, staffId: editData.staffId, startTime: startTime }),
@@ -592,7 +593,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
+      const res = await apiFetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled" }),
@@ -613,7 +614,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
+      const res = await apiFetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "no-show" }),
@@ -641,7 +642,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/appointments/" + selectedAppointment.id, { method: "DELETE" });
+      const res = await apiFetch("/api/appointments/" + selectedAppointment.id, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       setMessage({ type: "success", text: "Deleted." });
       loadData();
@@ -658,7 +659,7 @@ export default function CalendarPage() {
     if (!selectedAppointment) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/appointments/" + selectedAppointment.id, {
+      const res = await apiFetch("/api/appointments/" + selectedAppointment.id, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "confirmed" }),

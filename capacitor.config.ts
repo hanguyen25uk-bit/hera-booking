@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Hera Booking',
   webDir: 'out',
 
-  // Point to login page directly (skip landing page)
+  // Load from remote server (required for dynamic routes)
   server: {
     url: 'https://herabooking.com/login',
     cleartext: false,
@@ -16,20 +16,20 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     allowsLinkPreview: false,
     scrollEnabled: true,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#fafaf8',
   },
 
   // Plugin configuration
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 1500,
       launchAutoHide: true,
-      backgroundColor: '#1a1a1a',
+      backgroundColor: '#1a1a2e',
       showSpinner: false,
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#1a1a1a',
+      backgroundColor: '#fafaf8',
     },
   },
 };

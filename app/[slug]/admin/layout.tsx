@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import BottomTabBar from "@/components/BottomTabBar";
+import { apiFetch } from "@/lib/api";
 
 // Sidebar width constants - exported for calendar to use
 export const SIDEBAR_WIDTH_COLLAPSED = 56;
@@ -68,7 +69,7 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
   useEffect(() => {
     async function loadSalonInfo() {
       try {
-        const res = await fetch(`/api/${slug}/salon`);
+        const res = await apiFetch(`/api/${slug}/salon`);
         if (res.ok) {
           const data = await res.json();
           setSalonName(data.name || slug);
@@ -83,7 +84,7 @@ export default function SalonAdminLayout({ children }: { children: React.ReactNo
   const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await apiFetch("/api/auth/logout", { method: "POST" });
     // Clear saved auth for native app
     try {
       const { clearSavedAuth } = await import("@/lib/capacitor-auth");

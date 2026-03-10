@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveAuthCredentials, getSavedAuth } from "@/lib/capacitor-auth";
+import { apiFetch } from "@/lib/api";
 
 // Hera Design Colors
 const HERA_GOLD = "#c9a96e";
@@ -43,10 +44,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await apiFetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
@@ -56,18 +56,19 @@ export default function LoginPage() {
         // Save credentials for auto-login
         await saveAuthCredentials({
           email,
-          token: "session", // Cookie-based auth, we just mark as logged in
+          token: "session",
           salonSlug: data.salon.slug,
           salonName: data.salon.name,
         });
 
-        window.location.href = data.redirectUrl;
+        // Use router for navigation in static export
+        router.push(`/${data.salon.slug}/admin/calendar`);
       } else {
         setError(data.error || "Invalid credentials");
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Something went wrong");
+      setError("Something went wrong. Please check your connection.");
     } finally {
       setLoading(false);
     }
