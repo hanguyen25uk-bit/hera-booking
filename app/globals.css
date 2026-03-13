@@ -228,8 +228,8 @@ a, button, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* iOS-style inputs */
-input, select, textarea {
+/* iOS-style inputs (exclude checkboxes and radios) */
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
   -webkit-appearance: none;
   appearance: none;
 }
