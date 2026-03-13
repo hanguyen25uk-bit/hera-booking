@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { saveAuthCredentials, getSavedAuth, refreshSession } from "@/lib/capacitor-auth";
+import { saveAuthCredentials, getSavedAuth } from "@/lib/capacitor-auth";
 import { apiFetch } from "@/lib/api";
 
 // Hera Design Colors
@@ -17,24 +17,23 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
 
-  // Check for saved auth on mount - auto-login if session exists
+  // Check for saved auth on mount
   useEffect(() => {
     async function checkSavedAuth() {
       try {
         const savedAuth = await getSavedAuth();
-        if (savedAuth && savedAuth.salonSlug) {
-          setRedirecting(true);
-          // Refresh session expiry
-          await refreshSession();
-          // Go straight to calendar
-          router.replace(`/${savedAuth.salonSlug}/admin/calendar`);
+        if (savedAuth) {
+          // Pre-fill email
+          setEmail(savedAuth.email);
+          // Try to auto-login if we have a valid session
+          router.push(`/${savedAuth.salonSlug}/admin/calendar`);
+          return;
         }
-      } catch (e) {
-        console.error("Auth check error:", e);
-      }
+      } catch {}
+      setCheckingAuth(false);
     }
     checkSavedAuth();
   }, [router]);
@@ -75,31 +74,12 @@ export default function LoginPage() {
     }
   }
 
-  // Show splash only when redirecting to calendar (has saved session)
-  if (redirecting) {
+  if (checkingAuth) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: WARM_WHITE,
-      }}>
-        <div style={{
-          width: 60,
-          height: 60,
-          borderRadius: 16,
-          background: `linear-gradient(135deg, ${HERA_GOLD} 0%, #b8956a 100%)`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
-          <span style={{
-            fontSize: 28,
-            fontWeight: 700,
-            color: HERA_DARK,
-            fontFamily: "Georgia, serif",
-          }}>H</span>
+      <div style={styles.container}>
+        <div style={styles.loadingContainer}>
+          <div style={styles.loadingLogo}>H</div>
+          <span style={styles.loadingText}>Loading...</span>
         </div>
       </div>
     );

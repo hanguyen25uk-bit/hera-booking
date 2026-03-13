@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { clearSavedAuth } from "@/lib/capacitor-auth";
-import { apiFetch } from "@/lib/api";
 
 type Settings = {
   salonName: string;
@@ -14,7 +11,6 @@ type Settings = {
 };
 
 export default function SettingsPage() {
-  const router = useRouter();
   const [settings, setSettings] = useState<Settings>({
     salonName: "Hera Nail Spa",
     salonSlug: "",
@@ -389,47 +385,6 @@ export default function SettingsPage() {
         >
           {saving ? "Saving..." : "Save Settings"}
         </button>
-      </div>
-
-      {/* Sign Out Section */}
-      <div style={{
-        marginTop: 48,
-        paddingTop: 32,
-        borderTop: "1px solid var(--cream-dark)"
-      }}>
-        <button
-          onClick={async () => {
-            if (confirm("Are you sure you want to sign out?")) {
-              await apiFetch("/api/auth/logout", { method: "POST" });
-              await clearSavedAuth();
-              router.replace("/login");
-            }
-          }}
-          style={{
-            width: "100%",
-            padding: "16px 24px",
-            backgroundColor: "transparent",
-            border: "1px solid #DC2626",
-            borderRadius: 12,
-            fontSize: 15,
-            fontWeight: 600,
-            color: "#DC2626",
-            cursor: "pointer",
-            fontFamily: "var(--font-body)",
-            transition: "all 0.2s ease"
-          }}
-        >
-          Sign Out
-        </button>
-        <p style={{
-          fontSize: 13,
-          color: "var(--ink-muted)",
-          marginTop: 12,
-          textAlign: "center",
-          fontFamily: "var(--font-body)"
-        }}>
-          You will need to log in again to access your account.
-        </p>
       </div>
     </div>
   );
