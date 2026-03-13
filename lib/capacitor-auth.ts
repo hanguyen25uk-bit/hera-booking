@@ -1,6 +1,7 @@
 "use client";
 
-// Auth storage - uses localStorage (works on both web and Capacitor WebView)
+// Auth storage - uses localStorage (works reliably in both web and Capacitor WebView)
+// Session persists for 30 days like Facebook/Instagram
 
 export interface SavedAuth {
   email: string;
@@ -11,7 +12,13 @@ export interface SavedAuth {
 }
 
 const AUTH_KEY = "hera_auth";
-const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours in ms
+const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// Check if running in Capacitor native app
+export function isCapacitorNative(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!(window as any).Capacitor?.isNativePlatform?.();
+}
 
 export async function saveAuthCredentials(data: {
   email: string;
@@ -67,12 +74,16 @@ export async function clearSavedAuth(): Promise<void> {
   }
 }
 
-export async function isCapacitorNative(): Promise<boolean> {
+// Extend session on each app open (keeps user logged in as long as they use the app)
+export async function refreshSession(): Promise<void> {
   try {
-    if (typeof window === "undefined") return false;
-    // Check if running in Capacitor by looking for the Capacitor object
-    return !!(window as any).Capacitor?.isNativePlatform?.();
-  } catch {
-    return false;
+    const savedAuth = await getSavedAuth();
+    if (savedAuth) {
+      // Extend expiration
+      savedAuth.expiresAt = Date.now() + SESSION_DURATION;
+      await saveAuthCredentials(savedAuth);
+    }
+  } catch (e) {
+    console.error("Failed to refresh session:", e);
   }
 }
