@@ -20,23 +20,22 @@ export default function LoginPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
 
-  // Check for saved auth on mount
+  // Check for saved auth on mount - only pre-fill email, don't auto-redirect
+  // (auto-redirect was causing issues on mobile browsers)
   useEffect(() => {
     async function checkSavedAuth() {
       try {
         const savedAuth = await getSavedAuth();
         if (savedAuth) {
-          // Pre-fill email
+          // Just pre-fill email, don't auto-redirect
+          // The cookie-based session will handle auth
           setEmail(savedAuth.email);
-          // Try to auto-login if we have a valid session
-          router.push(`/${savedAuth.salonSlug}/admin/calendar`);
-          return;
         }
       } catch {}
       setCheckingAuth(false);
     }
     checkSavedAuth();
-  }, [router]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
