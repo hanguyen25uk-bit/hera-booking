@@ -73,7 +73,13 @@ export default function CalendarPage() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [staffAvailability, setStaffAvailability] = useState<Record<string, StaffAvailability>>({});
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
   const [loading, setLoading] = useState(true);
   const [visibleStaff, setVisibleStaff] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -514,20 +520,32 @@ export default function CalendarPage() {
     }
   }
 
+  function toLocalDateString(date: Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function parseLocalDate(dateStr: string) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
   function goToPreviousDay() {
-    const date = new Date(selectedDate);
+    const date = parseLocalDate(selectedDate);
     date.setDate(date.getDate() - 1);
-    setSelectedDate(date.toISOString().split("T")[0]);
+    setSelectedDate(toLocalDateString(date));
   }
 
   function goToNextDay() {
-    const date = new Date(selectedDate);
+    const date = parseLocalDate(selectedDate);
     date.setDate(date.getDate() + 1);
-    setSelectedDate(date.toISOString().split("T")[0]);
+    setSelectedDate(toLocalDateString(date));
   }
 
   function goToToday() {
-    setSelectedDate(new Date().toISOString().split("T")[0]);
+    setSelectedDate(toLocalDateString(new Date()));
   }
 
   function formatDateDisplay(dateStr: string) {
@@ -1118,18 +1136,54 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Center - Date Display + Refresh */}
+          {/* Center - Date Display (clickable date picker) + Refresh */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center" }}>
-            <h1 style={{
-              fontSize: isMobile ? 15 : 17,
-              fontWeight: 600,
-              color: COLORS.text,
-              margin: 0,
-              whiteSpace: "nowrap",
-              letterSpacing: "-0.3px",
-            }}>
-              {formatDateDisplay(selectedDate)}
-            </h1>
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <h1
+                onClick={() => {
+                  const input = document.getElementById("admin-date-picker") as HTMLInputElement;
+                  if (input) { input.showPicker(); }
+                }}
+                style={{
+                  fontSize: isMobile ? 15 : 17,
+                  fontWeight: 600,
+                  color: COLORS.text,
+                  margin: 0,
+                  whiteSpace: "nowrap",
+                  letterSpacing: "-0.3px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={COLORS.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                {formatDateDisplay(selectedDate)}
+              </h1>
+              <input
+                id="admin-date-picker"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  if (e.target.value) setSelectedDate(e.target.value);
+                }}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  opacity: 0,
+                  cursor: "pointer",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
             {/* Refresh Button */}
             <button
               onClick={handleRefresh}
