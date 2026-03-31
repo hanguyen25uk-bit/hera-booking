@@ -3,6 +3,7 @@ import { Resend } from "resend";
 const getResend = () => new Resend(process.env.RESEND_API_KEY || "");
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://herabooking.com";
 const FROM_EMAIL = process.env.FROM_EMAIL || "onboarding@resend.dev";
+const SALON_TIMEZONE = "Europe/London";
 
 export type ReminderEmailData = {
   customerEmail: string;
@@ -39,16 +40,19 @@ export async function sendAppointmentReminder(data: ReminderEmailData) {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: SALON_TIMEZONE,
   });
 
   const formattedStartTime = startTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SALON_TIMEZONE,
   });
 
   const formattedEndTime = endTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SALON_TIMEZONE,
   });
 
   const manageUrl = `${BASE_URL}/manage-booking?token=${manageToken}`;
@@ -336,16 +340,19 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: SALON_TIMEZONE,
   });
 
   const formattedStartTime = startTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SALON_TIMEZONE,
   });
 
   const formattedEndTime = endTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SALON_TIMEZONE,
   });
 
   const manageUrl = `${BASE_URL}/manage-booking?token=${manageToken}`;
@@ -547,11 +554,13 @@ export async function sendCancellationConfirmation(data: {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: SALON_TIMEZONE,
   });
 
   const formattedTime = startTime.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SALON_TIMEZONE,
   });
 
   const emailHtml = `
@@ -638,11 +647,13 @@ export async function sendReceipt(data: {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: SALON_TIMEZONE,
   });
 
   const formattedTime = appointmentDate.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SALON_TIMEZONE,
   });
 
   const emailHtml = `
