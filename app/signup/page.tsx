@@ -99,6 +99,8 @@ export default function SignupPage() {
             <label style={styles.label}>Your Name</label>
             <input
               type="text"
+              name="name"
+              autoComplete="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="John Doe"
@@ -111,6 +113,8 @@ export default function SignupPage() {
             <label style={styles.label}>Email</label>
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="you@example.com"
@@ -123,6 +127,8 @@ export default function SignupPage() {
             <label style={styles.label}>Salon Name</label>
             <input
               type="text"
+              name="salonName"
+              autoComplete="organization"
               value={formData.salonName}
               onChange={(e) => setFormData({ ...formData, salonName: e.target.value })}
               placeholder="Beauty Haven"
@@ -136,6 +142,8 @@ export default function SignupPage() {
             <div style={styles.inputWrapper}>
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="At least 8 characters"
@@ -166,6 +174,8 @@ export default function SignupPage() {
             <label style={styles.label}>Confirm Password</label>
             <input
               type="password"
+              name="confirmPassword"
+              autoComplete="new-password"
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               placeholder="Confirm your password"

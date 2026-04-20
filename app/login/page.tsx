@@ -108,6 +108,8 @@ export default function LoginPage() {
             <label style={styles.label}>Email</label>
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -127,6 +129,8 @@ export default function LoginPage() {
             <div style={styles.inputWrapper}>
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"

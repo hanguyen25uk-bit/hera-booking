@@ -22,7 +22,6 @@ export async function GET(
     slug: salon.slug,
     phone: salon.phone,
     address: salon.address,
-    email: salon.email,
     logo: salon.logo,
     primaryColor: salon.primaryColor,
   });

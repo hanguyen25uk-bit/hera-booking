@@ -42,6 +42,7 @@ model PasswordReset {
 
 model Salon {
   id            String   @id @default(cuid())
+  publicId      String?  @unique
   slug          String   @unique
   name          String
   
@@ -199,6 +200,7 @@ model StaffScheduleOverride {
 
 model Appointment {
   id            String   @id @default(cuid())
+  publicId      String?  @unique
   startTime     DateTime
   endTime       DateTime
   status        String   @default("confirmed")

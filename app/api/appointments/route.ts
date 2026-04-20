@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendBookingConfirmation } from "@/lib/email";
 import { validateBody, BookingSchema } from "@/lib/validations";
 import { checkBookingRateLimit, getClientIP, getRateLimitHeaders, applyRateLimit } from "@/lib/rate-limit";
-import { getAuthPayload } from "@/lib/admin-auth";
+import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { withErrorHandler } from "@/lib/api-handler";
 import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
 import crypto from "crypto";
+import { generatePublicId } from "@/lib/public-id";
 
 async function getDefaultSalonId() {
   return "heranailspa";
@@ -15,16 +16,11 @@ async function getDefaultSalonId() {
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
-  // Use auth salonId if logged in, otherwise fall back to default
-  const authPayload = await getAuthPayload();
-  const salonId = authPayload?.salonId || await getDefaultSalonId();
-  if (!salonId) return NextResponse.json([]);
 
-  const date = req.nextUrl.searchParams.get("date");
   const token = req.nextUrl.searchParams.get("token");
 
+  // Token-based lookup is public (for manage-booking page)
   if (token) {
-    // Token lookup doesn't need salonId filter - token is unique
     const appointment = await prisma.appointment.findFirst({
       where: { manageToken: token },
       include: { service: true, staff: true, salon: { select: { slug: true } } },
@@ -36,6 +32,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
     return NextResponse.json(appointment);
   }
+
+  // All other GET requests require authentication
+  const authPayload = await getAuthPayload();
+  if (!authPayload) return unauthorizedResponse();
+  const salonId = authPayload.salonId;
+
+  const date = req.nextUrl.searchParams.get("date");
 
   const where: any = { salonId };
   if (date) {
@@ -166,6 +169,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   // 9. Create appointment
   const appointment = await prisma.appointment.create({
     data: {
+      publicId: generatePublicId(),
       salonId,
       serviceId,
       staffId,

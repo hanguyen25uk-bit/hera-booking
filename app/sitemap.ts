@@ -5,9 +5,13 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Fetch all active salons from database
+  // Fetch all active salons from database, excluding test/demo
+  const EXCLUDED_SLUGS = ["test-salon", "demo-salon", "test", "demo"];
   const salons = await prisma.salon.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      slug: { notIn: EXCLUDED_SLUGS },
+    },
     select: { slug: true, updatedAt: true },
   });
 

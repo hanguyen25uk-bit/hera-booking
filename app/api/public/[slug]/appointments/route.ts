@@ -9,6 +9,7 @@ import { withErrorHandler } from "@/lib/api-handler";
 import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
 import { differenceInHours, subHours } from "date-fns";
 import crypto from "crypto";
+import { generatePublicId } from "@/lib/public-id";
 
 export const GET = withErrorHandler(async (
   req: NextRequest,
@@ -206,6 +207,7 @@ export const POST = withErrorHandler(async (
   // 11. Create appointment with server-calculated prices
   const appointment = await prisma.appointment.create({
     data: {
+      publicId: generatePublicId(),
       salonId: salon.id,
       serviceId, // Primary service for backward compatibility
       staffId,

@@ -6,6 +6,7 @@ import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, SignupSchema } from "@/lib/validations";
 import { withErrorHandler } from "@/lib/api-handler";
 import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
+import { generatePublicId } from "@/lib/public-id";
 
 function generateSlug(name: string): string {
   return name
@@ -68,6 +69,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       // Create salon
       const salon = await tx.salon.create({
         data: {
+          publicId: generatePublicId(),
           slug: uniqueSlug,
           name: salonName,
           email,

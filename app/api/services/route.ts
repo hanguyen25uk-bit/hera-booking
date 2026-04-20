@@ -1,26 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthPayload } from "@/lib/admin-auth";
+import { getAuthPayload, unauthorizedResponse } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limit";
-
-async function getSalonId(): Promise<string | null> {
-  const auth = await getAuthPayload();
-  if (auth?.salonId) return auth.salonId;
-  return "heranailspa";
-}
 
 export async function GET(req: NextRequest) {
   const rateLimit = applyRateLimit(req, "admin");
   if (!rateLimit.success) return rateLimit.response;
 
-  try {
-    const salonId = await getSalonId();
-    if (!salonId) {
-      return NextResponse.json([]);
-    }
+  const auth = await getAuthPayload();
+  if (!auth) return unauthorizedResponse();
 
+  try {
     const services = await prisma.service.findMany({
-      where: { isActive: true, salonId },
+      where: { isActive: true, salonId: auth.salonId },
       include: { serviceCategory: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });

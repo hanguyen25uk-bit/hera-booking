@@ -20,7 +20,7 @@ const securityHeaders: Record<string, string> = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   "Content-Security-Policy": [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data:",
@@ -61,7 +61,7 @@ function addSecurityHeaders(response: NextResponse, isProduction: boolean): void
     response.headers.set(key, value);
   });
   if (isProduction) {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   }
 }
 
@@ -95,7 +95,7 @@ export default function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const isProduction = !host.includes("localhost") && !host.includes("127.0.0.1");
 
-  // Handle API routes - add CSRF protection for mutating methods
+  // Handle API routes - add CSRF protection for mutating methods + CORS
   if (pathname.startsWith("/api")) {
     if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
       const csrfError = checkCSRF(request);
@@ -104,8 +104,31 @@ export default function proxy(request: NextRequest) {
         return csrfError;
       }
     }
+
+    // Handle CORS preflight
+    if (method === "OPTIONS") {
+      const origin = request.headers.get("origin");
+      const preflightResponse = new NextResponse(null, { status: 204 });
+      addSecurityHeaders(preflightResponse, isProduction);
+      if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        preflightResponse.headers.set("Access-Control-Allow-Origin", origin);
+        preflightResponse.headers.set("Access-Control-Allow-Credentials", "true");
+        preflightResponse.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        preflightResponse.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      }
+      return preflightResponse;
+    }
+
     const response = NextResponse.next();
     addSecurityHeaders(response, isProduction);
+
+    // Set CORS headers for allowed origins only
+    const origin = request.headers.get("origin");
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+      response.headers.set("Access-Control-Allow-Origin", origin);
+      response.headers.set("Access-Control-Allow-Credentials", "true");
+    }
+
     return response;
   }
 
@@ -150,12 +173,7 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Auth pages
-    "/login",
-    "/signup",
-    // Admin routes
-    "/:slug/admin/:path*",
-    // API routes (for CSRF protection and security headers)
-    "/api/:path*",
+    // Match all paths except static files and _next internals
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)).*)",
   ],
 };

@@ -13,7 +13,7 @@ type Discount = { id: string; name: string; discountPercent: number; startTime: 
 
 // Initial data passed from server component
 type InitialData = {
-  salon: { id: string; name: string; slug: string; phone: string | null; email: string | null; address: string | null };
+  salon: { id: string; name: string; slug: string; phone: string | null; address: string | null };
   services: Service[];
   categories: ServiceCategory[];
   policy: { title: string; policies: PolicyItem[] };

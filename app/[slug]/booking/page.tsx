@@ -36,14 +36,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 // Schema.org JSON-LD for salon
-function SalonSchema({ salon }: { salon: { name: string; slug: string; phone: string | null; email: string | null; address: string | null } }) {
+function SalonSchema({ salon }: { salon: { name: string; slug: string; phone: string | null; address: string | null } }) {
   const schema = {
     "@context": "https://schema.org",
     "@type": "NailSalon",
     name: salon.name,
     url: `https://herabooking.com/${salon.slug}/booking`,
     telephone: salon.phone || undefined,
-    email: salon.email || undefined,
     address: salon.address
       ? {
           "@type": "PostalAddress",
@@ -173,7 +172,6 @@ export default async function BookingPage({ params }: Props) {
       name: salon.name,
       slug: salon.slug,
       phone: salon.phone,
-      email: salon.email,
       address: salon.address,
     },
     services,
