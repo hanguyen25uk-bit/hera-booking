@@ -82,7 +82,7 @@ export default function CalendarPage() {
   });
   const [loading, setLoading] = useState(true);
   const [visibleStaff, setVisibleStaff] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -157,8 +157,9 @@ export default function CalendarPage() {
 
   const columnWidth = calculateColumnWidth();
 
-  // Update current time every minute
+  // Update current time immediately on mount (fix SSR UTC mismatch) and every minute
   useEffect(() => {
+    setCurrentTime(new Date());
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
@@ -1062,17 +1063,17 @@ export default function CalendarPage() {
 
   const visibleStaffList = staffList.filter(s => visibleStaff.has(s.id));
   const activeAppointments = appointments.filter(function(a) { return a.status !== "cancelled"; });
-  const isToday = selectedDate === new Date().toISOString().split("T")[0];
+  const isToday = selectedDate === toLocalDateString(new Date());
 
   const editTimeSlots = generateTimeSlots(editAvailability, editBookedSlots, editData.serviceId, editData.date, !isPastDate(editData.date));
   const addTimeSlots = generateTimeSlots(addAvailability, addBookedSlots, addData.serviceId, addData.date, true);
 
   // Current time indicator - use correct cell height for mobile/desktop
   const cellHeight = isMobile ? 60 : 80;
-  const currentHour = currentTime.getHours();
-  const currentMinute = currentTime.getMinutes();
+  const currentHour = currentTime?.getHours() ?? 0;
+  const currentMinute = currentTime?.getMinutes() ?? 0;
   const currentTimePosition = (currentHour - 8) * cellHeight + (currentMinute / 60) * cellHeight;
-  const showTimeIndicator = isToday && currentHour >= 8 && currentHour < 20;
+  const showTimeIndicator = isToday && currentTime !== null && currentHour >= 8 && currentHour < 20;
 
 
   return (
