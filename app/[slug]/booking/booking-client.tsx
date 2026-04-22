@@ -1306,8 +1306,8 @@ export default function BookingClient({ params, initialData }: { params: Promise
                   <div style={{ marginBottom: 24 }}>
                     <label style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 14, color: "var(--ink-light)" }}>Available Times</label>
 
-                    {/* Off-Peak Info Banner */}
-                    {discounts.length > 0 && selectedService && discounts.some(d => d.serviceIds.includes(selectedService.id)) && (
+                    {/* Off-Peak Info Banner — only show when a discount applies to the selected service on the selected date */}
+                    {selectedService && selectedDate && getApplicableDiscount(selectedService.id, selectedDate) && (
                       <div style={{
                         display: "flex",
                         alignItems: "center",
