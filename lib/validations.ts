@@ -68,6 +68,7 @@ export const BookingSchema = z.object({
   serviceIds: z.array(idSchema).optional(),
   staffId: idSchema,
   startTime: z.string().datetime({ message: "Invalid date/time format" }),
+  // Ignored server-side, calculated from serviceIds. Kept for backward compat.
   totalDuration: z.number().int().positive().optional(),
   notes: z.string().max(500, "Notes cannot exceed 500 characters").optional(),
 }).strict();
