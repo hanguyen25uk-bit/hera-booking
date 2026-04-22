@@ -127,7 +127,12 @@ export const POST = withErrorHandler(async (
   const end = new Date(start.getTime() + totalDuration * 60000);
 
   // 7. Validate appointment fits within salon opening hours
-  const dayOfWeek = start.getUTCDay();
+  // Convert UTC times to salon's local timezone for comparison with opening hours
+  const tz = salon.timezone || "Europe/London";
+  const localStart = new Date(start.toLocaleString("en-US", { timeZone: tz }));
+  const localEnd = new Date(end.toLocaleString("en-US", { timeZone: tz }));
+  const dayOfWeek = localStart.getDay();
+
   const salonHours = await prisma.salonWorkingHours.findFirst({
     where: { salonId: salon.id, dayOfWeek },
   });
@@ -142,8 +147,8 @@ export const POST = withErrorHandler(async (
   if (salonHours) {
     const [openH, openM] = salonHours.startTime.split(":").map(Number);
     const [closeH, closeM] = salonHours.endTime.split(":").map(Number);
-    const apptStartMinutes = start.getUTCHours() * 60 + start.getUTCMinutes();
-    const apptEndMinutes = end.getUTCHours() * 60 + end.getUTCMinutes();
+    const apptStartMinutes = localStart.getHours() * 60 + localStart.getMinutes();
+    const apptEndMinutes = localEnd.getHours() * 60 + localEnd.getMinutes();
     const openMinutes = openH * 60 + openM;
     const closeMinutes = closeH * 60 + closeM;
 
