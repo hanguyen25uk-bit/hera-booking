@@ -399,6 +399,24 @@ export default function BookingClient({ params, initialData }: { params: Promise
     return () => clearInterval(interval);
   }, [reservationExpiry]);
 
+  // Sync reservation timer with server when countdown is low (handles background tab throttling)
+  useEffect(() => {
+    if (!reservationExpiry || reservationTimer > 15 || reservationTimer === 0) return;
+    let cancelled = false;
+    fetch(`${apiBase}/slot-reservation/status?sessionId=${sessionId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data) return;
+        if (!data.valid) {
+          setReservationExpiry(null); setSelectedTime(""); setError("Reservation expired. Please select a time again.");
+        } else {
+          setReservationExpiry(new Date(data.expiresAt));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [reservationTimer <= 15 && reservationTimer > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cleanup on unmount
   useEffect(() => {
     return () => { if (sessionId) fetch(`${apiBase}/slot-reservation?sessionId=${sessionId}`, { method: 'DELETE' }).catch(() => {}); };
