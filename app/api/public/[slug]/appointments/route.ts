@@ -66,7 +66,7 @@ export const POST = withErrorHandler(async (
   const validation = validateBody(BookingSchema, cleanBody);
   if (!validation.success) return validation.response;
 
-  const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, totalDuration: clientTotalDuration } = validation.data;
+  const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime } = validation.data;
   const allServiceIds = serviceIds || [serviceId];
 
   // 2. Rate limiting
@@ -112,11 +112,10 @@ export const POST = withErrorHandler(async (
     return NextResponse.json({ error: "Staff not found" }, { status: 404 });
   }
 
-  // 6. Calculate times - use total duration from all services
+  // 6. Calculate times - always use server-calculated duration (never trust client)
   const start = new Date(startTime);
-  const serverTotalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
-  const finalDuration = clientTotalDuration || serverTotalDuration;
-  const end = new Date(start.getTime() + finalDuration * 60000);
+  const totalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+  const end = new Date(start.getTime() + totalDuration * 60000);
 
   // 7. Calculate pricing server-side (never trust frontend prices)
   const originalPrice = allServices.reduce((sum, s) => sum + s.price, 0);
