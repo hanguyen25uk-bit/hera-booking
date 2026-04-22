@@ -4,6 +4,7 @@ import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, SlotReservationSchema } from "@/lib/validations";
 import { NextRequest, NextResponse } from "next/server";
 import { withErrorHandler } from "@/lib/api-handler";
+import { getLocalDayRange } from "@/lib/timezone";
 
 const RESERVATION_MINUTES = 10;
 
@@ -28,10 +29,8 @@ export const GET = withErrorHandler(async (
     return NextResponse.json({ error: "staffId and date required" }, { status: 400 });
   }
 
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
+  const tz = salon.timezone || "Europe/London";
+  const { start: startOfDay, end: endOfDay } = getLocalDayRange(date, tz);
 
   // Clean expired reservations
   await prisma.slotReservation.deleteMany({

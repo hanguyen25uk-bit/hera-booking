@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
+import { getLocalDayOfWeek } from "@/lib/timezone";
 
 // Helper to get the later time
 function maxTime(a: string, b: string): string {
@@ -46,7 +47,8 @@ export async function GET(
 
   try {
     const dateObj = new Date(date);
-    const dayOfWeek = dateObj.getDay();
+    const tz = salon.timezone || "Europe/London";
+    const dayOfWeek = getLocalDayOfWeek(dateObj, tz);
 
     // Get shop hours for this day
     const shopHours = await prisma.salonWorkingHours.findFirst({

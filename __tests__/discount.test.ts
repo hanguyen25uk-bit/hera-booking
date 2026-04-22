@@ -92,57 +92,49 @@ describe('calculateDiscountedPrice', () => {
 });
 
 describe('getApplicableDiscount', () => {
+  // Day of week constants (salon-local, caller converts from UTC)
+  const SUNDAY = 0, MONDAY = 1, FRIDAY = 5;
+
   it('should return discount when all conditions match', () => {
-    // Monday at 12:00
-    const monday = new Date('2025-02-03'); // This is a Monday
-    const result = getApplicableDiscount(mockDiscounts, 'service-1', monday, '12:00');
+    const result = getApplicableDiscount(mockDiscounts, 'service-1', MONDAY, '12:00');
     expect(result).toEqual(mockDiscount);
   });
 
   it('should return null when service not included', () => {
-    const monday = new Date('2025-02-03');
-    const result = getApplicableDiscount(mockDiscounts, 'service-999', monday, '12:00');
+    const result = getApplicableDiscount(mockDiscounts, 'service-999', MONDAY, '12:00');
     expect(result).toBeNull();
   });
 
   it('should return null when day not included', () => {
-    const sunday = new Date('2025-02-02'); // Sunday
-    const result = getApplicableDiscount(mockDiscounts, 'service-1', sunday, '12:00');
+    const result = getApplicableDiscount(mockDiscounts, 'service-1', SUNDAY, '12:00');
     expect(result).toBeNull();
   });
 
   it('should return null when time is outside range', () => {
-    const monday = new Date('2025-02-03');
-    const result = getApplicableDiscount(mockDiscounts, 'service-1', monday, '17:00');
+    const result = getApplicableDiscount(mockDiscounts, 'service-1', MONDAY, '17:00');
     expect(result).toBeNull();
   });
 
   it('should filter by staff when staffIds is not empty', () => {
-    const friday = new Date('2025-02-07'); // Friday
-
     // Should match with correct staff
-    const resultWithStaff = getApplicableDiscount(mockDiscounts, 'service-1', friday, '10:00', 'staff-1');
+    const resultWithStaff = getApplicableDiscount(mockDiscounts, 'service-1', FRIDAY, '10:00', 'staff-1');
     expect(resultWithStaff).toEqual(mockDiscountWithStaff);
 
     // Should not match with wrong staff
-    const resultWrongStaff = getApplicableDiscount(mockDiscounts, 'service-1', friday, '10:00', 'staff-999');
+    const resultWrongStaff = getApplicableDiscount(mockDiscounts, 'service-1', FRIDAY, '10:00', 'staff-999');
     expect(resultWrongStaff).toBeNull();
   });
 
   it('should apply discount to all staff when staffIds is empty', () => {
-    const monday = new Date('2025-02-03');
-
-    // Should match any staff
-    const result1 = getApplicableDiscount(mockDiscounts, 'service-1', monday, '12:00', 'staff-any');
+    const result1 = getApplicableDiscount(mockDiscounts, 'service-1', MONDAY, '12:00', 'staff-any');
     expect(result1).toEqual(mockDiscount);
 
-    const result2 = getApplicableDiscount(mockDiscounts, 'service-1', monday, '12:00', 'staff-different');
+    const result2 = getApplicableDiscount(mockDiscounts, 'service-1', MONDAY, '12:00', 'staff-different');
     expect(result2).toEqual(mockDiscount);
   });
 
   it('should return null when no discounts exist', () => {
-    const monday = new Date('2025-02-03');
-    const result = getApplicableDiscount([], 'service-1', monday, '12:00');
+    const result = getApplicableDiscount([], 'service-1', MONDAY, '12:00');
     expect(result).toBeNull();
   });
 });
@@ -181,41 +173,37 @@ describe('getBestDiscount', () => {
 });
 
 describe('isDiscountApplicableToSlot', () => {
+  const MONDAY = 1, FRIDAY = 5, SATURDAY = 6;
+
   it('should return true when all conditions match', () => {
-    const monday = new Date('2025-02-03');
-    const result = isDiscountApplicableToSlot(mockDiscount, 'service-1', monday, '12:00');
+    const result = isDiscountApplicableToSlot(mockDiscount, 'service-1', MONDAY, '12:00');
     expect(result).toBe(true);
   });
 
   it('should return false when service does not match', () => {
-    const monday = new Date('2025-02-03');
-    const result = isDiscountApplicableToSlot(mockDiscount, 'service-999', monday, '12:00');
+    const result = isDiscountApplicableToSlot(mockDiscount, 'service-999', MONDAY, '12:00');
     expect(result).toBe(false);
   });
 
   it('should return false when day does not match', () => {
-    const saturday = new Date('2025-02-08');
-    const result = isDiscountApplicableToSlot(mockDiscount, 'service-1', saturday, '12:00');
+    const result = isDiscountApplicableToSlot(mockDiscount, 'service-1', SATURDAY, '12:00');
     expect(result).toBe(false);
   });
 
   it('should return false when time is outside range', () => {
-    const monday = new Date('2025-02-03');
-    const result = isDiscountApplicableToSlot(mockDiscount, 'service-1', monday, '08:00');
+    const result = isDiscountApplicableToSlot(mockDiscount, 'service-1', MONDAY, '08:00');
     expect(result).toBe(false);
   });
 
   it('should check staff restriction correctly', () => {
-    const friday = new Date('2025-02-07');
-
     // With matching staff
-    expect(isDiscountApplicableToSlot(mockDiscountWithStaff, 'service-1', friday, '10:00', 'staff-1')).toBe(true);
+    expect(isDiscountApplicableToSlot(mockDiscountWithStaff, 'service-1', FRIDAY, '10:00', 'staff-1')).toBe(true);
 
     // With non-matching staff
-    expect(isDiscountApplicableToSlot(mockDiscountWithStaff, 'service-1', friday, '10:00', 'staff-999')).toBe(false);
+    expect(isDiscountApplicableToSlot(mockDiscountWithStaff, 'service-1', FRIDAY, '10:00', 'staff-999')).toBe(false);
 
     // Without staff specified (should still work if staffIds is not empty - bug check)
-    expect(isDiscountApplicableToSlot(mockDiscountWithStaff, 'service-1', friday, '10:00')).toBe(true);
+    expect(isDiscountApplicableToSlot(mockDiscountWithStaff, 'service-1', FRIDAY, '10:00')).toBe(true);
   });
 });
 
@@ -246,10 +234,7 @@ describe('Edge cases and potential bugs', () => {
       daysOfWeek: [0], // Sunday only
     };
 
-    const sunday = new Date('2025-02-02'); // Sunday
-    expect(sunday.getDay()).toBe(0);
-
-    const result = getApplicableDiscount([sundayDiscount], 'service-1', sunday, '12:00');
+    const result = getApplicableDiscount([sundayDiscount], 'service-1', 0, '12:00');
     expect(result).toEqual(sundayDiscount);
   });
 
@@ -259,10 +244,7 @@ describe('Edge cases and potential bugs', () => {
       daysOfWeek: [6], // Saturday only
     };
 
-    const saturday = new Date('2025-02-08'); // Saturday
-    expect(saturday.getDay()).toBe(6);
-
-    const result = getApplicableDiscount([saturdayDiscount], 'service-1', saturday, '12:00');
+    const result = getApplicableDiscount([saturdayDiscount], 'service-1', 6, '12:00');
     expect(result).toEqual(saturdayDiscount);
   });
 
@@ -270,8 +252,7 @@ describe('Edge cases and potential bugs', () => {
     const discount1: Discount = { ...mockDiscount, id: 'd1', discountPercent: 10 };
     const discount2: Discount = { ...mockDiscount, id: 'd2', discountPercent: 20 };
 
-    const monday = new Date('2025-02-03');
-    const result = getApplicableDiscount([discount1, discount2], 'service-1', monday, '12:00');
+    const result = getApplicableDiscount([discount1, discount2], 'service-1', 1, '12:00');
 
     // Should return first matching (not necessarily highest)
     expect(result?.id).toBe('d1');

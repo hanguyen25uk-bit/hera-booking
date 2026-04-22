@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSalonBySlug } from "@/lib/tenant";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
+import { getLocalDayOfWeek, getLocalDayRange } from "@/lib/timezone";
 
 type StaffAvailability = {
   available: boolean;
@@ -62,7 +63,9 @@ export async function GET(
   try {
     const staffIdList = staffIds.split(",").filter(Boolean);
     const dateObj = new Date(date);
-    const dayOfWeek = dateObj.getDay();
+    const tz = salon.timezone || "Europe/London";
+    const dayOfWeek = getLocalDayOfWeek(dateObj, tz);
+    const dayRange = getLocalDayRange(date, tz);
 
     // Get shop hours for this day (single query)
     const shopHours = await prisma.salonWorkingHours.findFirst({
@@ -100,28 +103,22 @@ export async function GET(
           salonId: salon.id,
         },
       }),
-      // All slot reservations for all staff on this date
+      // All slot reservations for all staff on this date (salon-local day)
       prisma.slotReservation.findMany({
         where: {
           salonId: salon.id,
           staffId: { in: staffIdList },
-          startTime: {
-            gte: new Date(date + "T00:00:00"),
-            lte: new Date(date + "T23:59:59"),
-          },
+          startTime: { gte: dayRange.start, lte: dayRange.end },
           expiresAt: { gt: new Date() }, // Only active reservations
           sessionId: sessionId ? { not: sessionId } : undefined, // Exclude current session
         },
       }),
-      // All appointments for all staff on this date
+      // All appointments for all staff on this date (salon-local day)
       prisma.appointment.findMany({
         where: {
           salonId: salon.id,
           staffId: { in: staffIdList },
-          startTime: {
-            gte: new Date(date + "T00:00:00"),
-            lte: new Date(date + "T23:59:59"),
-          },
+          startTime: { gte: dayRange.start, lte: dayRange.end },
           status: { notIn: ["cancelled", "no-show"] },
         },
       }),

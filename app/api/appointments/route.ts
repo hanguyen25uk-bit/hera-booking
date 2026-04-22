@@ -8,6 +8,7 @@ import { withErrorHandler } from "@/lib/api-handler";
 import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection";
 import crypto from "crypto";
 import { generatePublicId } from "@/lib/public-id";
+import { getLocalDayRange } from "@/lib/timezone";
 
 async function getDefaultSalonId() {
   return "heranailspa";
@@ -42,11 +43,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const where: any = { salonId };
   if (date) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-    where.startTime = { gte: start, lte: end };
+    // Use salon-local day boundaries for filtering
+    const dayRange = getLocalDayRange(date, "Europe/London");
+    where.startTime = { gte: dayRange.start, lte: dayRange.end };
   }
 
   const appointments = await prisma.appointment.findMany({

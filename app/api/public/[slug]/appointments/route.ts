@@ -10,6 +10,7 @@ import { checkBotSubmission, getFakeSuccessResponse } from "@/lib/bot-protection
 import { differenceInHours, subHours } from "date-fns";
 import crypto from "crypto";
 import { generatePublicId } from "@/lib/public-id";
+import { getLocalTime, getLocalDayOfWeek, getLocalTimeString } from "@/lib/timezone";
 
 class SlotTakenError extends Error {
   constructor() { super("Slot taken"); this.name = "SlotTakenError"; }
@@ -126,12 +127,11 @@ export const POST = withErrorHandler(async (
   const totalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const end = new Date(start.getTime() + totalDuration * 60000);
 
-  // 7. Validate appointment fits within salon opening hours
-  // Convert UTC times to salon's local timezone for comparison with opening hours
+  // 7. Validate appointment fits within salon opening hours (in salon timezone)
   const tz = salon.timezone || "Europe/London";
-  const localStart = new Date(start.toLocaleString("en-US", { timeZone: tz }));
-  const localEnd = new Date(end.toLocaleString("en-US", { timeZone: tz }));
-  const dayOfWeek = localStart.getDay();
+  const dayOfWeek = getLocalDayOfWeek(start, tz);
+  const localStartTime = getLocalTime(start, tz);
+  const localEndTime = getLocalTime(end, tz);
 
   const salonHours = await prisma.salonWorkingHours.findFirst({
     where: { salonId: salon.id, dayOfWeek },
@@ -147,8 +147,8 @@ export const POST = withErrorHandler(async (
   if (salonHours) {
     const [openH, openM] = salonHours.startTime.split(":").map(Number);
     const [closeH, closeM] = salonHours.endTime.split(":").map(Number);
-    const apptStartMinutes = localStart.getHours() * 60 + localStart.getMinutes();
-    const apptEndMinutes = localEnd.getHours() * 60 + localEnd.getMinutes();
+    const apptStartMinutes = localStartTime.hours * 60 + localStartTime.minutes;
+    const apptEndMinutes = localEndTime.hours * 60 + localEndTime.minutes;
     const openMinutes = openH * 60 + openM;
     const closeMinutes = closeH * 60 + closeM;
 
@@ -189,14 +189,14 @@ export const POST = withErrorHandler(async (
     },
   });
 
-  // Format time as HH:MM for discount check
-  const timeStr = start.toTimeString().slice(0, 5);
+  // Format time as HH:MM in salon timezone for discount check
+  const timeStr = getLocalTimeString(start, tz);
 
-  // Find applicable discount (for multi-service, check primary service)
+  // Find applicable discount (using salon-local day of week)
   const applicableDiscount = getApplicableDiscount(
     activeDiscounts as Discount[],
     primaryServiceId,
-    start,
+    dayOfWeek,
     timeStr,
     staffId
   );

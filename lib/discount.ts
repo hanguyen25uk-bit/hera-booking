@@ -31,18 +31,18 @@ export function isTimeInRange(time: string, startTime: string, endTime: string):
 }
 
 /**
- * Get the applicable discount for a service at a specific date/time
+ * Get the applicable discount for a service at a specific date/time.
+ * @param dayOfWeek - Salon-local day of week (0=Sun, 6=Sat). Caller must convert from UTC.
+ * @param time - Salon-local time in "HH:MM" format. Caller must convert from UTC.
  */
 export function getApplicableDiscount(
   discounts: Discount[],
   serviceId: string,
-  date: Date,
+  dayOfWeek: number,
   time: string,
   staffId?: string
 ): Discount | null {
   if (!discounts.length) return null;
-
-  const dayOfWeek = date.getDay();
 
   for (const discount of discounts) {
     // Check if service is included
@@ -95,12 +95,13 @@ export function formatDiscountLabel(discount: Discount): string {
 }
 
 /**
- * Check if a discount applies to a specific slot
+ * Check if a discount applies to a specific slot.
+ * @param dayOfWeek - Local day of week (0=Sun, 6=Sat). Caller must convert from UTC if needed.
  */
 export function isDiscountApplicableToSlot(
   discount: Discount,
   serviceId: string,
-  date: Date,
+  dayOfWeek: number,
   time: string,
   staffId?: string
 ): boolean {
@@ -108,7 +109,7 @@ export function isDiscountApplicableToSlot(
   if (!discount.serviceIds.includes(serviceId)) return false;
 
   // Check day
-  if (!discount.daysOfWeek.includes(date.getDay())) return false;
+  if (!discount.daysOfWeek.includes(dayOfWeek)) return false;
 
   // Check time
   if (!isTimeInRange(time, discount.startTime, discount.endTime)) return false;
