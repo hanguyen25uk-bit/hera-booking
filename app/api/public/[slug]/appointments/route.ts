@@ -11,6 +11,14 @@ import { differenceInHours, subHours } from "date-fns";
 import crypto from "crypto";
 import { generatePublicId } from "@/lib/public-id";
 
+class SlotTakenError extends Error {
+  constructor() { super("Slot taken"); this.name = "SlotTakenError"; }
+}
+
+function isPrismaError(e: unknown): e is { code: string; meta?: Record<string, unknown> } {
+  return typeof e === "object" && e !== null && "code" in e && typeof (e as { code: unknown }).code === "string";
+}
+
 export const GET = withErrorHandler(async (
   req: NextRequest,
   context?: { params: Promise<Record<string, string>> }
@@ -163,76 +171,104 @@ export const POST = withErrorHandler(async (
     discountName = applicableDiscount.name;
   }
 
-  // 8. Check for double booking
-  const conflict = await prisma.appointment.findFirst({
-    where: {
-      salonId: salon.id,
-      staffId,
-      status: { notIn: ["cancelled", "no-show"] },
-      startTime: { lt: end },
-      endTime: { gt: start },
-    },
-  });
-
-  if (conflict) {
-    return NextResponse.json(
-      { error: "This time slot is no longer available." },
-      { status: 409 }
-    );
-  }
-
-  // 9. Create or get customer
+  // 8. Atomic transaction: conflict check + create customer + create appointment + clear reservation
   const manageToken = crypto.randomBytes(32).toString("hex");
-  let customer = existingCustomer;
-
-  if (!customer) {
-    customer = await prisma.customer.create({
-      data: {
-        salonId: salon.id,
-        email: customerEmail,
-        name: customerName,
-        phone: customerPhone,
-      },
-    });
-  }
-
-  // 10. Calculate reminder schedule
-  // Only schedule 24h reminder if booking is more than 24h away
   const hoursUntilAppointment = differenceInHours(start, now);
   const reminder24hScheduledFor = hoursUntilAppointment > 24
     ? subHours(start, 24)
     : null;
 
-  // 11. Create appointment with server-calculated prices
-  const appointment = await prisma.appointment.create({
-    data: {
-      publicId: generatePublicId(),
-      salonId: salon.id,
-      serviceId, // Primary service for backward compatibility
-      staffId,
-      customerId: customer.id,
-      customerName,
-      customerPhone,
-      customerEmail,
-      startTime: start,
-      endTime: end,
-      manageToken,
-      status: "confirmed",
-      originalPrice,
-      discountedPrice,
-      discountName,
-      servicesJson: allServices.length > 1 ? JSON.stringify(servicesJsonData) : null,
-      reminder24hScheduledFor,
-    },
-    include: { service: true, staff: true },
-  });
+  let appointment;
+  try {
+    appointment = await prisma.$transaction(async (tx) => {
+      // 8a. Check for double booking (inside transaction to close TOCTOU window)
+      const conflict = await tx.appointment.findFirst({
+        where: {
+          salonId: salon.id,
+          staffId,
+          status: { notIn: ["cancelled", "no-show"] },
+          startTime: { lt: end },
+          endTime: { gt: start },
+        },
+      });
 
-  // 12. Clear slot reservation
-  await prisma.slotReservation.deleteMany({
-    where: { salonId: salon.id, staffId, startTime: start },
-  });
+      if (conflict) {
+        throw new SlotTakenError();
+      }
 
-  // 13. Send confirmation email with salon info and pricing
+      // 8b. Create or get customer
+      let customer = existingCustomer;
+      if (!customer) {
+        customer = await tx.customer.create({
+          data: {
+            salonId: salon.id,
+            email: customerEmail,
+            name: customerName,
+            phone: customerPhone,
+          },
+        });
+      }
+
+      // 8c. Create appointment (DB exclusion constraint is the final safety net)
+      const appt = await tx.appointment.create({
+        data: {
+          publicId: generatePublicId(),
+          salonId: salon.id,
+          serviceId,
+          staffId,
+          customerId: customer.id,
+          customerName,
+          customerPhone,
+          customerEmail,
+          startTime: start,
+          endTime: end,
+          manageToken,
+          status: "confirmed",
+          originalPrice,
+          discountedPrice,
+          discountName,
+          servicesJson: allServices.length > 1 ? JSON.stringify(servicesJsonData) : null,
+          reminder24hScheduledFor,
+        },
+        include: { service: true, staff: true },
+      });
+
+      // 8d. Clear slot reservation
+      await tx.slotReservation.deleteMany({
+        where: { salonId: salon.id, staffId, startTime: start },
+      });
+
+      return appt;
+    }, {
+      isolationLevel: "Serializable",
+      maxWait: 5000,
+      timeout: 10000,
+    });
+  } catch (e: unknown) {
+    if (e instanceof SlotTakenError) {
+      return NextResponse.json(
+        { error: "This time slot is no longer available.", code: "SLOT_TAKEN" },
+        { status: 409 }
+      );
+    }
+    // Prisma exclusion constraint violation (race condition caught by DB)
+    if (isPrismaError(e) && e.code === "P2002") {
+      return NextResponse.json(
+        { error: "This time slot is no longer available.", code: "SLOT_TAKEN" },
+        { status: 409 }
+      );
+    }
+    // Serialization failure — client should retry
+    if (isPrismaError(e) && e.code === "P2034") {
+      return NextResponse.json(
+        { error: "Booking conflict, please try again.", code: "RETRY" },
+        { status: 503 }
+      );
+    }
+    throw e; // Re-throw unexpected errors to withErrorHandler
+  }
+
+  // 9. Send confirmation email (outside transaction — non-critical)
   try {
     await sendBookingConfirmation({
       customerEmail,
