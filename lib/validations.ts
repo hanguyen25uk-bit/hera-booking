@@ -81,7 +81,8 @@ export const SlotReservationSchema = z.object({
   staffId: idSchema,
   startTime: z.string().datetime({ message: "Invalid start time format" }),
   endTime: z.string().datetime({ message: "Invalid end time format" }),
-  sessionId: z.string().min(1, "Session ID is required"),
+  // Accept both legacy (session_xxx) and new (UUID v4) formats during grace period
+  sessionId: z.string().min(1, "Session ID is required").max(100),
 }).strict();
 
 // ============================================================================

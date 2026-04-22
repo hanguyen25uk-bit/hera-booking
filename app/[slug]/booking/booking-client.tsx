@@ -20,8 +20,18 @@ type InitialData = {
   discounts: Discount[];
 } | null;
 
-function generateSessionId() {
-  return 'session_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+function generateSessionId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    // Fallback for environments without randomUUID
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+  }
 }
 
 export default function BookingClient({ params, initialData }: { params: Promise<{ slug: string }>; initialData?: InitialData }) {
