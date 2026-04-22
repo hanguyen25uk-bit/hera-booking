@@ -125,7 +125,36 @@ export const POST = withErrorHandler(async (
   const totalDuration = allServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const end = new Date(start.getTime() + totalDuration * 60000);
 
-  // 7. Calculate pricing server-side (never trust frontend prices)
+  // 7. Validate appointment fits within salon opening hours
+  const dayOfWeek = start.getUTCDay();
+  const salonHours = await prisma.salonWorkingHours.findFirst({
+    where: { salonId: salon.id, dayOfWeek },
+  });
+
+  if (salonHours && !salonHours.isOpen) {
+    return NextResponse.json(
+      { error: "Salon is closed on this day.", code: "SALON_CLOSED" },
+      { status: 400 }
+    );
+  }
+
+  if (salonHours) {
+    const [openH, openM] = salonHours.startTime.split(":").map(Number);
+    const [closeH, closeM] = salonHours.endTime.split(":").map(Number);
+    const apptStartMinutes = start.getUTCHours() * 60 + start.getUTCMinutes();
+    const apptEndMinutes = end.getUTCHours() * 60 + end.getUTCMinutes();
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+
+    if (apptStartMinutes < openMinutes || apptEndMinutes > closeMinutes) {
+      return NextResponse.json(
+        { error: "Appointment outside opening hours.", code: "OUTSIDE_HOURS" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // 8. Calculate pricing server-side (never trust frontend prices)
   const originalPrice = allServices.reduce((sum, s) => sum + s.price, 0);
 
   // Prepare services JSON for storage
