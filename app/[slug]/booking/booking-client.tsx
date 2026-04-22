@@ -597,7 +597,8 @@ export default function BookingClient({ params, initialData }: { params: Promise
           customerPhone,
           customerEmail,
           startTime: new Date(`${selectedDate}T${selectedTime}:00`).toISOString(),
-          totalDuration, // Send combined duration
+          totalDuration, // Send combined duration (ignored server-side)
+          idempotencyKey: crypto.randomUUID(),
           website: honeypot,
           _formLoadedAt: formLoadedAt,
         }),

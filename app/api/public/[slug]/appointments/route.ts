@@ -74,7 +74,7 @@ export const POST = withErrorHandler(async (
   const validation = validateBody(BookingSchema, cleanBody);
   if (!validation.success) return validation.response;
 
-  const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime } = validation.data;
+  const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, idempotencyKey } = validation.data;
   const allServiceIds = serviceIds || [serviceId];
 
   // 2. Rate limiting
@@ -181,7 +181,16 @@ export const POST = withErrorHandler(async (
   let appointment;
   try {
     appointment = await prisma.$transaction(async (tx) => {
-      // 8a. Check for double booking (inside transaction to close TOCTOU window)
+      // 8a. Idempotency check — return existing if already created
+      if (idempotencyKey) {
+        const existing = await tx.appointment.findUnique({
+          where: { idempotencyKey },
+          include: { service: true, staff: true },
+        });
+        if (existing) return existing;
+      }
+
+      // 8b. Check for double booking (inside transaction to close TOCTOU window)
       const conflict = await tx.appointment.findFirst({
         where: {
           salonId: salon.id,
@@ -209,10 +218,11 @@ export const POST = withErrorHandler(async (
         });
       }
 
-      // 8c. Create appointment (DB exclusion constraint is the final safety net)
+      // 8d. Create appointment (DB exclusion constraint is the final safety net)
       const appt = await tx.appointment.create({
         data: {
           publicId: generatePublicId(),
+          idempotencyKey: idempotencyKey || null,
           salonId: salon.id,
           serviceId,
           staffId,

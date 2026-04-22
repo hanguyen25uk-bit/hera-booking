@@ -220,7 +220,8 @@ model Appointment {
   // All selected services as JSON: [{ id, name, price, durationMinutes }]
   servicesJson    String?  @db.Text
 
-  manageToken   String   @unique @default(cuid())
+  manageToken      String   @unique @default(cuid())
+  idempotencyKey   String?  @unique
 
   // Email reminder tracking
   reminder24hSent         Boolean   @default(false)
