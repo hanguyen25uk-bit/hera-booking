@@ -65,7 +65,7 @@ export const BookingSchema = z.object({
     .regex(ukPhoneRegex, "Invalid UK phone number format")
     .transform(v => v.replace(/\s/g, "")),
   serviceId: idSchema,
-  serviceIds: z.array(idSchema).optional(),
+  serviceIds: z.array(idSchema).max(5).optional(),
   staffId: idSchema,
   startTime: z.string().datetime({ message: "Invalid date/time format" }),
   // Ignored server-side, calculated from serviceIds. Kept for backward compat.
