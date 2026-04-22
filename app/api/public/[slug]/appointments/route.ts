@@ -74,8 +74,9 @@ export const POST = withErrorHandler(async (
   const validation = validateBody(BookingSchema, cleanBody);
   if (!validation.success) return validation.response;
 
-  const { serviceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, idempotencyKey } = validation.data;
-  const allServiceIds = serviceIds || [serviceId];
+  const { serviceId: legacyServiceId, serviceIds, staffId, customerName, customerPhone, customerEmail, startTime, idempotencyKey } = validation.data;
+  const allServiceIds = serviceIds || [legacyServiceId];
+  const primaryServiceId = allServiceIds[0];
 
   // 2. Rate limiting
   const clientIP = getClientIP(req);
@@ -110,7 +111,7 @@ export const POST = withErrorHandler(async (
   }
 
   // Primary service (first selected) for backward compatibility
-  const service = allServices.find(s => s.id === serviceId) || allServices[0];
+  const service = allServices.find(s => s.id === primaryServiceId) || allServices[0];
 
   // 5. Validate staff exists
   const staff = await prisma.staff.findFirst({
@@ -189,7 +190,7 @@ export const POST = withErrorHandler(async (
   // Find applicable discount (for multi-service, check primary service)
   const applicableDiscount = getApplicableDiscount(
     activeDiscounts as Discount[],
-    serviceId,
+    primaryServiceId,
     start,
     timeStr,
     staffId
@@ -253,7 +254,7 @@ export const POST = withErrorHandler(async (
           publicId: generatePublicId(),
           idempotencyKey: idempotencyKey || null,
           salonId: salon.id,
-          serviceId,
+          serviceId: primaryServiceId,
           staffId,
           customerId: customer.id,
           customerName,
